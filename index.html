@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Songflow — start</title>
+<link rel="stylesheet" href="ams.css?v=27">
+<style>
+  body{display:flex;min-height:100dvh;align-items:center;justify-content:center;margin:0;
+    background:radial-gradient(1100px 560px at 50% -12%,rgba(124,92,255,.16),transparent),var(--bg);color:var(--txt)}
+  .sp{width:min(560px,92vw);padding:24px}
+  .sphd{text-align:center;margin-bottom:22px}
+  .splogo{font-size:36px;font-weight:800;letter-spacing:-.5px;display:inline-flex;align-items:center;gap:10px}
+  .splogo .mk{width:30px;height:30px;border-radius:9px;background:var(--grad)}
+  .splogo .pipe{color:var(--accent2)}
+  .spsub{color:var(--mut);margin-top:8px;font-size:13px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:20px}
+  .big{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;background:var(--grad);color:#0c0d12;
+    border:0;border-radius:12px;padding:14px;font-weight:800;font-size:15px;cursor:pointer;margin-bottom:16px}
+  .card h4{font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--mut);margin:4px 0 9px}
+  .proj{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;
+    background:var(--panel2);cursor:pointer;margin-bottom:7px}
+  .proj:hover{border-color:var(--accent)}
+  .proj .nm{flex:1;font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .proj .meta{color:var(--mut);font-size:10.5px;flex:0 0 auto}
+  .none{color:var(--mut);font-size:12px;padding:4px 2px}
+  /* deliberately low-key: muted, off to the side, no color — there if wanted, not pushy */
+  .more{margin-top:26px;display:flex;gap:18px;justify-content:flex-end;opacity:.45}
+  .more a{color:var(--mut);text-decoration:none;font-size:11px}
+  .more a:hover{color:var(--txt);opacity:1}
+  .foot{text-align:center;color:#4a4e60;font-size:10px;margin-top:14px}
+  /* styled new-project modal (replaces the native prompt) */
+  .ovl{position:fixed;inset:0;background:rgba(6,7,12,.66);backdrop-filter:blur(3px);display:none;align-items:center;justify-content:center;z-index:100}
+  .ovl.show{display:flex}
+  .modal{width:min(390px,92vw);background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:22px;box-shadow:0 24px 70px rgba(0,0,0,.6)}
+  .modal .mtt{display:flex;align-items:center;gap:9px;font-size:15px;font-weight:700;margin-bottom:4px}
+  .modal .mtt .mk{width:20px;height:20px;border-radius:6px;background:var(--grad)}
+  .modal .msub{color:var(--mut);font-size:11.5px;margin-bottom:14px}
+  .modal input{width:100%;box-sizing:border-box;background:var(--panel2);border:1px solid var(--line);color:var(--txt);border-radius:10px;padding:11px 12px;font-size:14px;outline:none}
+  .modal input:focus{border-color:var(--accent)}
+  .mrow{display:flex;gap:10px;margin-top:16px;justify-content:flex-end}
+  .mbtn{border:0;border-radius:10px;padding:10px 16px;font-size:13px;font-weight:700;cursor:pointer}
+  .mbtn.ghost{background:var(--panel2);color:var(--mut);border:1px solid var(--line)}
+  .mbtn.ghost:hover{color:var(--txt)}
+  .mbtn.go{background:var(--grad);color:#0c0d12}
+</style>
+</head>
+<body>
+  <div class="sp">
+    <div class="sphd">
+      <div class="splogo"><span class="mk"></span>Song<span class="pipe">|</span>Flow</div>
+      <div class="spsub">Lyric Studio — write, arrange, and shape lyrics that sing.</div>
+    </div>
+    <div class="card">
+      <button class="big" id="newBtn">&#65291; New project</button>
+      <h4>Open a project</h4>
+      <div id="projList"></div>
+    </div>
+    <div class="more">
+      <a id="lnkYt" href="#" target="_blank" rel="noopener">AI Music Alchemist &middot; YouTube</a>
+      <a id="lnkDc" href="#" target="_blank" rel="noopener">AI Music Syndicate &middot; Discord</a>
+    </div>
+    <div class="foot">Runs in your browser — nothing is uploaded.</div>
+  </div>
+
+  <div class="ovl" id="ovl">
+    <div class="modal">
+      <div class="mtt"><span class="mk"></span>Name your project</div>
+      <div class="msub">You can rename it any time from the studio.</div>
+      <input id="projName" type="text" placeholder="Untitled" maxlength="80" autocomplete="off" spellcheck="false">
+      <div class="mrow">
+        <button class="mbtn ghost" id="mCancel">Cancel</button>
+        <button class="mbtn go" id="mCreate">&#65291; Create project</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+  /* === set the real destinations here (placeholders for now) === */
+  const YT_URL="#", DISCORD_URL="#";
+  document.getElementById("lnkYt").href=YT_URL;
+  document.getElementById("lnkDc").href=DISCORD_URL;
+
+  const KEY="ams.lyrics.docs";
+  function load(){try{const d=JSON.parse(localStorage.getItem(KEY));if(d&&Array.isArray(d.docs))return d;}catch(e){}return {active:0,docs:[]};}
+  function save(d){localStorage.setItem(KEY,JSON.stringify(d));}
+  function go(d){ // keep the legacy single-doc key in sync so the studio opens the right text
+    const t=(d.docs[d.active]||{}).text||"";localStorage.setItem("ams.lyrics",t);location.href="studio.html";
+  }
+  const st=load();
+  const list=document.getElementById("projList");
+  if(st.docs.length){
+    list.innerHTML=st.docs.map((d,i)=>`<div class="proj" data-i="${i}"><span class="nm"></span><span class="meta"></span></div>`).join("");
+    [...list.children].forEach((el,i)=>{
+      const d=st.docs[i];
+      el.querySelector(".nm").textContent=d.name||("Lyrics "+(i+1));
+      const bars=(d.text||"").split("\n").filter(l=>l.trim()&&!/^\[.*\]$/.test(l.trim())).length;
+      el.querySelector(".meta").textContent=bars+" bar"+(bars===1?"":"s");
+      el.onclick=()=>{st.active=i;save(st);go(st);};
+    });
+  } else list.innerHTML='<div class="none">No projects yet — create one to start writing.</div>';
+
+  const ovl=document.getElementById("ovl"),projName=document.getElementById("projName");
+  function openNew(){ovl.classList.add("show");projName.value="";setTimeout(()=>projName.focus(),30);}
+  function closeNew(){ovl.classList.remove("show");}
+  function createNew(){
+    const d=load();
+    d.docs.push({name:(projName.value.trim()||"Untitled"),text:"[Verse 1]\n",updated:0});
+    d.active=d.docs.length-1;save(d);go(d);
+  }
+  document.getElementById("newBtn").onclick=openNew;
+  document.getElementById("mCancel").onclick=closeNew;
+  document.getElementById("mCreate").onclick=createNew;
+  projName.addEventListener("keydown",e=>{if(e.key==="Enter")createNew();else if(e.key==="Escape")closeNew();});
+  ovl.addEventListener("mousedown",e=>{if(e.target===ovl)closeNew();});
+</script>
+</body>
+</html>

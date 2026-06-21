@@ -1,0 +1,1161 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Songflow — Lyric Studio</title>
+<link rel="stylesheet" href="ams.css?v=55">
+<style>
+  /* standalone shell: no rail/drawer; the page fills the window */
+  body{display:block}
+  .main{height:100dvh}
+  .lyx{display:flex;gap:0;flex:1;min-height:0;background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+  .gut{width:70px;background:#101119;border-right:1px solid var(--line);padding:18px 6px;text-align:right;font-size:10px;color:#5c6076;line-height:28px;font-variant-numeric:tabular-nums;overflow:hidden;white-space:pre}
+  #doc{flex:1;outline:none;padding:18px;font-size:14px;line-height:28px;overflow-y:auto;white-space:pre-wrap}
+  .r0{color:#ff8a8a}.r1{color:#19d3c5}.r2{color:#ffd43b}.r3{color:#b78aff}.r4{color:#7ce38b}.r5{color:#ff9ed2}
+  #doc .in{text-decoration:underline dotted 1px;text-underline-offset:3px;opacity:.85}
+  #doc .sect{color:var(--accent2);background:rgba(25,211,197,.08);border:1px solid #1d3b3a;border-radius:6px;padding:0 6px;font-weight:700;cursor:pointer}
+  #doc .sect:hover{background:rgba(25,211,197,.18);border-color:var(--accent2)}
+  .gut .over{color:var(--warn);font-weight:700}
+  .gut .sch{color:#9b86ff;font-weight:700}
+  .rhyhead{font-size:12.5px;font-weight:700}
+  .vw{display:inline-block;font-size:9px;font-weight:800;color:#0c0d12;border-radius:5px;padding:1px 6px;letter-spacing:.5px;vertical-align:1px}
+  .chips{display:flex;flex-wrap:wrap;gap:5px}
+  .chip{font-size:11.5px;background:var(--panel2);border:1px solid var(--line);border-radius:7px;padding:3px 8px;color:#dfe2ee;cursor:pointer}
+  .chip.slant{opacity:.72;font-style:italic}.chip:hover{border-color:var(--accent2)}
+  .ctxbox{background:rgba(124,92,255,.08);border:1px solid #34304f;border-radius:9px;padding:8px 10px;font-size:11px;line-height:1.7}
+  .ctxbox b{color:var(--accent)}
+  .frow{display:flex;align-items:center;gap:8px;margin-top:7px}.frow select{flex:1}
+  .toggle{width:34px;height:19px;border-radius:11px;background:#33354a;border:0;position:relative;flex:0 0 auto}
+  .toggle.on{background:var(--accent)}.toggle .k{position:absolute;top:2px;left:2px;width:15px;height:15px;border-radius:50%;background:#fff;transition:.15s}.toggle.on .k{left:17px}
+  .statrow{display:flex;gap:6px;font-size:11px;padding:4px 2px;border-bottom:1px solid var(--line);align-items:center}
+  .statrow .nm{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .statrow span:not(.nm){width:36px;text-align:right;font-variant-numeric:tabular-nums;flex:0 0 auto}
+  .statrow.sthd{color:#5c6076;font-size:9.5px;text-transform:uppercase;letter-spacing:.5px}.statrow.tot{font-weight:700;border-bottom:0}
+  input.numv{width:54px;background:var(--panel);color:var(--txt);border:1px solid var(--line);border-radius:7px;padding:5px;font-size:11px;text-align:right}
+  /* grouped beat-grid control cluster: BPM stepper · ×2/÷2 · Anchor · Slip */
+  .gridctl{display:flex;align-items:center;gap:7px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:3px 7px}
+  .gctk{display:flex;align-items:center;gap:3px}
+  .gclab{font-size:9px;font-weight:800;letter-spacing:.7px;text-transform:uppercase;color:var(--mut);padding:0 3px 0 1px}
+  /* FL-style draggable BPM readout: big number = whole BPM, small = .01 */
+  .bpmctl{user-select:none}
+  .bpmnum{font-size:14px;font-weight:800;color:var(--txt);font-variant-numeric:tabular-nums;cursor:ns-resize;padding:1px 1px;border-radius:4px;line-height:1}
+  .bpmnum:hover{background:var(--panel);color:var(--accent2)}
+  .bpmnum.bpmdec{font-size:11px;color:var(--mut);font-weight:700}
+  .bpmnum.bpmdec:hover{color:var(--accent2)}
+  .bpmdot{font-size:12px;font-weight:800;color:var(--mut);margin:0 -1px}
+  .bpmin{width:54px;background:var(--panel);border:1px solid var(--accent2);color:var(--txt);font-size:12.5px;font-weight:700;text-align:center;font-variant-numeric:tabular-nums;padding:2px 0;outline:none;border-radius:5px;display:none}
+  .bpmin::-webkit-outer-spin-button,.bpmin::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+  .bpmin[type=number]{-moz-appearance:textfield;appearance:textfield}
+  .bpmctl.editing .bpmnum,.bpmctl.editing .bpmdot,.bpmctl.editing .bpmmul{display:none}
+  .bpmctl.editing .bpmin{display:inline-block}
+  /* stacked ×2 / ÷2 spinner — saves the real estate two wide buttons used */
+  .bpmmul{display:inline-flex;flex-direction:column;margin-left:4px;border-radius:5px;overflow:hidden;border:1px solid var(--line)}
+  .bpmmb{width:18px;height:12px;border:0;background:var(--panel);color:var(--mut);font-size:9px;font-weight:800;line-height:1;cursor:pointer;padding:0;display:flex;align-items:center;justify-content:center}
+  .bpmmb:hover{background:var(--accent);color:#fff}
+  .bpmmb#bpmHalf{border-top:1px solid var(--line)}
+  .gcdiv{width:1px;height:21px;background:var(--line)}
+  .gcread{min-width:54px;text-align:center;font-size:11px;font-weight:700;color:var(--accent2);font-variant-numeric:tabular-nums;cursor:pointer;padding:0 2px}
+  .gcstep{height:23px;min-width:22px;border:1px solid var(--line);background:var(--panel);color:var(--txt);border-radius:6px;font-size:11px;cursor:pointer;padding:0 4px}
+  .gcstep:hover{border-color:var(--accent2);color:var(--accent2)}
+  .gcstep.on{background:var(--accent2);color:#0c0d12;border-color:var(--accent2)}
+  .gcanchor{height:25px;padding:0 11px;border:1px solid var(--line);background:var(--panel);color:var(--txt);border-radius:7px;font-size:11px;cursor:pointer;white-space:nowrap}
+  .gcanchor:hover{border-color:#ffb020;color:#ffb020}
+  .gcanchor.on{background:#ffb020;color:#0c0d12;border-color:#ffb020}
+  .miniToggle{background:var(--panel2);border:1px solid var(--line);color:var(--mut);border-radius:7px;padding:2px 8px;font-size:10px;font-weight:700;cursor:pointer;text-transform:none;letter-spacing:0}
+  .miniToggle.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+  /* reusable styled modal (replaces native prompt) */
+  .ovl{position:fixed;inset:0;background:rgba(6,7,12,.66);backdrop-filter:blur(3px);display:none;align-items:center;justify-content:center;z-index:120}
+  .ovl.show{display:flex}
+  .modal{width:min(390px,92vw);background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:22px;box-shadow:0 24px 70px rgba(0,0,0,.6)}
+  .modal .mtt{display:flex;align-items:center;gap:9px;font-size:15px;font-weight:700;margin-bottom:4px}
+  .modal .mtt .mk{width:20px;height:20px;border-radius:6px;background:var(--grad)}
+  .modal .msub{color:var(--mut);font-size:11.5px;margin-bottom:14px}
+  .modal input[type=text],.modal input[type=number]{width:100%;box-sizing:border-box;background:var(--panel2);border:1px solid var(--line);color:var(--txt);border-radius:10px;padding:11px 12px;font-size:14px;outline:none}
+  .modal input:focus{border-color:var(--accent)}
+  .mrow{display:flex;gap:10px;margin-top:16px;justify-content:flex-end}
+  .mbtn{border:0;border-radius:10px;padding:10px 16px;font-size:13px;font-weight:700;cursor:pointer}
+  .mbtn.ghost{background:var(--panel2);color:var(--mut);border:1px solid var(--line)}
+  .mbtn.ghost:hover{color:var(--txt)}
+  .mbtn.go{background:var(--grad);color:#0c0d12}
+  /* guided coach-marks tour */
+  #tourOvl{position:fixed;inset:0;z-index:200;display:none}
+  #tourOvl.on{display:block}
+  #tourHole{position:absolute;border:2px solid var(--accent2);border-radius:8px;box-shadow:0 0 0 9999px rgba(6,7,12,.66);transition:left .18s,top .18s,width .18s,height .18s;pointer-events:none}
+  #tourCard{position:absolute;width:min(300px,86vw);background:var(--panel);border:1px solid var(--accent2);border-radius:12px;padding:14px 14px 12px;box-shadow:0 16px 44px rgba(0,0,0,.62)}
+  #tourCard h4{margin:0 0 5px;font-size:13px;color:var(--txt)}
+  #tourCard p{margin:0;font-size:12px;color:var(--mut);line-height:1.55}
+  #tourCard .trow{display:flex;align-items:center;gap:8px;margin-top:12px}
+  #tourCard .tstep{font-size:10.5px;color:var(--mut);flex:1;font-variant-numeric:tabular-nums}
+  #tourCard button{border:0;border-radius:8px;padding:7px 13px;font-size:12px;font-weight:700;cursor:pointer}
+  #tourCard .tnext{background:var(--grad);color:#0c0d12}
+  #tourCard .tback{background:var(--panel2);color:var(--mut);border:1px solid var(--line)}
+  #tourCard .tskip{position:absolute;top:7px;right:9px;background:none;color:var(--mut);font-size:11px;padding:2px;font-weight:600}
+  #tourCard .tskip:hover{color:var(--txt)}
+  #tl [data-op="copy"],#tl [data-op="paste"],#tl [data-op="duplicate"],#tl [data-op="delete"],
+  #tl [data-op="heal"],#tl [data-op="slip"],#tl [data-op="midi"],#tl [data-op="selectall"],#tl [data-op="alllanes"],#tl .compreopen{display:none}
+  /* composite scratch pad: hidden until opened with the Scratch button. When shown, stack
+     its controls ABOVE a full-width lane so the waveform stays aligned to the beat grid. */
+  #tl .lane.composite{display:flex;flex-direction:column}
+  #tl .lane.composite .glabel{display:flex;width:auto;border-right:0;border-bottom:1px solid var(--line);padding:3px 7px;gap:6px}
+  #scratchBtn.on{background:var(--accent2);color:#0c0d12;border-color:var(--accent2)}
+  /* playback-only: drop the track-options column so the waveform fills the width
+     (this was reading as the start of the waveform being "cut off") */
+  #tl{--lanelabel:0px}
+  #tl .glabel,#tl .rcorner{display:none}
+  #tl .region{cursor:grab}#tl .region:active{cursor:grabbing}
+  #metro.on{background:var(--accent2);color:#0c0d12;border-color:var(--accent2)}
+  .metrofine{display:inline-flex;align-items:center;font-size:9px;color:var(--mut);opacity:.55;margin:0 1px}
+  .metrofine:hover{opacity:1}
+  .metrofine button{background:none;border:0;color:inherit;font-size:13px;cursor:pointer;padding:0 2px;line-height:1}
+  .metrofine button:hover{color:var(--accent2)}
+  .metrofine #metroOff{min-width:16px;text-align:center;cursor:pointer;font-variant-numeric:tabular-nums}
+  #metro.beat{box-shadow:0 0 0 2px #fff inset;background:#fff;color:#0c0d12}
+  #metro.beat.acc{box-shadow:0 0 0 2px var(--accent) inset;background:var(--accent);color:#fff}
+  #anchorBtn.on{background:#ffb020;color:#0c0d12;border-color:#ffb020}
+  #warpBtn.on{background:#c266ff;color:#0c0d12;border-color:#c266ff}
+  /* warp pins ("warping vision") — a thin purple line per pinned downbeat with a grab handle */
+  .warplane{position:absolute;top:0;bottom:0;pointer-events:none;z-index:7}
+  .warpmark{position:absolute;top:0;bottom:0;width:0;border-left:1.5px dashed #c266ff;pointer-events:auto}
+  .warpmark .wmh{position:absolute;top:-1px;left:-6px;width:12px;height:12px;line-height:12px;text-align:center;font-size:11px;color:#c266ff;cursor:grab;text-shadow:0 0 3px #0c0d12}
+  .tlhost.warping .laneTL,.tlhost.warping .ruler,.tlhost.warping .regionstrip{cursor:crosshair}
+  .vw.vsel{outline:2px solid #fff;outline-offset:1px}
+  /* right panel: This-Bar card, scheme map, legend, compact stats, help dots */
+  .thisbar{background:linear-gradient(180deg,rgba(124,92,255,.12),rgba(25,211,197,.05));border:1px solid #34304f;border-radius:10px;padding:9px 11px;font-size:11.5px;line-height:1.55}
+  .thisbar .tbtop{font-weight:700;color:var(--txt)}.thisbar .tbmid{margin-top:3px}
+  .tbbadge{font-size:8.5px;font-weight:800;padding:1px 7px;border-radius:6px;margin-left:4px;letter-spacing:.4px}
+  .tbbadge.even{background:var(--accent2);color:#0c0d12}.tbbadge.odd{background:var(--accent);color:#fff}
+  .qdot{display:inline-block;width:14px;height:14px;line-height:13px;text-align:center;border-radius:50%;background:var(--panel2);border:1px solid var(--line);color:var(--mut);font-size:9px;font-weight:800;cursor:pointer;vertical-align:1px;margin-left:3px}
+  .qdot:hover{border-color:var(--accent2);color:var(--accent2)}
+  .schememap{display:flex;flex-direction:column;gap:4px}
+  .smrow{display:flex;align-items:center;gap:3px;flex-wrap:wrap}
+  .smrow .smlab{font-size:8.5px;color:var(--mut);min-width:52px;text-transform:uppercase;letter-spacing:.4px;white-space:nowrap}
+  .smdot{min-width:17px;height:16px;padding:0 2px;border-radius:4px;font-size:8px;font-weight:800;color:#0c0d12;display:flex;align-items:center;justify-content:center}
+  .smdot.stale{outline:2px solid var(--danger);outline-offset:1px}
+  /* cross-rhyme (ABAB) bars: white dashed ring marks the every-other-bar pair */
+  .smdot.xr{box-shadow:0 0 0 1.5px #0c0d12,0 0 0 3px rgba(255,255,255,.85)}
+  .rchip .tg{font-size:8px;opacity:.65;margin-left:4px;font-weight:700}
+  .legend{margin-top:2px}.legend summary{cursor:pointer;color:var(--accent2);font-weight:700;font-size:11px;outline:none}
+  .legend .legrow{margin:6px 0;display:flex;gap:6px;align-items:center;font-size:11px;color:var(--mut)}
+  .legend .legrow span[class^="r"]{font-size:13px}
+  .statline{display:flex;flex-wrap:wrap;gap:5px;margin-top:2px}
+  .statpill{background:var(--panel2);border:1px solid var(--line);border-radius:7px;padding:3px 8px;font-size:10.5px;color:var(--mut)}
+  .statpill b{color:var(--accent2);font-variant-numeric:tabular-nums}
+  /* selected arrangement regions: accent outline; while looping: solid RED */
+  #tl .region.on{background:rgba(124,92,255,.30);border-color:var(--accent);color:#fff}
+  #tl .region.looping{background:var(--danger);border-color:var(--danger);color:#fff;box-shadow:inset 0 0 0 1px #fff5}
+  /* minimal bottom player */
+  .player{position:fixed;left:0;right:0;bottom:0;height:46px;background:#0a0b10;border-top:1px solid var(--line);display:flex;align-items:center;gap:10px;padding:0 14px;z-index:50}
+  .plbtn{width:30px;height:30px;border-radius:7px;background:var(--panel2);border:1px solid var(--line);color:var(--txt)}
+  .plname{font-size:11.5px;color:var(--mut);max-width:30vw;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+  #plSeek{flex:1}.pltime{font-size:11px;color:var(--mut);font-variant-numeric:tabular-nums}
+  .toast{position:fixed;bottom:58px;left:50%;transform:translateX(-50%) translateY(8px);background:var(--panel2);border:1px solid var(--line);color:var(--txt);padding:9px 16px;border-radius:10px;font-size:11.5px;opacity:0;pointer-events:none;transition:.2s;z-index:60}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  .brand{display:flex;align-items:center;gap:8px}.brand .mk{width:24px;height:24px;border-radius:7px;background:var(--grad)}
+  .main{padding-bottom:52px}
+  /* rhyme countdown chip that follows the caret */
+  #flowHud{position:fixed;z-index:70;background:#0d0e15;border:1px solid var(--accent);border-radius:8px;padding:3px 10px;font-size:11.5px;color:var(--txt);pointer-events:none;box-shadow:0 4px 16px rgba(0,0,0,.55);display:none;white-space:nowrap}
+  #flowHud b{color:var(--accent);font-size:13px;font-variant-numeric:tabular-nums}
+  /* tag autocomplete menu (typing "[") */
+  #tagMenu{position:fixed;z-index:75;background:#15161e;border:1px solid var(--accent2);border-radius:8px;padding:4px;box-shadow:0 8px 24px rgba(0,0,0,.6);display:none;max-height:248px;overflow:auto;min-width:150px}
+  #tagMenu .tagopt{padding:5px 9px;border-radius:6px;font-size:12px;color:var(--txt);cursor:pointer;white-space:nowrap}
+  #tagMenu .tagopt.on,#tagMenu .tagopt:hover{background:var(--accent2);color:#0c0d12;font-weight:700}
+  /* timeline right-click menu (add blank region) */
+  #ctxMenu{position:fixed;z-index:78;background:#15161e;border:1px solid var(--line);border-radius:9px;padding:4px;box-shadow:0 10px 28px rgba(0,0,0,.6);display:none;min-width:140px;font-size:12px}
+  #ctxMenu .ctxitem{position:relative;padding:7px 10px;border-radius:6px;color:var(--txt);cursor:pointer;white-space:nowrap;display:flex;justify-content:space-between;gap:14px}
+  #ctxMenu .ctxitem:hover{background:var(--panel2)}
+  #ctxMenu .ctxsub{position:absolute;left:100%;top:-4px;margin-left:4px;background:#15161e;border:1px solid var(--line);border-radius:9px;padding:4px;box-shadow:0 10px 28px rgba(0,0,0,.6);display:none;min-width:96px}
+  #ctxMenu .ctxitem:hover .ctxsub{display:block}
+  #ctxMenu .ctxsub > div{padding:7px 10px;border-radius:6px;cursor:pointer}
+  #ctxMenu .ctxsub > div:hover{background:var(--accent);color:#0c0d12;font-weight:700}
+  /* inpaint panel (floating, non-blocking) */
+  #inpaintPanel{position:fixed;left:14px;bottom:58px;z-index:79;width:min(420px,92vw);background:var(--panel);border:1px solid var(--accent);border-radius:12px;box-shadow:0 12px 34px rgba(0,0,0,.6);display:none;overflow:hidden}
+  .iphd{display:flex;align-items:center;gap:9px;padding:9px 12px;border-bottom:1px solid var(--line);background:#141226}
+  .iphd b{font-size:12.5px}.iphd .muted{flex:1;font-size:10.5px}
+  .ipbody{padding:11px 12px;display:flex;flex-direction:column;gap:8px}
+  #ipPrompt{background:var(--panel2);border:1px solid var(--line);color:var(--txt);border-radius:8px;padding:9px;font-size:12.5px;width:100%}
+  .iprow{display:flex;gap:8px}.iprow select{flex:1}
+  #ipGen{background:var(--grad);color:#0c0d12;border:0;border-radius:9px;padding:9px 14px;font-weight:800;font-size:12px;white-space:nowrap}
+  /* guide modal */
+  .hmodal{position:fixed;inset:0;background:rgba(6,7,11,.72);z-index:80;display:flex;align-items:center;justify-content:center;padding:20px}
+  .hbox{background:var(--panel);border:1px solid var(--line);border-radius:14px;width:min(680px,94vw);max-height:84vh;display:flex;flex-direction:column;overflow:hidden}
+  .hbar{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:13px 16px;border-bottom:1px solid var(--line)}
+  .hbar b{font-size:13px}
+  .hbody{padding:8px 18px 18px;overflow-y:auto;font-size:12.5px;line-height:1.65;color:var(--mut)}
+  .hbody h4{color:var(--accent2);font-size:12px;letter-spacing:.5px;text-transform:uppercase;margin:16px 0 5px}
+  .hbody p{margin:6px 0}.hbody em{color:var(--txt);font-style:normal;font-weight:600}.hbody b{color:var(--txt)}
+  .hbody ul{margin:5px 0;padding-left:18px}.hbody li{margin:4px 0}
+  .hbody code{background:var(--panel2);border:1px solid var(--line);border-radius:4px;padding:0 4px;font-size:11px;color:var(--accent2)}
+</style>
+</head>
+<body>
+  <div class="main">
+    <div class="hd">
+      <a class="brand" href="index.html" title="back to your projects" style="text-decoration:none;color:inherit"><span class="mk"></span><b>Song<span style="color:var(--accent2)">|</span>Flow</b><span class="meta" style="opacity:.7;margin-left:2px">Lyric Studio</span></a>
+      <button class="upl" id="loadBtn">&#128193; Load audio</button>
+      <input type="file" id="audioFile" accept="audio/*" hidden>
+      <span class="meta" id="curTrk" style="color:var(--accent2)">no track</span>
+      <div class="gridctl" title="Tempo &amp; beat-grid controls">
+        <div class="gctk bpmctl" title="Tempo — FL-style: DRAG the big number up/down for whole BPM, the small one for fine .01. The grid updates live so you can line it up with the waveform. Scroll to nudge · double-click to type.">
+          <span class="gclab">BPM</span>
+          <span class="bpmnum" id="bpmInt" title="drag ↕ for whole BPM · scroll to nudge · double-click to type">120</span><span class="bpmdot">.</span><span class="bpmnum bpmdec" id="bpmDec" title="drag ↕ for fine .01 · scroll to nudge">00</span>
+          <input class="bpmin" id="bpmInput" type="number" min="30" max="320" step="0.01" value="120">
+          <span class="bpmmul">
+            <button class="bpmmb" id="bpmDouble" title="×2 — double the BPM (fix a half-time read)">&times;</button>
+            <button class="bpmmb" id="bpmHalf" title="÷2 — halve the BPM (fix a double-time read)">&divide;</button>
+          </span>
+        </div>
+        <span class="gcdiv"></span>
+        <button class="gcanchor" id="anchorBtn" title="Set the grid origin (bar 1) at the PLAY MARKER. Move the marker to the song's first downbeat (turn Snap off for precise placement), then press this — the whole grid + metronome lock to that point and Slip resets to neutral. Then nudge the BPM until a later downbeat also lines up.">&#9875; Anchor</button>
+        <div class="gctk" title="Fine-nudge the grid anchor so bar 1 lands exactly on the downbeat (±10ms · Shift = ±1ms). Click the readout to reset.">
+          <span class="gclab">Slip</span>
+          <button class="gcstep" id="slipBack" title="anchor earlier (−10ms · Shift = −1ms — zoom in to align exactly)">&#9664;</button>
+          <span class="gcread" id="slipVal" title="click to reset the anchor to the start">0 ms</span>
+          <button class="gcstep" id="slipFwd" title="anchor later (+10ms · Shift = +1ms)">&#9654;</button>
+          <button class="gcstep" id="slipDragTog" title="Slip-drag: turn ON, then drag the numbered ruler left/right to shove the whole beat grid by a large amount. Turn OFF to lock it.">&#8644;</button>
+        </div>
+        <span class="gcdiv"></span>
+        <button class="gcanchor" id="warpBtn" title="Warp — when the metronome drifts off a song that isn't perfectly metronomic, turn this ON (&quot;warping vision&quot;) and click each downbeat that has drifted to drop a pin. The grid bends to pass through every pin and the metronome follows the bend. Drag a pin to move it, click a pin to remove it. Turn OFF to hide the pins — the bend stays in effect.">&#12316; Warp</button>
+      </div>
+      <button class="tbtn" id="secAuto" title="detect arrangement sections from the audio (offline, approximate — double-click a region to rename)" style="width:auto;padding:0 9px;font-size:11px">&#9776; Auto sections</button>
+      <button class="tbtn" id="metro" title="metronome — clicks on every beat at the project BPM (accent on the downbeat)" style="width:auto;padding:0 9px;font-size:11px">&#128276; Click</button>
+      <span class="metrofine" title="Metronome fine-tune (timing is auto-synced — most won't need this). Click sounds a touch early? nudge › (later). A touch late? ‹ (earlier). Shift = bigger step · click the number to reset."><button id="metroEarly">&#8249;</button><span id="metroOff">0</span><button id="metroLate">&#8250;</button></span>
+      <button class="tbtn" id="scratchBtn" title="open the Scratch pad (composite lane) — copy a waveform span, paste it here to chop, audition, or export. Closed by default." style="width:auto;padding:0 9px;font-size:11px">&#9638; Scratch</button>
+      <div class="trackchip">&#128196; <select class="mini" id="docSel"></select>
+        <button class="tbtn" id="docNew" title="new document">&#65291;</button>
+        <button class="tbtn" id="docRen" title="rename">&#9998;</button>
+        <button class="tbtn" id="docDel" title="delete">&#128465;</button>
+      </div>
+      <select class="mini" id="tagIns" title="insert an arrangement tag at the cursor">
+        <option value="">&#65291; Section tag</option>
+        <option>Intro</option><option>Verse</option><option>Pre-Chorus</option><option>Chorus</option>
+        <option>Post-Chorus</option><option>Hook</option><option>Bridge</option><option>Build-Up</option>
+        <option>Drop</option><option>Breakdown</option><option>Instrumental Break</option>
+        <option>Interlude</option><option>Outro</option>
+      </select>
+      <div class="spacer"></div>
+      <button class="tbtn" id="lRhyme" style="width:auto;padding:0 10px">&#127752; Rhyme colors</button>
+      <button class="tbtn" id="lExport" title="export lyrics to a .txt file" style="width:auto;padding:0 10px">&#11015; Export .txt</button>
+      <button class="tbtn" id="aExport" title="export the edited audio to a .wav file" style="width:auto;padding:0 10px">&#11015; Export audio</button>
+      <button class="tbtn" id="lClear" style="width:auto;padding:0 10px">Clear</button>
+      <button class="tbtn" id="helpBtn" title="how Songflow works — the guide" style="width:auto;padding:0 10px">? Guide</button>
+    </div>
+    <div class="split">
+      <div class="stage">
+        <div id="tl"></div>
+        <div class="tlresize" id="tlResize" title="drag to resize the timeline / waveform height"></div>
+        <div style="display:flex;gap:6px;align-items:center;padding:4px 2px;flex-wrap:wrap">
+          <span class="meta">Audio edit</span>
+          <button class="tbtn" id="aCopy" title="copy the selected waveform span or section (Ctrl+C)" style="width:auto;padding:0 9px;font-size:11px">&#10697; Copy</button>
+          <button class="tbtn" id="aCut" title="cut the selected span (Ctrl+X)" style="width:auto;padding:0 9px;font-size:11px">&#9986; Cut</button>
+          <button class="tbtn" id="aPaste" title="paste at the playhead (ripples right), or into a highlighted span to replace it (Ctrl+V)" style="width:auto;padding:0 9px;font-size:11px">&#128203; Paste</button>
+          <button class="tbtn" id="aDelete" title="delete the selected waveform span (closes the gap)" style="width:auto;padding:0 9px;font-size:11px">&#128465; Delete span</button>
+          <span class="muted" style="font-size:10.5px">drag on the waveform to select a span</span>
+        </div>
+        <div class="muted" style="padding:0 2px;font-size:10.5px">Your <b>arrangement region tags</b> appear here, mirroring the lyric editor. <b>Drag</b> to reorder &middot; <b>double-click</b> to rename &middot; <b>Alt+Click</b> for the tag menu (bars / rename / delete). New here? Open <b>? Guide → ▶ Take the tour</b>.</div>
+        <div class="lyx">
+          <div class="gut" id="gut"></div>
+          <div id="doc" contenteditable="true" spellcheck="false"></div>
+        </div>
+      </div>
+      <div class="panel">
+        <!-- ============ WRITE ============ -->
+        <div class="psection" style="display:flex;align-items:center;gap:6px"><span style="flex:1">Write <span class="qdot" data-help>?</span></span><button id="barGuideTog" class="miniToggle" title="Show or hide the bar-by-bar coaching (which vowel completes the rhyme). Off by default.">Guidance: off</button></div>
+        <div class="thisbar" id="thisBar">
+          <div class="tbtop"><span id="tbSection">—</span> &middot; bar <b id="tbBar">—</b> <span class="tbbadge" id="tbBadge"></span></div>
+          <div class="tbmid"><span class="muted">target</span> <span class="vw" id="rhyNextPill">—</span> <span class="muted" id="tbVlab" style="font-size:10px"></span> <span id="tbSyl" class="muted"></span></div>
+          <div id="rhyNextHead" style="display:none;margin-top:3px"><span class="muted" id="rhyNextWhy" style="font-size:11px"></span></div>
+        </div>
+        <div class="chips" id="rhyNext" style="margin:6px 0 2px"></div>
+        <div class="rhyhead" style="margin-top:8px">Rhyme words for <span id="rhyWord">—</span> <span class="vw" id="rhyPill" style="display:none">AY</span></div>
+        <div class="muted" style="font-size:10.5px">Click a word = insert at your cursor &middot; Shift+click = copy. Tagged by rhyme strength, colored by vowel.</div>
+        <div class="chips" id="rhymeList"><span class="muted">—</span></div>
+        <div class="lab">Scheme map</div>
+        <div id="schemeMap" class="schememap"><span class="muted">Write some bars to see the rhyme scheme.</span></div>
+
+        <!-- ============ GENERATE ============ -->
+        <div class="pdiv"></div><div class="psection">Generate <span class="qdot" data-help>?</span></div>
+        <div class="lab">Generate how many bars?</div>
+        <select class="inp" id="ideaN" style="width:100%" title="number of lyric bars to generate (1 line = 1 bar)"></select>
+        <div class="lab" style="margin-top:10px;display:flex;align-items:center;gap:6px"><span style="flex:1">Rhythm density <span class="meta" style="text-transform:none;letter-spacing:0;opacity:.65">packed &harr; sustained</span></span><span class="rangeval" id="rhythmV">Balanced</span></div>
+        <input type="range" id="rhythm" min="0" max="100" value="50" style="width:100%">
+        <div class="muted" style="margin-top:3px;font-size:10.5px">How the AI phrases new bars: far left = dense &amp; percussive, far right = sparse &amp; sustained.</div>
+        <div class="lab" style="margin-top:10px">Overrides <span class="meta" style="opacity:.7;text-transform:none;letter-spacing:0">— optional, off by default</span></div>
+        <div class="muted" style="font-size:10.5px;margin-bottom:5px">Force a specific vowel or syllable count, even against the natural scheme.</div>
+        <div id="forceRows"><span class="muted" style="font-size:10.5px">Click a line with a rhyme vowel to load it here.</span></div>
+        <div class="muted" id="forceNote" style="margin-top:4px"></div>
+        <div class="frow" style="margin-top:8px"><button class="toggle" id="sylForceTog" title="Off = match the prior bars (default). On = force this many syllables per generated bar (also flags overs in orange while you write)."><span class="k"></span></button><span class="muted" style="flex:1">Force syllables / bar <span style="opacity:.6">(else match)</span></span><input id="sylTarget" class="numv" type="number" min="1" max="32" placeholder="—" disabled></div>
+        <div class="lab" style="margin-top:9px">Engine</div>
+        <div style="display:flex;gap:7px;align-items:center">
+          <select class="inp" id="aiProvider" style="flex:1" title="Which AI writes the lyrics. Free uses a hosted open model; the others use YOUR own API key (stored only in this browser, you pay your provider).">
+            <option value="free">Free — open model</option>
+            <option value="anthropic">Anthropic — your key</option>
+            <option value="openai">OpenAI — your key</option>
+            <option value="google">Google Gemini — your key</option>
+          </select>
+          <button class="tbtn" id="aiKey" style="width:auto;padding:0 9px;font-size:11px" title="set or replace this provider's API key (stored only in this browser)">&#128273; Key</button>
+        </div>
+        <div style="display:flex;gap:7px;margin-top:6px" id="aiModelRow">
+          <input class="inp numv" id="aiModel" list="aiModelList" style="flex:1;width:auto;text-align:left" placeholder="model id" title="model id — pick a suggestion or type any model your key can use">
+          <datalist id="aiModelList"></datalist>
+        </div>
+        <button class="go" id="ideaGo" style="margin-top:8px">&#10024; Generate matching lyrics</button>
+        <div class="muted" id="ideaNote" style="margin-top:4px">Pick an engine. <b>Free</b> needs no key; <b>Anthropic / OpenAI / Google</b> use your own API key (stored only in this browser — you pay your provider).</div>
+        <div class="cleanbtn" id="conformBtn" title="coming with the rewrite engine" style="opacity:.55;cursor:default">&#8627; Conform free text to the rules <span class="tag">soon</span></div>
+
+        <!-- ============ LEGEND + STATS ============ -->
+        <div class="pdiv"></div>
+        <details class="legend"><summary>Color legend</summary>
+          <div class="legrow"><span class="r0">&#9679;</span><span class="r1">&#9679;</span><span class="r2">&#9679;</span><span class="r3">&#9679;</span><span class="r4">&#9679;</span><span class="r5">&#9679;</span> rhyme families — line-endings that rhyme share a color</div>
+          <div class="legrow"><span class="in" style="color:var(--accent2)">word</span> dotted underline = internal echo</div>
+          <div class="legrow">vowel pills (<span class="vw" style="background:#7c5cff">AY</span> <span class="vw" style="background:#d9a23b">EH</span>) = the rhyme vowel, one fixed color each</div>
+          <div class="legrow"><span class="smdot xr" style="background:#19d3c5;min-width:14px;height:13px">2</span> white ring in the scheme map = <b>cross-rhyme</b> (ABAB) — this bar answers the one <i>two</i> back, not the bar above</div>
+          <div class="legrow muted">Coming: live syllable-match coloring (green = matched, red = off) and generated-blue.</div>
+        </details>
+        <div class="psection" style="margin-top:9px">Stats <span class="qdot" data-help>?</span></div>
+        <div id="statsBox"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="player">
+    <button class="plbtn" id="plPlay">&#9654;</button>
+    <button class="plbtn" id="plStop">&#9632;</button>
+    <span class="plname" id="plName">No track loaded</span>
+    <input type="range" id="plSeek" min="0" max="1000" value="0">
+    <span class="pltime" id="plTime">0:00 / 0:00</span>
+  </div>
+
+  <!-- rhyme countdown: follows the caret, counts syllables to the next rhyme target -->
+  <div id="flowHud"></div>
+  <!-- tag autocomplete: appears when you type "[" in the lyric editor -->
+  <div id="tagMenu"></div>
+
+  <!-- reusable text-input modal (new document / rename) -->
+  <div class="ovl" id="askOvl"><div class="modal">
+    <div class="mtt"><span class="mk"></span><span id="askTitle">Name</span></div>
+    <div class="msub" id="askSub"></div>
+    <input id="askInput" type="text" maxlength="120" autocomplete="off" spellcheck="false">
+    <div class="mrow"><button class="mbtn ghost" id="askCancel">Cancel</button><button class="mbtn go" id="askOk">OK</button></div>
+  </div></div>
+
+  <!-- right-click the timeline → add a blank region (ripple-inserts silence to inpaint) -->
+  <div id="ctxMenu">
+    <div class="ctxitem">Add region <span>&#9656;</span>
+      <div class="ctxsub"><div data-bars="4">4 bars</div><div data-bars="8">8 bars</div><div data-bars="16">16 bars</div></div>
+    </div>
+  </div>
+
+  <!-- inpaint panel: fill a blank/selected region with generated audio (cloud engine) -->
+  <div id="inpaintPanel">
+    <div class="iphd"><b>&#127912; Inpaint region</b><span class="muted" id="ipRange"></span><button class="tbtn" id="ipClose" style="width:auto;padding:0 8px">&#10005;</button></div>
+    <div class="ipbody">
+      <input id="ipPrompt" placeholder="genre / vibe to paint in — e.g. lo-fi piano, trap hats, ambient pad">
+      <div class="iprow">
+        <select class="inp" id="ipModel"></select>
+        <button id="ipGen">&#10024; Generate fill</button>
+      </div>
+      <div class="muted" id="ipNote" style="font-size:10.5px;line-height:1.5"></div>
+    </div>
+  </div>
+
+  <!-- guide -->
+  <div id="helpModal" class="hmodal" style="display:none">
+    <div class="hbox">
+      <div class="hbar"><b>Song|Flow — Lyric Studio · Guide</b><span style="flex:1"></span><button class="tbtn" id="tourBtn" style="width:auto;padding:0 11px;background:var(--accent2);color:#0c0d12;border-color:var(--accent2);font-weight:700">&#9654; Take the tour</button><button class="tbtn" id="helpClose" style="width:auto;padding:0 9px">Close ✕</button></div>
+      <div class="hbody">
+        <h4>The idea</h4>
+        <p>Every bar is built from two things: <b>rhyming vowels</b> (the <em>anchors</em>) and the <b>consonants</b> between them (the <em>rhythm</em>). Rhyme = the same vowel sound landing on the same spot across bars. The whole tool is here to help you place those anchors and fill the rhythm between them.</p>
+
+        <h4>Writing flow</h4>
+        <ul>
+          <li><b>Gutter (left numbers):</b> each line shows <code>bar № │ syllables  VOWEL</code> — the vowel is that line's ending rhyme sound.</li>
+          <li><b>Bar guidance (right panel):</b> on <b>even</b> bars it tells you to <em>complete the couplet</em> — match the anchor vowel and syllable count of the bar above. On <b>odd</b> bars it offers <em>fresh, contrasting</em> vowels to open a new scheme. It warns once a scheme runs past 8 bars.</li>
+          <li><b>Cross-rhyme (ABAB):</b> a rhyme doesn't have to answer the very next bar. When you set vowel <em>A</em> on bar 1, a different vowel <em>B</em> on bar 2, then answer <em>A</em> on bar 3 and <em>B</em> on bar 4, you get an <em>alternating</em> (cross) rhyme — the pair lands every other bar. Because the pattern repeats, even a loose / <em>family</em> rhyme (e.g. <b>shoes</b>→<b>clothes</b>→…→<b>phone</b>) reads as deliberate and satisfying. Once the tool sees an A-B-A run it prompts the <b>B</b> answer, and the scheme map rings the every-other-bar pair in white.</li>
+          <li><b>Rhyme countdown:</b> as you type, a small chip follows your cursor showing how many syllables until your next rhyme should land, and which vowel to hit. It counts down and disappears when you reach it.</li>
+          <li><b>🌈 Rhyme colors:</b> end-words that rhyme share a color; dotted underlines mark internal echoes.</li>
+          <li><b>Word chips:</b> Near/Slant rhymes and the guidance chips — click to copy a word.</li>
+        </ul>
+
+        <h4>Shaping & generating</h4>
+        <ul>
+          <li><b>Force rhyming vowel(s) (in Generate):</b> an <em>optional override</em>, off by default. Flip a switch to make the generator land every new bar on a specific vowel — even when it breaks the natural scheme. For deliberate effects/special cases; leave off to let the scheme lead.</li>
+          <li><b>Rhythm slider:</b> from dense/percussive to sustained/choir-like — sets the phrasing density.</li>
+          <li><b>Generate matching lyrics:</b> writes new bars that extend your scheme. Pick an <b>Engine</b>: a free hosted open model, or bring your own <b>Anthropic / OpenAI / Google</b> key (stored only in this browser — you pay that provider). Set the key with the &#128273; Key button and choose a model.</li>
+          <li><b>Export .txt:</b> save the document with its title, BPM and key.</li>
+        </ul>
+
+        <h4>Arrangement timeline</h4>
+        <ul>
+          <li><b>One tag, two names.</b> A <code>[tag]</code> with lyrics under it is a <b>Lyrics Region tag</b> in the editor; the <em>same tag</em> shows on the timeline as an <b>arrangement region tag</b>. Two views of one thing. A tag can also carry <em>no lyrics</em> (e.g. <code>[Instrumental break]</code>): it still appears in the editor, you just give it a <b>bar length</b>.</li>
+          <li><b>Bar length.</b> Tags <em>with</em> lyrics size themselves automatically (1 line = 1 bar). For tags <em>without</em> lyrics, set the length from the tag menu (4 / 8 / 16 / 32 / custom). Open the menu by <b>clicking the tag in the lyric editor</b>, or <b>Alt+Click the region</b> on the timeline. The menu also has Rename and Delete.</li>
+          <li><b>Beat grid &amp; Anchor.</b> The grid is synced to the BPM. To lock it to your song: move the <b>play marker</b> to the first downbeat (turn <b>Snap</b> off for precision), then press <b>⚓ Anchor</b> — bar 1 (and the metronome) snap to the marker and the grid pivots from there. Bars <em>before</em> the anchor are numbered 0, −1, −2… so you can see the lead-in.</li>
+          <li><b>Slip</b> is an offset <em>relative to the anchor</em> (neutral 0 = right on it). Nudge with <b>◀ ▶</b> (±10ms, Shift = ±1ms); for a big shift, toggle the <b>⇄ slip-drag</b> button and drag the numbered ruler. Click the readout to reset to neutral.</li>
+          <li><b>Snap.</b> The playhead and selections snap to the grid. Pick the resolution next to the <b>Snap</b> toggle: <b>whole note (default) / ½ / ¼ (beat) / ⅛ / 1⁄16</b>.</li>
+          <li><b>Region colors.</b> A region that contains lyrics shows <b style="color:var(--accent2)">teal</b>; an arrangement-only region with no lyrics (e.g. <code>[Instrumental break]</code>) shows <b style="color:#ff8a4c">amber</b>.</li>
+          <li><b>Drag</b> a region to reorder it — an insert line shows where it lands, and the rest ripple aside. <b>Ctrl+Click</b> several, then drag to move them as a <b>block</b>.</li>
+          <li><b>Selecting with gaps:</b> Ctrl+Click two non-adjacent regions and only <em>those</em> highlight on the waveform — the regions between them stay un-highlighted. They get auto-added only when you run an action that needs a continuous run: <b>Loop selected</b>, or Copy / Cut / Duplicate.</li>
+          <li><b>🔁 Loop selected</b> loops the highlighted regions (they turn red, gaps filled). <b>🗑 Delete region</b> (or the Delete key) removes a region; lyric-bearing ones warn first, and <b>Ctrl+Z</b> undoes it.</li>
+          <li><b>Transport keys:</b> <b>Space</b> = play / <b>stop</b> (the marker returns to where playback started). <b>Enter</b> = play / <b>pause in place</b> (the marker stays put). The ▶ button pauses in place too.</li>
+          <li><b>▣ Scratch pad:</b> a composite lane for chopping audio — closed by default. Hit <b>▣ Scratch</b> to open it, copy a waveform span, and paste it in to audition or export. Close it anytime.</li>
+          <li><b>Resize:</b> drag the handle just under the timeline to make the waveform taller. <b>🔔 Click</b> = metronome. <b>☰ Auto sections</b> detects sections from a loaded track.</li>
+        </ul>
+
+        <h4>Audio editing & inpaint</h4>
+        <ul>
+          <li><b>Right-click the timeline → Add region → 4 / 8 / 16 bars</b> inserts that many <b>blank bars</b> and ripple-pushes the rest of the song to the right (nothing is deleted). Re-fit your <code>[tags]</code> afterward — audio edits don't move them.</li>
+          <li>The <b>🎨 Inpaint</b> panel opens on the new region: type a genre/vibe and pick a model (ACE-Step by default). The fill renders on the <b>Songflow audio engine</b> (a cloud worker) — until that's connected the region stays silent; everything else is fully offline.</li>
+        </ul>
+
+        <p class="muted">Everything runs in your browser — nothing is uploaded. Documents autosave here.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- guided coach-marks tour -->
+  <div id="tourOvl">
+    <div id="tourHole"></div>
+    <div id="tourCard">
+      <button id="tourSkip" class="tskip">Skip</button>
+      <h4 id="tourTitle"></h4>
+      <p id="tourBody"></p>
+      <div class="trow"><span class="tstep" id="tourStep"></span><button class="tback" id="tourBack">Back</button><button class="tnext" id="tourNext">Next</button></div>
+    </div>
+  </div>
+
+<script>
+/* ---- minimal shared shim (replaces ams.js; no server) ---- */
+const $=id=>document.getElementById(id);
+const fmt=s=>{s=Math.max(0,s||0);return `${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2,"0")}`;};
+/* styled text-input modal — Promise<string|null>. Replaces the native prompt(). */
+function askText(opts){opts=opts||{};return new Promise(res=>{
+  const ovl=$("askOvl"),inp=$("askInput"),ok=$("askOk"),sub=$("askSub");
+  $("askTitle").textContent=opts.title||"Name";
+  sub.textContent=opts.sub||"";sub.style.display=opts.sub?"":"none";
+  inp.value=opts.value||"";inp.placeholder=opts.placeholder||"";ok.textContent=opts.okLabel||"OK";
+  ovl.classList.add("show");setTimeout(()=>{inp.focus();inp.select();},30);
+  const done=v=>{ovl.classList.remove("show");inp.removeEventListener("keydown",onKey);
+    $("askCancel").removeEventListener("click",onCancel);ok.removeEventListener("click",onOk);
+    ovl.removeEventListener("mousedown",onBack);res(v);};
+  const onKey=e=>{if(e.key==="Enter"){e.preventDefault();done(inp.value);}else if(e.key==="Escape"){e.preventDefault();done(null);}};
+  const onCancel=()=>done(null),onOk=()=>done(inp.value),onBack=e=>{if(e.target===ovl)done(null);};
+  inp.addEventListener("keydown",onKey);$("askCancel").addEventListener("click",onCancel);
+  ok.addEventListener("click",onOk);ovl.addEventListener("mousedown",onBack);
+});}
+window.askText=askText;
+let _toast;
+function toast(m){if(!_toast){_toast=document.createElement("div");_toast.className="toast";document.body.appendChild(_toast);}
+  _toast.textContent=m;_toast.classList.add("show");clearTimeout(_toast._h);_toast._h=setTimeout(()=>_toast.classList.remove("show"),2200);}
+const _pl=new Audio();_pl.volume=0.9;
+function playInPlayer(name,url){_pl.src=url;$("plName").textContent=name;_pl.play();}
+$("plPlay").onclick=()=>{if(_pl.src)_pl.paused?_pl.play():_pl.pause();};
+$("plStop").onclick=()=>{_pl.pause();_pl.currentTime=0;};
+_pl.addEventListener("play",()=>$("plPlay").innerHTML="&#10074;&#10074;");
+_pl.addEventListener("pause",()=>$("plPlay").innerHTML="&#9654;");
+_pl.addEventListener("timeupdate",()=>{if(_pl.duration){$("plSeek").value=Math.round(1000*_pl.currentTime/_pl.duration);$("plTime").textContent=`${fmt(_pl.currentTime)} / ${fmt(_pl.duration)}`;}});
+$("plSeek").oninput=()=>{if(_pl.duration)_pl.currentTime=_pl.duration*$("plSeek").value/1000;};
+/* ---- guide modal ---- */
+function showHelp(on){$("helpModal").style.display=on?"flex":"none";}
+$("helpBtn").onclick=()=>showHelp(true);
+$("helpClose").onclick=()=>showHelp(false);
+$("helpModal").addEventListener("click",e=>{if(e.target===$("helpModal"))showHelp(false);});
+document.addEventListener("keydown",e=>{if(e.key==="Escape")showHelp(false);});
+</script>
+<script src="ams-timeline.js?v=55"></script>
+<script src="ams-vowels.js?v=55"></script>
+<script src="ams-bpm.js?v=55"></script>
+<script src="ams-sections.js?v=55"></script>
+<script>
+const doc=$("doc"),gut=$("gut");
+let rhymeOn=true,cur=null,curBuf=null,detectedBpm=120,curKey=null,bpmCycle=0,regionsFromAudio=false;
+let manualBars=null;   // per-section manual start (in bars) once the user slides a boundary; null entries = auto (1 line = 1 bar)
+
+/* ---- playback timeline (loop-for-writing) ---- */
+const isCur=()=>!!(cur&&_pl&&_pl.src===cur.url);
+/* Transport: SPACE = play / STOP (marker returns to where playback started); ENTER = play /
+   PAUSE in place (marker stays). The play BUTTON pauses in place too. */
+let playAnchor=0;
+function transport(returnOnStop){
+  if(!cur){toast("Load an audio file first.");return;}
+  if(!_pl.src){playInPlayer(cur.name,cur.url);playAnchor=0;return;}
+  if(_pl.paused){playAnchor=_pl.currentTime;_pl.play();}
+  else{_pl.pause();if(returnOnStop){_pl.currentTime=playAnchor;tl.setPlayhead(playAnchor);}}
+}
+const tl=new AMSTimeline($("tl"),{
+  onPlayPause:(returnOnStop)=>transport(!!returnOnStop),
+  onSeek:t=>{if(isCur()&&_pl.duration)_pl.currentTime=t; tl.setPlayhead(t);},   // always show the marker, even before first play
+  onAnchor:t=>{gridAnchor=Math.max(0,t);gridSlip=0;applyGrid();},   // (legacy click-to-anchor path)
+  onSlipDrag:eff=>{gridSlip=eff-gridAnchor;updateSlipReadout();if(typeof saveProjectState==="function")saveProjectState();}, // ruler drag → adjust slip
+  onRegions:()=>{regionsFromAudio=true;},   // any manual region edit (drag/create) locks them from tag re-mapping
+  onArrange:(items)=>{try{applyArrange(items);}catch(e){}},   // a drag settled → reorder lyric blocks + store positions
+  onRenameRegion:(i,label)=>{try{if(typeof renameSection==="function")renameSection(i,label);}catch(e){}}, // dbl-click rename → rewrite [Section] header
+  onSetRegionBars:(i,bars)=>{try{if(typeof setRegionBars==="function")setRegionBars(i,bars);}catch(e){}}, // bars dropdown → resize + ripple
+  onRegionMenu:(i,x,y)=>{try{if(typeof openTagOpts==="function")openTagOpts(i,x,y);}catch(e){}}, // Alt+Click a region → the same tag-options menu as the editor
+  onDeleteRegions:(idxs)=>{try{deleteSections(idxs);}catch(e){}}, // delete section(s) + their lyric blocks
+  onWarpStart:()=>{if(typeof pushUndo==="function")pushUndo();},   // snapshot before a warp edit so Ctrl+Z restores it
+  onWarpAdd:t=>{warpMarkers.push(t);warpMarkers.sort((a,b)=>a-b);applyWarp();toast("Warp pin dropped — the grid bends to it. Drop more on the downbeats that drift.");},
+  onWarpMove:(idx,t,commit)=>{warpMarkers[idx]=t;if(commit){warpMarkers.sort((a,b)=>a-b);applyWarp();}else{applyWarp(false,true);}},
+  onWarpRemove:idx=>{warpMarkers.splice(idx,1);applyWarp();toast("Warp pin removed.");},
+  onToggle:()=>{},
+});
+_pl.addEventListener("timeupdate",()=>{
+  if(!isCur())return;
+  const loop=tl.getLoop();                               // bar-space; shift into audio time by the slip offset
+  if(loop){const go=tl.gridOffset||0;if(_pl.currentTime>=loop.end+go)_pl.currentTime=loop.start+go;}
+  tl.setPlayhead(_pl.currentTime);
+});
+_pl.addEventListener("play",()=>tl.setPlaying(isCur()));
+_pl.addEventListener("pause",()=>tl.setPlaying(false));
+tl.setTempo(detectedBpm);
+
+/* ---- load a LOCAL audio file (no server). On load we AUTO-detect tempo (so the
+   beat grid + metronome are synced without a click) and, only when the document has
+   no arrangement tags yet, AUTO-detect sections too (so we never clobber a written
+   arrangement). ---- */
+$("loadBtn").onclick=()=>$("audioFile").click();
+function hasArrangementTags(){return doc.innerText.split("\n").some(l=>/^\[.+\]$/.test(l.trim()));}
+$("audioFile").onchange=async()=>{
+  const f=$("audioFile").files[0];if(!f)return;
+  const url=URL.createObjectURL(f);
+  cur={name:f.name,url};
+  $("curTrk").textContent=f.name;$("plName").textContent=f.name;
+  try{
+    const ac=new (window.AudioContext||window.webkitAudioContext)();
+    curBuf=await ac.decodeAudioData(await f.arrayBuffer());
+  }catch(e){curBuf=null;toast("Couldn't decode that file — try WAV or MP3.");}
+  tl.setDuration(curBuf?curBuf.duration:0);
+  _pl.src=url;_pl.load();                           // make this the player source immediately so seeking + the playhead work before first play
+  tl.setLanes([{idx:0,label:f.name,color:"#ffd43b",buffer:curBuf}]);
+  tl.setSectionMarkers&&tl.setSectionMarkers([]);   // clear any prior detected-section markers
+  if(curBuf){
+    saveProjectAudio(f);                               // persist the audio so it survives navigation/reload
+    toast("Loaded — detecting tempo…");
+    await detectAndSetBpm(true);                       // sync the grid + metronome automatically
+    if(!hasArrangementTags())detectAndSetSections(true); // only auto-detect sections when there are no tags to protect
+    else tagRegions();
+    saveProjectState();
+    toast(`Ready · ${detectedBpm} BPM. Saved to this project. Select a section and Loop it, or hit Click for a metronome.`);
+  }else tagRegions();
+};
+
+/* ---- BPM: FL-Studio-style. The readout is split into a whole-number part and a .01 part;
+   drag either up/down to change (whole vs fine), scroll to nudge, double-click to type. The
+   grid updates LIVE while dragging so you can line it up with the waveform by eye. ×2/÷2 fix
+   half/double-time. 2-decimal precision is kept so a real 142.43 never collapses to 142. ---- */
+function clampBpm(b){return Math.max(30,Math.min(320,Math.round(b*100)/100));}
+function fmtBpm(b){return (Math.round(b*100)/100).toString();}   // 142 → "142", 142.4 → "142.4"
+function renderBpmReadout(){const b=detectedBpm||120,i=Math.floor(b+1e-6),dec=Math.round((b-i)*100);
+  if($("bpmInt"))$("bpmInt").textContent=String(i);
+  if($("bpmDec"))$("bpmDec").textContent=String(dec).padStart(2,"0");
+  if($("bpmInput"))$("bpmInput").value=fmtBpm(b);}
+function liveBpm(b){detectedBpm=clampBpm(b);renderBpmReadout();tl.setTempo(detectedBpm);try{tagRegions();}catch(e){}}  // no save — while dragging
+function setBpm(b){detectedBpm=clampBpm(b);renderBpmReadout();tl.setTempo(detectedBpm);try{tagRegions();}catch(e){}if(typeof saveProjectState==="function")saveProjectState();return fmtBpm(detectedBpm);}
+$("bpmInput").oninput=()=>{const b=+$("bpmInput").value;if(b>=30&&b<=320){detectedBpm=clampBpm(b);tl.setTempo(detectedBpm);try{tagRegions();}catch(e){}if(typeof saveProjectState==="function")saveProjectState();}};
+async function detectAndSetBpm(silent){   // runs automatically on load
+  if(!curBuf){if(!silent)toast("Load a track first.");return null;}
+  let b=null;
+  try{b=await detectBpm(curBuf);}catch(e){b=null;}   // strong offline detector
+  if(!b)b=estimateBpm(curBuf);                        // fallback: lightweight estimate
+  if(b){detectedBpm=clampBpm(b);renderBpmReadout();tl.setTempo(detectedBpm);tagRegions();}
+  return b;
+}
+// drag a number segment vertically to change the tempo (≈3px per step); commit (save) on release
+// BPM changes are undoable. Coalesce rapid input (a drag, a wheel burst) into ONE snapshot so a
+// single Ctrl+Z reverts the whole gesture rather than every tick.
+let _bpmUndoT=0;
+function bpmUndoMark(){const now=Date.now();if(now-_bpmUndoT>700&&typeof pushUndo==="function")pushUndo();_bpmUndoT=now;}
+function bpmDragHandle(el,step){
+  if(!el)return;
+  el.addEventListener("mousedown",e=>{e.preventDefault();bpmUndoMark();
+    const startY=e.clientY,start=detectedBpm||120;document.body.style.cursor="ns-resize";
+    const mv=ev=>liveBpm(start+Math.round((startY-ev.clientY)/3)*step);
+    const up=()=>{document.removeEventListener("mousemove",mv);document.removeEventListener("mouseup",up);document.body.style.cursor="";setBpm(detectedBpm);};
+    document.addEventListener("mousemove",mv);document.addEventListener("mouseup",up);});
+  el.addEventListener("wheel",e=>{e.preventDefault();bpmUndoMark();setBpm((detectedBpm||120)+(e.deltaY<0?step:-step));},{passive:false});
+}
+bpmDragHandle($("bpmInt"),1);      // whole BPM
+bpmDragHandle($("bpmDec"),0.01);   // fine .01
+// double-click either number → type an exact value
+function bpmStartEdit(){const wrap=document.querySelector(".bpmctl"),inp=$("bpmInput");if(!wrap)return;
+  wrap.classList.add("editing");inp.value=fmtBpm(detectedBpm);inp.focus();inp.select();
+  const fin=commit=>{if(commit){const v=+inp.value;if(v>=30&&v<=320){bpmUndoMark();setBpm(v);}}wrap.classList.remove("editing");renderBpmReadout();
+    inp.removeEventListener("blur",onBlur);inp.removeEventListener("keydown",onKey);};
+  const onBlur=()=>fin(true),onKey=e=>{if(e.key==="Enter"){e.preventDefault();fin(true);}else if(e.key==="Escape"){e.preventDefault();fin(false);}};
+  inp.addEventListener("blur",onBlur);inp.addEventListener("keydown",onKey);}
+$("bpmInt").addEventListener("dblclick",bpmStartEdit);
+$("bpmDec").addEventListener("dblclick",bpmStartEdit);
+$("bpmDouble").onclick=()=>{bpmUndoMark();toast(`BPM ×2 → ${setBpm(detectedBpm*2)}`);};
+$("bpmHalf").onclick=()=>{bpmUndoMark();toast(`BPM ÷2 → ${setBpm(detectedBpm/2)}`);};
+renderBpmReadout();
+/* ---- ANCHOR + SLIP. The ANCHOR is the grid's ORIGIN (bar 1) — the Anchor button drops it
+   exactly where the play marker sits. SLIP is an offset RELATIVE to the anchor (neutral 0 =
+   right on the anchor); ◀ ▶ nudge it, the ⇄ ruler-drag shoves it far. Effective grid origin =
+   anchor + slip, and the grid, regions, metronome and loop all build from it. ---- */
+let gridAnchor=0, gridSlip=0;
+function fmtOffset(s){const ms=Math.round(s*1000);return Math.abs(ms)<1000?((ms>0?"+":"")+ms+" ms"):((s>0?"+":"")+s.toFixed(2)+" s");}
+function applyGrid(save){
+  tl.setGridOffset(gridAnchor+gridSlip);
+  // The grid is the single source of truth: when warp pins exist, REBUILD the bent beat grid so it
+  // re-anchors to the new origin; when there are none, buildWarpBeats() returns null and the grid
+  // falls back to the constant-BPM lines that move with the anchor. This is why the anchor always
+  // visibly moves the grid — even right after using warp (stale beats get cleared here).
+  if(typeof buildWarpBeats==="function")tl.setBeats(buildWarpBeats());
+  $("slipVal").textContent=fmtOffset(gridSlip);
+  if(typeof metroResync==="function")metroResync();   // keep a running metronome locked to the new grid
+  if(save!==false&&typeof saveProjectState==="function")saveProjectState();
+}
+function updateSlipReadout(){$("slipVal").textContent=fmtOffset(gridSlip);}
+function setSlip(s){const lim=Math.max(8,tl.duration||8);gridSlip=Math.max(-lim,Math.min(lim,Math.round(s*1000)/1000));applyGrid();}
+$("slipBack").onclick=e=>setSlip(gridSlip-(e.shiftKey?0.001:0.01));   // Shift = 1ms fine
+$("slipFwd").onclick=e=>setSlip(gridSlip+(e.shiftKey?0.001:0.01));
+$("slipVal").onclick=()=>setSlip(0);                                  // neutral = back on the anchor
+$("slipDragTog").onclick=()=>{tl.slipDrag=!tl.slipDrag;$("slipDragTog").classList.toggle("on",tl.slipDrag);tl.render();
+  toast(tl.slipDrag?"Slip-drag ON — drag the numbered ruler left/right to shove the grid. Turn off to lock.":"Slip-drag off.");};
+$("anchorBtn").onclick=()=>{
+  if(typeof pushUndo==="function")pushUndo();   // anchoring is undoable (Ctrl+Z restores the prior grid)
+  gridAnchor=Math.max(0,(tl.playhead!=null?tl.playhead:(_pl.currentTime||0)));   // bar 1 = the play marker, right now
+  gridSlip=0; applyGrid();
+  $("anchorBtn").classList.add("on"); setTimeout(()=>$("anchorBtn").classList.remove("on"),500);
+  toast(`Bar 1 anchored at the play marker (${gridAnchor.toFixed(3)}s). Slip reset to neutral.`);
+};
+
+/* ================= WARP — bend the grid so a drifting song stays on beat =================
+   A constant BPM grid only lines up with a perfectly metronomic track. Real songs drift, so
+   the metronome that was dead-on at bar 1 wanders by the bridge. Warp pins fix that: drop a pin
+   on each downbeat that has drifted and the grid bends to pass through every pin — between pins
+   the tempo is whatever makes a whole number of beats fit, exactly like a DAW's warp markers.
+   The result is a per-beat time array fed to tl.setBeats (the same path the analysed-beat grid
+   uses), so the ruler, the snap targets, AND the metronome all follow the warped groove.
+   "Warping vision" (warpShow) just shows/hides + arms the pins for editing — the bend itself
+   stays in effect whether or not the pins are visible. */
+let warpMarkers=[], warpShow=false;
+function buildWarpBeats(){
+  if(!warpMarkers.length||!tl.duration)return null;
+  const bpb=tl.beatsPerBar||4, basePer=60/(tl.bpm||120);
+  const go=gridAnchor+gridSlip;                       // beat 0 (a downbeat) sits on the anchor
+  const A=[{beat:0,t:go}]; let prev=A[0];             // (beatIndex, time) pins; start at the anchor (bar 1 downbeat)
+  for(const mt of warpMarkers){
+    if(mt<=prev.t)continue;                            // pins must move forward in time (can't pin before bar 1)
+    let n=Math.round((mt-prev.t)/basePer); if(n<1)n=1; // beats since the previous pin (never collapse onto it)
+    A.push({beat:prev.beat+n,t:mt}); prev=A[A.length-1];
+  }
+  const firstPer=A.length>1?(A[1].t-A[0].t)/(A[1].beat-A[0].beat):basePer;
+  const lastPer =A.length>1?(A[A.length-1].t-A[A.length-2].t)/(A[A.length-1].beat-A[A.length-2].beat):basePer;
+  const timeOf=i=>{
+    if(i<=A[0].beat)return A[0].t+(i-A[0].beat)*firstPer;                 // before the first pin → extrapolate
+    for(let k=1;k<A.length;k++){if(i<=A[k].beat){const a=A[k-1],b=A[k];return a.t+(i-a.beat)*(b.t-a.t)/(b.beat-a.beat);}}
+    const b=A[A.length-1];return b.t+(i-b.beat)*lastPer;                  // after the last pin → extrapolate
+  };
+  // array[0] MUST be a true downbeat (ruler + metronome accent on index%bpb===0), so start on a bar
+  // line and NEVER front-filter the array (that would shift index 0 off a downbeat). bpb divides
+  // startBeat, so array index k is a downbeat exactly when k%bpb===0 — alignment preserved.
+  let startBeat=Math.floor(Math.round((0-go)/firstPer)/bpb)*bpb;          // a bar line near t=0
+  while(timeOf(startBeat)< -0.5)startBeat+=bpb;                            // step forward to the first in-range bar line
+  while(timeOf(startBeat-bpb)>=-0.5)startBeat-=bpb;                        // …but keep any earlier one still in range
+  const beats=[];
+  for(let i=startBeat;beats.length<20000;i++){const t=timeOf(i);beats.push(t);if(t>tl.duration+lastPer)break;}
+  return beats.length>8?beats:null;
+}
+function applyWarp(save,silent){
+  tl.setWarp(warpMarkers,warpShow);                    // pins for drawing + the show/hide state
+  applyGrid(silent?false:save);                        // rebuilds the (bent or constant) beat grid + metro, in ONE place
+}
+const warpBtnEl=$("warpBtn");
+if(warpBtnEl)warpBtnEl.onclick=()=>{
+  warpShow=!warpShow; warpBtnEl.classList.toggle("on",warpShow); tl.armWarp(warpShow);
+  toast(warpShow
+    ? "Warping vision ON — pins are visible. Click a downbeat to pin it; drag a pin to move it; click a pin to remove it. Play to hear the metronome track the bend."
+    : (warpMarkers.length?"Warping vision off — pins hidden, but the grid stays bent to them.":"Warping vision off."));
+};
+
+/* ---- metronome: a click on every beat at the project BPM. Reads tl.bpm live, so it
+   follows tempo changes. Locked to playback when a track is playing (accent on the
+   downbeat of each bar); free-runs as a practice click when no track is loaded. ---- */
+let metroOn=false,metroCtx=null,metroTimer=null,metroBeat=0,metroFreeNext=0,metroFreeIdx=0,metroSrc=null;
+// click-timing offset (seconds): + = click EARLIER, − = click LATER. Adjustable on-screen with the
+// Sync ◀ ▶ buttons (compensates your device's audio-output latency); persisted per browser.
+let metroLead=(()=>{const v=parseFloat(localStorage.getItem("ams.metroLead"));return isNaN(v)?0:v;})();
+/* AUTOMATIC sync: route the MUSIC and the CLICK through the SAME AudioContext so they share one
+   output path / latency — then the click can't drift ahead of the song (no manual dialing needed,
+   like a DAW's latency compensation). The earlier "no clicks" bug was the context SUSPENDING; we
+   now keep it awake (resume on play, on any interaction, and every metro tick). If routing isn't
+   possible on a browser, we fall back to the music's own output + the manual Sync offset. */
+function ensureMetroGraph(){
+  if(!metroCtx)metroCtx=new (window.AudioContext||window.webkitAudioContext)();
+  if(metroCtx.state!=="running"){try{metroCtx.resume();}catch(e){}}
+  if(!metroSrc){
+    try{metroSrc=metroCtx.createMediaElementSource(_pl);metroSrc.connect(metroCtx.destination);}
+    catch(e){metroSrc=null;}   // can't route → use the Sync dial to line it up by ear
+  }
+}
+// keep the (music-carrying) context alive whenever the user plays or interacts with the page
+_pl.addEventListener("play",()=>{if(metroCtx&&metroCtx.state!=="running"){try{metroCtx.resume();}catch(e){}}});
+document.addEventListener("pointerdown",()=>{if(metroCtx&&metroCtx.state!=="running"){try{metroCtx.resume();}catch(e){}}},true);
+let metroSched=[];   // scheduled click oscillators, so we can CANCEL future ones on a seek/restart
+function metroClick(when,accent){
+  const o=metroCtx.createOscillator(),g=metroCtx.createGain();
+  o.type="square";o.frequency.value=accent?2000:1250;
+  g.gain.setValueAtTime(0.0001,when);
+  g.gain.exponentialRampToValueAtTime(accent?0.5:0.3,when+0.001);
+  g.gain.exponentialRampToValueAtTime(0.0001,when+0.045);
+  o.connect(g).connect(metroCtx.destination);o.start(when);o.stop(when+0.06);
+  metroSched.push({o,when});
+  if(metroSched.length>96)metroSched=metroSched.filter(s=>s.when>metroCtx.currentTime-0.1);
+  // VISUAL flash in sync with the audible click — a way to SEE the timing (and confirm clicks fire)
+  const delayMs=Math.max(0,(when-metroCtx.currentTime)*1000);
+  setTimeout(()=>{const b=$("metro");if(b){b.classList.add("beat"+(accent?" acc":""));setTimeout(()=>b.classList.remove("beat","acc"),80);}},delayMs);
+}
+/* RE-LOCK the metronome to the current playhead after a POSITION JUMP (seek / stop-return):
+   drop any clicks queued ahead of the new spot, and re-aim the beat counter. */
+// first beat index at/after time t in a warped beat array (binary search)
+function warpIndexAt(t){const B=tl.beats;if(!B)return 0;let lo=0,hi=B.length-1,r=B.length;while(lo<=hi){const m=(lo+hi)>>1;if(B[m]>=t){r=m;hi=m-1;}else lo=m+1;}return r;}
+function metroResync(){
+  if(!metroOn||!metroCtx)return;
+  const t=metroCtx.currentTime;
+  metroSched.forEach(s=>{if(s.when>t+0.001){try{s.o.stop(t);}catch(e){}}});   // kill queued-but-unplayed clicks
+  metroSched=[];
+  if(tl.beats){metroBeat=warpIndexAt(_pl.currentTime);return;}                 // warped grid → metroBeat is an index into tl.beats
+  const spB=60/tl.bpm, go=tl.gridOffset||0;
+  metroBeat=Math.floor((_pl.currentTime-go)/spB);                              // next loop schedules from here
+}
+_pl.addEventListener("seeked",metroResync);                                    // position jumped → re-lock
+_pl.addEventListener("play",()=>{ if(metroOn)ensureMetroGraph(); });           // resuming → make sure the ctx is awake (don't cancel)
+function metroLoop(){
+  if(!metroOn)return;
+  if(metroCtx){
+    if(metroCtx.state!=="running"){try{metroCtx.resume();}catch(e){}}          // keep it awake → clicks never queue silently
+    const spB=60/tl.bpm, bpb=tl.beatsPerBar, ahead=0.12;
+    const playing=!!_pl.src&&!_pl.paused&&_pl.duration;  // robust: any loaded audio that's playing
+    if(playing){                                         // lock clicks to the track's beat grid (slip-aware)
+      const now=_pl.currentTime, lead=metroLead;         // on-screen Sync offset (audio-latency compensation)
+      if(tl.beats){                                      // WARPED grid → step through the literal beat times
+        const B=tl.beats;
+        if(metroBeat<0||metroBeat>=B.length||B[metroBeat]<now-0.25||B[metroBeat]>now+2)metroBeat=warpIndexAt(now);  // re-aim on seek/loop/warp change
+        while(metroBeat<B.length&&B[metroBeat]<now+ahead){const bt=B[metroBeat];
+          if(bt>=now-0.02)metroClick(metroCtx.currentTime+(bt-now)-lead,metroBeat%bpb===0);
+          metroBeat++;}
+      }else{                                             // constant BPM grid, anchored at the slip offset
+        const go=tl.gridOffset||0;
+        if(go+metroBeat*spB<now-spB||go+metroBeat*spB>now+2)metroBeat=Math.ceil((now-go)/spB);  // resync on seek/loop
+        while(go+metroBeat*spB<now+ahead){const bt=go+metroBeat*spB;
+          if(bt>=now-0.02)metroClick(metroCtx.currentTime+(bt-now)-lead,metroBeat%bpb===0);
+          metroBeat++;}
+      }
+    }else if(!cur){                                      // no track: free-run practice click
+      if(metroFreeNext===0)metroFreeNext=metroCtx.currentTime+0.1;
+      while(metroFreeNext<metroCtx.currentTime+ahead){
+        metroClick(metroFreeNext,metroFreeIdx%bpb===0);
+        metroFreeNext+=spB;metroFreeIdx++;}
+    }                                                    // track loaded but paused → silent
+  }
+  metroTimer=setTimeout(metroLoop,40);
+}
+$("metro").onclick=()=>{
+  metroOn=!metroOn;$("metro").classList.toggle("on",metroOn);
+  if(metroOn){
+    ensureMetroGraph();
+    metroBeat=0;metroFreeNext=0;metroFreeIdx=0;metroLoop();
+    toast(`Metronome on — ${tl.bpm} BPM, accent on the downbeat.`);
+  }else{clearTimeout(metroTimer);toast("Metronome off.");}
+};
+/* Scratch pad (composite lane) — closed by default; this button opens/closes it. */
+tl.showComposite=false;
+$("scratchBtn").onclick=()=>{tl.showComposite=!tl.showComposite;$("scratchBtn").classList.toggle("on",tl.showComposite);tl.render();
+  toast(tl.showComposite?"Scratch pad open — copy a waveform span, then Paste into it.":"Scratch pad closed.");};
+/* metronome timing is AUTO-synced (music + click share one audio path); these discreet ‹ › nudges
+   fine-tune any residual offset by ear. + metroLead = earlier, − = later. */
+function setMetroLead(v){metroLead=Math.max(-0.3,Math.min(0.3,Math.round(v*1000)/1000));try{localStorage.setItem("ams.metroLead",metroLead);}catch(e){}$("metroOff").textContent=Math.round(metroLead*1000);}
+$("metroEarly").onclick=e=>setMetroLead(metroLead+(e.shiftKey?0.02:0.005));
+$("metroLate").onclick=e=>setMetroLead(metroLead-(e.shiftKey?0.02:0.005));
+$("metroOff").onclick=()=>setMetroLead(0);
+$("metroOff").textContent=Math.round(metroLead*1000);
+
+/* ================= audio edit engine (client-side buffer surgery) =================
+   Edits operate on the decoded AudioBuffer and re-encode to a WAV blob so the existing
+   player + timeline (driven by the <audio> element) keep working. Arrangement regions
+   are intentionally NOT moved — timeline edits change the AUDIO; you re-fit the tags. */
+let _ac=null;function audioCtx(){return _ac||(_ac=new (window.AudioContext||window.webkitAudioContext)());}
+function makeBuffer(chs,len,sr){return audioCtx().createBuffer(Math.max(1,chs),Math.max(1,len),sr);}
+function copyRange(buf,s,e){
+  const sr=buf.sampleRate,a=Math.max(0,Math.floor(s*sr)),z=Math.min(buf.length,Math.floor(e*sr));
+  const out=makeBuffer(buf.numberOfChannels,Math.max(1,z-a),sr);
+  for(let c=0;c<buf.numberOfChannels;c++)out.getChannelData(c).set(buf.getChannelData(c).subarray(a,z));
+  return out;
+}
+function silenceLike(durSec,ref){return makeBuffer(ref.numberOfChannels,Math.floor(durSec*ref.sampleRate),ref.sampleRate);}
+/* remove [at,at+removeSec) and insert insertBuf (or nothing) at 'at' */
+function spliceBuffer(buf,atSec,removeSec,insertBuf){
+  const sr=buf.sampleRate,at=Math.max(0,Math.floor(atSec*sr)),rem=Math.max(0,Math.floor(removeSec*sr));
+  const ins=insertBuf?insertBuf.length:0,chs=buf.numberOfChannels;
+  const out=makeBuffer(chs,Math.max(1,buf.length-rem+ins),sr);
+  for(let c=0;c<chs;c++){
+    const src=buf.getChannelData(c),dst=out.getChannelData(c);
+    dst.set(src.subarray(0,at),0);
+    if(ins)dst.set(insertBuf.getChannelData(Math.min(c,insertBuf.numberOfChannels-1)),at);
+    dst.set(src.subarray(at+rem),at+ins);
+  }
+  return out;
+}
+function bufferToWav(buf){
+  const chs=buf.numberOfChannels,sr=buf.sampleRate,len=buf.length,total=44+len*chs*2;
+  const ab=new ArrayBuffer(total),v=new DataView(ab);
+  const ws=(o,s)=>{for(let i=0;i<s.length;i++)v.setUint8(o+i,s.charCodeAt(i));};
+  ws(0,"RIFF");v.setUint32(4,total-8,true);ws(8,"WAVE");ws(12,"fmt ");
+  v.setUint32(16,16,true);v.setUint16(20,1,true);v.setUint16(22,chs,true);
+  v.setUint32(24,sr,true);v.setUint32(28,sr*chs*2,true);v.setUint16(32,chs*2,true);v.setUint16(34,16,true);
+  ws(36,"data");v.setUint32(40,len*chs*2,true);
+  let o=44;for(let i=0;i<len;i++)for(let c=0;c<chs;c++){let s=Math.max(-1,Math.min(1,buf.getChannelData(c)[i]));v.setInt16(o,s<0?s*32768:s*32767,true);o+=2;}
+  return new Blob([ab],{type:"audio/wav"});
+}
+/* export the current (possibly edited) audio to a .wav download */
+$("aExport").onclick=()=>{
+  if(!curBuf){toast("Load a track (or edit one) first — there's no audio to export yet.");return;}
+  const base=((cur&&cur.name)?cur.name.replace(/\.[^.]+$/,""):"songflow")+"-edited";
+  const a=document.createElement("a");a.href=URL.createObjectURL(bufferToWav(curBuf));
+  a.download=base.replace(/[^a-z0-9\-_ ]/gi,"_")+".wav";a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),2000);
+  toast("Exported "+a.download);
+};
+/* commit an edited buffer: re-encode, reload the player + timeline, keep the playhead */
+function applyEdit(newBuf,atTime){
+  curBuf=newBuf;
+  const keep=atTime!=null?atTime:(isCur()?_pl.currentTime:0);
+  const blob=bufferToWav(newBuf), url=URL.createObjectURL(blob);
+  if(cur&&cur.url&&cur.url.indexOf("blob:")===0)try{URL.revokeObjectURL(cur.url);}catch(e){}
+  cur={name:(cur&&cur.name)||"edited.wav",url};
+  $("plName").textContent=cur.name;
+  _pl.src=url;_pl.load();
+  _pl.addEventListener("loadedmetadata",function once(){try{_pl.currentTime=Math.min(keep,newBuf.duration);}catch(e){}_pl.removeEventListener("loadedmetadata",once);});
+  tl.setLanes([{idx:0,label:cur.name,color:"#ffd43b",buffer:newBuf}]);
+  tl.setDuration(newBuf.duration);
+  saveProjectAudio(blob);saveProjectState();          // persist the edit so it survives navigation
+}
+/* UNDO hook: restore a previously-captured AudioBuffer (held by the undo stack) without recording
+   a NEW edit. Only reloads when it actually differs — most undos are lyrics/grid, not audio. */
+function restoreAudioBuffer(buf){
+  if(buf===undefined||buf===null)return;              // no audio snapshot / pre-load state → leave the track alone
+  if(buf===curBuf)return;                             // unchanged → nothing to do
+  applyEdit(buf, isCur()?_pl.currentTime:0);
+}
+/* insert N blank bars at a bar-snapped time; everything to the right shifts back */
+function addBlankRegion(atSec,bars){
+  if(!curBuf){toast("Load a track first.");return;}
+  const spb=(60/tl.bpm)*tl.beatsPerBar;
+  const at=Math.round(atSec/spb)*spb, dur=bars*spb;
+  if(typeof pushUndo==="function")pushUndo();         // inserting blank bars is undoable
+  applyEdit(spliceBuffer(curBuf,at,0,silenceLike(dur,curBuf)),at);
+  inpaintTarget={start:at,end:at+dur};
+  tl.sel={start:at,end:at+dur};tl.render();
+  openInpaint();
+  toast(`Inserted ${bars} blank bars at bar ${(at/spb+1).toFixed(0)} — paint a genre in, or leave it silent. Re-fit your arrangement tags.`);
+}
+
+/* ================= audio clipboard: copy / cut / paste / delete =================
+   Source = a waveform span you drag on the lane (tl.sel) OR a selected arrangement
+   region. Paste lands at the playhead and ripples the rest right; pasting into a
+   highlighted span replaces it. ---- */
+let audioClip=null;
+function selSpanAudio(){                                   // current selection → {start,end} in AUDIO seconds
+  if(tl.sel && tl.sel.end>tl.sel.start) return {start:tl.sel.start,end:tl.sel.end};
+  if(tl.selRegions && tl.selRegions.length){
+    const rs=tl.selRegions.map(i=>tl.regions[i]).filter(Boolean);
+    if(rs.length){const go=tl.gridOffset||0;
+      return {start:Math.min(...rs.map(r=>r.start))+go,end:Math.max(...rs.map(r=>r.end))+go};}
+  }
+  return null;
+}
+function audioCopy(){
+  if(!curBuf){toast("Load a track first.");return false;}
+  const s=selSpanAudio();if(!s){toast("Drag a span on the waveform (or select a section) to copy.");return false;}
+  audioClip=copyRange(curBuf,Math.max(0,s.start),Math.min(curBuf.duration,s.end));
+  toast(`Copied ${fmt(s.end-s.start)} of audio — paste lands at the playhead.`);return true;
+}
+function audioDelete(){
+  if(!curBuf)return;const s=selSpanAudio();if(!s){toast("Drag a span on the waveform to delete.");return;}
+  const a=Math.max(0,s.start),len=Math.min(curBuf.duration,s.end)-a;
+  if(typeof pushUndo==="function")pushUndo();         // audio cut/delete is undoable
+  applyEdit(spliceBuffer(curBuf,a,len,null),a);tl.sel=null;tl.render();
+  toast("Deleted — the audio closed up.");
+}
+function audioCut(){ if(audioCopy())audioDelete(); }
+function audioPaste(){
+  if(!audioClip){toast("Nothing copied yet — Copy a region first.");return;}
+  if(!curBuf){toast("Load a track first.");return;}
+  let at,removeLen;
+  if(tl.sel && tl.sel.end>tl.sel.start){ at=tl.sel.start; removeLen=tl.sel.end-tl.sel.start; }   // into a highlighted span → replace it
+  else { at=(isCur()?_pl.currentTime:(tl.playhead||0)); removeLen=0; }                            // else at the playhead → ripple
+  at=Math.max(0,Math.min(at,curBuf.duration));
+  if(typeof pushUndo==="function")pushUndo();         // audio paste is undoable
+  applyEdit(spliceBuffer(curBuf,at,removeLen,audioClip),at);tl.sel=null;tl.render();
+  toast(removeLen?"Replaced the selection with the copied audio.":"Pasted at the playhead — the rest shifted right.");
+}
+$("aCopy").onclick=audioCopy;$("aCut").onclick=audioCut;$("aPaste").onclick=audioPaste;$("aDelete").onclick=audioDelete;
+document.addEventListener("keydown",e=>{                   // Ctrl+C/X/V on the timeline (not while typing lyrics)
+  if(/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)||document.activeElement.isContentEditable)return;
+  if(!curBuf||!(e.ctrlKey||e.metaKey))return;
+  const k=e.key.toLowerCase();
+  if(k==="c"){e.preventDefault();audioCopy();}
+  else if(k==="x"){e.preventDefault();audioCut();}
+  else if(k==="v"){e.preventDefault();audioPaste();}
+});
+
+/* ================= per-project persistence =================
+   The audio blob lives in IndexedDB keyed by the project id; BPM / slip / region
+   positions / track name ride along in the project's localStorage record. So a
+   project reopens exactly where it left off — waveform and all. ---- */
+let _idb=null;
+function idbOpen(){return new Promise((res,rej)=>{if(_idb)return res(_idb);
+  let r;try{r=indexedDB.open("songflow",1);}catch(e){return rej(e);}
+  r.onupgradeneeded=()=>{const db=r.result;if(!db.objectStoreNames.contains("audio"))db.createObjectStore("audio");};
+  r.onsuccess=()=>{_idb=r.result;res(_idb);};r.onerror=()=>rej(r.error);});}
+async function idbPut(k,v){const db=await idbOpen();return new Promise((res,rej)=>{const t=db.transaction("audio","readwrite");t.objectStore("audio").put(v,k);t.oncomplete=()=>res();t.onerror=()=>rej(t.error);});}
+async function idbGet(k){const db=await idbOpen();return new Promise((res,rej)=>{const t=db.transaction("audio","readonly");const q=t.objectStore("audio").get(k);q.onsuccess=()=>res(q.result);q.onerror=()=>rej(q.error);});}
+async function saveProjectAudio(blob){try{const id=(typeof activeDocId==="function")&&activeDocId();if(id)await idbPut(id,blob);}catch(e){}}
+function saveProjectState(){try{const d=docsState.docs[docsState.active];if(!d)return;
+  d.bpm=tl.bpm;d.anchor=gridAnchor;d.slip=gridSlip;d.warp=warpMarkers.slice();d.warpShow=warpShow;d.manualBars=manualBars;d.trackName=cur?cur.name:null;
+  if(typeof doc!=="undefined")d.text=doc.innerText;saveDocs();}catch(e){}}
+/* ---- autosave: never lose progress. Text already saves on every edit; this is a safety
+   net that also flushes BPM / slip / arrangement positions periodically and whenever the
+   tab is hidden or closed. ---- */
+function autosaveNow(){try{if(typeof saveProjectState==="function")saveProjectState();else if(typeof saveDocs==="function")saveDocs();}catch(e){}}
+setInterval(autosaveNow,10000);
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="hidden")autosaveNow();});
+window.addEventListener("beforeunload",autosaveNow);
+window.addEventListener("pagehide",autosaveNow);
+async function restoreProjectState(){
+  let d=null;try{d=docsState.docs[docsState.active];}catch(e){}
+  curBuf=null;cur=null;regionsFromAudio=false;                       // clear the previous project's audio
+  $("curTrk").textContent="no track";$("plName").textContent="No track loaded";
+  tl.setLanes([]);tl.setSectionMarkers&&tl.setSectionMarkers([]);
+  if(d){
+    if(d.bpm){detectedBpm=d.bpm;tl.setTempo(d.bpm);if(typeof renderBpmReadout==="function")renderBpmReadout();}
+    // restore warp pins BEFORE applyGrid — applyGrid rebuilds the (bent or constant) beat grid from them
+    warpMarkers=(d.warp&&d.warp.length)?d.warp.slice():[]; warpShow=!!d.warpShow;
+    gridAnchor=(d.anchor!=null)?d.anchor:0; gridSlip=(d.slip!=null)?d.slip:0;
+    if(typeof applyWarp==="function")applyWarp(false); else applyGrid(false);
+    if($("warpBtn"))$("warpBtn").classList.toggle("on",warpShow); tl.armWarp(warpShow);
+    manualBars=(d.manualBars&&d.manualBars.length)?d.manualBars.slice():null;
+  }
+  let blob=null;try{const id=(typeof activeDocId==="function")&&activeDocId();if(id)blob=await idbGet(id);}catch(e){}
+  if(blob){try{
+    const ac=new (window.AudioContext||window.webkitAudioContext)();
+    curBuf=await ac.decodeAudioData(await blob.arrayBuffer());
+    const url=URL.createObjectURL(blob);
+    cur={name:(d&&d.trackName)||"track.wav",url};
+    $("curTrk").textContent=cur.name;$("plName").textContent=cur.name;
+    _pl.src=url;_pl.load();
+    tl.setDuration(curBuf.duration);
+    tl.setLanes([{idx:0,label:cur.name,color:"#ffd43b",buffer:curBuf}]);
+  }catch(e){curBuf=null;}}
+  try{tagRegions();}catch(e){}
+}
+
+/* ================= inpaint panel ================= */
+let inpaintTarget=null;
+const INPAINT_MODELS=[
+  {v:"ace-step",t:"ACE-Step (Apache-2.0 · recommended)"},
+  {v:"stable-audio-open",t:"Stable Audio Open (community license)"},
+  {v:"riffusion",t:"Riffusion (MIT)"}
+];
+$("ipModel").innerHTML=INPAINT_MODELS.map((m,i)=>`<option value="${m.v}"${i===0?" selected":""}>${m.t}</option>`).join("");
+function songflowEngine(){return localStorage.getItem("ams.engine.url")||"";}
+function openInpaint(){
+  const p=$("inpaintPanel");p.style.display="block";
+  const r=inpaintTarget;const spb=(60/tl.bpm)*tl.beatsPerBar;
+  $("ipRange").textContent=r?`bars ${(r.start/spb+1).toFixed(1)}–${(r.end/spb+1).toFixed(1)} · ${fmt(r.start)}–${fmt(r.end)}`:"select a region";
+  $("ipNote").innerHTML=songflowEngine()
+    ?`Renders on the connected Songflow engine.`
+    :`The fill renders on the <b>Songflow audio engine</b> (cloud worker) — not yet connected, so the region stays silent for now. Everything else is editable offline.`;
+  setTimeout(()=>$("ipPrompt").focus(),30);
+}
+$("ipClose").onclick=()=>$("inpaintPanel").style.display="none";
+$("ipGen").onclick=async()=>{
+  const prompt=$("ipPrompt").value.trim();
+  if(!prompt){toast("Describe the genre/vibe to paint in.");$("ipPrompt").focus();return;}
+  if(!inpaintTarget){toast("Select a region to inpaint first.");return;}
+  const engine=songflowEngine();
+  if(!engine){toast("No Songflow audio engine connected yet — the fill renders once the cloud worker is live.");return;}
+  // pluggable path, ready for when the worker exists: send the region + prompt + model
+  const r=inpaintTarget;const note=$("ipNote");note.textContent="Rendering fill…";
+  try{
+    const region=copyRange(curBuf,r.start,r.end);
+    const fd=new FormData();
+    fd.append("audio",bufferToWav(region),"region.wav");
+    fd.append("prompt",prompt);fd.append("model",$("ipModel").value);
+    fd.append("bpm",String(tl.bpm));
+    const res=await fetch(engine.replace(/\/$/,"")+"/inpaint",{method:"POST",body:fd});
+    if(!res.ok)throw new Error("engine "+res.status);
+    const buf=await audioCtx().decodeAudioData(await res.arrayBuffer());
+    applyEdit(spliceBuffer(curBuf,r.start,r.end-r.start,buf),r.start);   // replace the region with the fill
+    note.textContent="Filled.";
+  }catch(err){note.textContent="Fill failed: "+err.message;}
+};
+
+/* ================= timeline right-click → add blank region ================= */
+let ctxTime=0;
+function hideCtx(){$("ctxMenu").style.display="none";}
+$("tl").addEventListener("contextmenu",e=>{
+  if(e.target.closest&&e.target.closest(".region"))return;          // not over an arrangement chip
+  if(!curBuf){return;}                                              // need a loaded track to insert into
+  e.preventDefault();
+  ctxTime=tl._tAtClientX(e.clientX);
+  const m=$("ctxMenu");m.style.display="block";
+  m.style.left=Math.min(window.innerWidth-200,e.clientX)+"px";
+  m.style.top=Math.min(window.innerHeight-120,e.clientY)+"px";
+});
+$("ctxMenu").querySelectorAll(".ctxsub > div").forEach(el=>el.onclick=()=>{hideCtx();addBlankRegion(ctxTime,+el.dataset.bars);});
+document.addEventListener("click",e=>{if(!$("ctxMenu").contains(e.target))hideCtx();});
+document.addEventListener("keydown",e=>{if(e.key==="Escape"){hideCtx();$("inpaintPanel").style.display="none";}});
+/* ---- detect arrangement sections from the audio (offline) ---- */
+function detectAndSetSections(silent){
+  if(!curBuf){if(!silent)toast("Load a track first.");return;}
+  if(!silent)toast("Analyzing arrangement…");
+  // give the toast a frame to paint before the (synchronous) analysis runs
+  setTimeout(()=>{
+    let segs=[];
+    try{
+      // pass a bar grid so section starts snap to bars
+      const spb=(60/tl.bpm)*tl.beatsPerBar;const bars=[];
+      for(let t=0;t<curBuf.duration;t+=spb)bars.push(t);
+      segs=detectSections(curBuf,{beats:bars});
+    }catch(e){segs=[];}
+    if(!segs.length){if(!silent)toast("Couldn't find clear sections — try setting BPM first, or drag a region manually.");return;}
+    if(hasArrangementTags()){
+      // SACRED BOND: your tagged arrangement is the source of truth — NEVER replace it.
+      // Show the detected section starts as non-destructive dashed markers to align to.
+      regionsFromAudio=false; tagRegions();              // make sure the tag regions are showing
+      tl.setSectionMarkers(segs.map(s=>s.start));        // overlay the detected boundaries
+      if(!silent)toast(`Kept your tagged arrangement — it stays bonded to the lyrics. Marked ${segs.length} detected section starts (dashed) so you can drag your tags to line them up.`);
+    }else{
+      // no tags to protect → audio sections become the regions to name
+      regionsFromAudio=true; tl.reorderable=false; tl.setSectionMarkers([]); tl.setRegions(segs);
+      if(!silent)toast(`Found ${segs.length} sections — double-click to name them, or write tagged lyrics and they'll drive the timeline.`);
+    }
+  },30);
+}
+$("secAuto").onclick=()=>detectAndSetSections(false);
+/* compact tempo estimate: low-pass energy envelope → autocorrelation 60–180 BPM */
+function estimateBpm(buf){
+  const sr=buf.sampleRate, ch=buf.getChannelData(0);
+  const win=Math.floor(sr*0.02), env=[];           // 20ms energy frames
+  for(let i=0;i<ch.length;i+=win){let s=0;for(let j=i;j<i+win&&j<ch.length;j++)s+=ch[j]*ch[j];env.push(s);}
+  // difference (onset-ish) signal
+  const d=env.map((v,i)=>Math.max(0,v-(env[i-1]||0)));
+  const fps=sr/win;
+  let best=0,bestLag=0;
+  for(let bpm=60;bpm<=180;bpm++){
+    const lag=Math.round(60/bpm*fps);if(lag<2||lag>=d.length)continue;
+    let s=0;for(let i=0;i+lag<d.length;i++)s+=d[i]*d[i+lag];
+    if(s>best){best=s;bestLag=bpm;}
+  }
+  return bestLag||null;
+}
+
+/* a tag can carry an explicit bar length, e.g. "[Instrumental break - 16 bars]". Parse
+   the trailing "- N bars" off the label so we get {name, bars}. */
+function parseTagBars(label){
+  const m=String(label==null?"":label).match(/^(.*?)\s*[-–—]\s*(\d+)\s*bars?\s*$/i);
+  return m?{name:m[1].trim(),bars:Math.max(1,parseInt(m[2],10))}:{name:String(label==null?"":label).trim(),bars:null};
+}
+function withBars(name,bars){return `${name} - ${bars} bars`;}
+window.parseTagBars=parseTagBars;window.withBars=withBars;
+/* arrangement tags → regions. A section is sized by an explicit "- N bars" tag if present,
+   otherwise by its content (1 line = 1 bar, min 1). Positions are free: contiguous by
+   default, or wherever the user dragged/rippled them (manualBars, stored in BARS so they
+   survive tempo changes). Gaps are allowed so the arrangement can line up with a track. */
+function tagRegions(){
+  const spb=(60/tl.bpm)*tl.beatsPerBar;
+  const lines=doc.innerText.split("\n");
+  // parse sections + their length in bars (content lines)
+  const secs=[];let curSec=null;
+  for(const l of lines){const t=l.trim();const m=t.match(/^\[(.+)\]$/);
+    if(m){curSec={label:m[1],len:0,lyricLines:0};secs.push(curSec);}
+    else if(t&&curSec){curSec.len++;curSec.lyricLines++;}}
+  if(!secs.length){                                                    // no tags → leave any audio-detected sections alone
+    if(typeof regionsFromAudio!=="undefined"&&regionsFromAudio)return;
+    if(!curBuf)tl.setDuration(0); tl.reorderable=false; manualBars=null; tl.setRegions([]); return; }
+  // TAGS EXIST → they ALWAYS own the timeline. The bond with the lyrics is never broken,
+  // so audio-detected sections can never replace them.
+  regionsFromAudio=false;
+  // explicit "- N bars" overrides the line-count length; otherwise min 1 bar of width
+  secs.forEach(s=>{const pb=parseTagBars(s.label);s.name=pb.name;s.explicitBars=pb.bars;
+    s.len=(pb.bars!=null)?pb.bars:Math.max(1,s.len);});
+  // manual overrides only stay valid while the section COUNT is unchanged
+  if(!manualBars||manualBars.length!==secs.length)manualBars=secs.map(()=>null);
+  // start bar per section: manual position wins, else packed right after the previous one
+  const startBar=[];let cum=0;
+  for(let k=0;k<secs.length;k++){
+    const s=(manualBars[k]!=null)?Math.max(0,manualBars[k]):cum;
+    startBar.push(s); cum=Math.max(cum,s+secs[k].len);
+  }
+  const lastEnd=Math.max(...startBar.map((s,k)=>s+secs[k].len));
+  // total span: the track if loaded; otherwise the arrangement + a few bars of room to drag into
+  const span=curBuf?curBuf.duration:(lastEnd+4)*spb;
+  if(!curBuf)tl.setDuration(span);
+  const regs=secs.map((s,k)=>({start:Math.min(startBar[k]*spb,span),
+    end:Math.min((startBar[k]+s.len)*spb,span),
+    label:s.name,bars:s.len,explicitBars:s.explicitBars,lenBars:s.len,hasLyrics:s.lyricLines>0,userEdited:manualBars[k]!=null})).filter(r=>r.end>r.start);
+  tl.reorderable=true;                                                 // these regions are linked to the lyric blocks
+  tl.setRegions(regs);
+}
+
+/* ================= resizable timeline height ================= */
+(function tlResizeInit(){
+  const handle=$("tlResize"),host=$("tl");if(!handle||!host)return;
+  const apply=h=>{host.style.setProperty("--lane-h",h+"px");host.style.setProperty("--tlmax",(h+54)+"px");};
+  const saved=+localStorage.getItem("ams.tlh");if(saved>=52)apply(saved);
+  handle.addEventListener("mousedown",e=>{e.preventDefault();
+    const lane=host.querySelector(".lane");const startH=lane?lane.getBoundingClientRect().height:52,startY=e.clientY;
+    document.body.style.cursor="ns-resize";
+    const mv=ev=>apply(Math.max(52,Math.min(680,Math.round(startH+(ev.clientY-startY)))));
+    const up=()=>{document.removeEventListener("mousemove",mv);document.removeEventListener("mouseup",up);document.body.style.cursor="";
+      const h=parseInt(getComputedStyle(host).getPropertyValue("--lane-h"))||52;localStorage.setItem("ams.tlh",h);try{tl.render();}catch(e){}};
+    document.addEventListener("mousemove",mv);document.addEventListener("mouseup",up);
+  });
+})();
+
+/* ================= guided coach-marks tour ================= */
+const TOUR=[
+  {sel:"#doc",t:"Write your lyrics",b:"Type here — every line is one bar. A tag like [Verse] sits on its own line (type \"[\" for the menu). With lyrics under it, it's a Lyrics Region tag; the SAME tag appears on the timeline as an arrangement region tag. A tag can also have no lyrics (e.g. an instrumental break) — then you just give it a bar length."},
+  {sel:"#gut",t:"The gutter",b:"Each bar shows its number, syllable count, and the rhyme vowel you land on."},
+  {sel:"#thisBar",t:"Your live writing coach",b:"For the bar your cursor is on, this tells you which vowel completes the rhyme — a couplet, or a cross-rhyme (ABAB)."},
+  {sel:"#rhymeList",t:"Rhyme words",b:"Words that rhyme with your current line. Click to drop one at the cursor; Shift-click to copy."},
+  {sel:"#schemeMap",t:"Scheme map",b:"One colored dot per bar shows your rhyme pattern. A white ring marks a cross-rhyme (ABAB) pair."},
+  {sel:".gridctl",t:"Tempo & beat grid",b:"Drag the BPM numbers to fine-tune the tempo. Hit Anchor, then click the first downbeat anywhere on the timeline — bar 1 snaps there and the whole grid pivots to lock to your song."},
+  {sel:"#tl",t:"The timeline",b:"Your track as a waveform with a beat grid. Click to move the playhead — it snaps to the Snap menu's resolution (whole note by default, then ½, ¼/beat, ⅛, 1⁄16). Drag to select a span. Drag the bar under the timeline to make it taller."},
+  {sel:".regionstrip",t:"Arrangement region tags",b:"Same tags as the lyric editor, shown on the grid. Teal = a region with lyrics; amber = an arrangement-only region (no lyrics, e.g. an instrumental break). Drag to reorder (an insert line shows where it lands), double-click to rename, Alt+Click (or click the tag in the lyrics) for the menu: bar length, rename, delete."},
+  {sel:"#ideaGo",t:"Generate",b:"Write matching bars with the AI engine you choose — free, or your own key. Overrides can force a vowel or syllable count for special cases."},
+  {sel:"#lExport",t:"Export & save",b:"Save your lyrics as text, or export the edited audio. Everything autosaves in your browser as you go."}
+];
+let tourI=0;
+function tourStepEl(){const el=document.querySelector(TOUR[tourI].sel);return (el&&el.getBoundingClientRect().width>2)?el:null;}
+function tourShow(){
+  const ovl=$("tourOvl");
+  while(tourI<TOUR.length&&!tourStepEl())tourI++;          // skip any step whose target isn't visible
+  if(tourI>=TOUR.length){tourEnd();return;}
+  const step=TOUR[tourI],el=tourStepEl();
+  try{el.scrollIntoView({block:"nearest",inline:"nearest"});}catch(e){}
+  const r=el.getBoundingClientRect(),pad=6,hole=$("tourHole");
+  hole.style.left=(r.left-pad)+"px";hole.style.top=(r.top-pad)+"px";hole.style.width=(r.width+pad*2)+"px";hole.style.height=(r.height+pad*2)+"px";
+  $("tourTitle").textContent=step.t;$("tourBody").textContent=step.b;
+  $("tourStep").textContent=(tourI+1)+" / "+TOUR.length;
+  $("tourBack").style.visibility=tourI?"visible":"hidden";
+  $("tourNext").textContent=(tourI===TOUR.length-1)?"Done":"Next";
+  ovl.classList.add("on");
+  const card=$("tourCard"),cw=card.offsetWidth||300,ch=card.offsetHeight||150;
+  let top=r.bottom+12;if(top+ch>window.innerHeight-8)top=Math.max(8,r.top-ch-12);
+  let left=Math.min(Math.max(8,r.left),window.innerWidth-cw-8);
+  card.style.left=left+"px";card.style.top=top+"px";
+}
+function tourStart(){if(typeof showHelp==="function")showHelp(false);tourI=0;tourShow();}
+function tourEnd(){$("tourOvl").classList.remove("on");try{localStorage.setItem("ams.tour.seen","1");}catch(e){}}
+$("tourBtn").onclick=tourStart;
+$("tourNext").onclick=()=>{tourI++;if(tourI>=TOUR.length)tourEnd();else tourShow();};
+$("tourBack").onclick=()=>{tourI=Math.max(0,tourI-1);tourShow();};
+$("tourSkip").onclick=tourEnd;
+window.addEventListener("keydown",e=>{if(e.key==="Escape"&&$("tourOvl").classList.contains("on"))tourEnd();});
+window.addEventListener("resize",()=>{if($("tourOvl").classList.contains("on"))tourShow();});
+if(!localStorage.getItem("ams.tour.seen"))setTimeout(()=>{try{tourStart();}catch(e){}},800);   // first visit → auto-run
+</script>
+<script src="lyric-core.js?v=55"></script>
+</body>
+</html>
