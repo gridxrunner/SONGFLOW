@@ -1370,15 +1370,16 @@ $("ideaGo").onclick=generateLyrics;
    Select bars in the editor → a popover offers Replace (rewrite to the selection's rhythm/rhyme
    skeleton, governed by two fidelity dials) or Add after (normal continuation). Reuses the engine,
    the quadrant feel, and the validation/retry from generateLyrics. */
-async function replaceSelection(ls,le,selLines,vMatch,sMatch){
-  const provider=($("aiProvider")&&$("aiProvider").value)||localStorage.getItem(AI_PROV_LS)||"groq";
+/* shared rewrite core: given a list of original bars, return N fresh bars matching each one's
+   rhythm/rhyme skeleton (per the two dials). Used by BOTH contiguous Replace and multi-select. */
+async function _rewriteBars(bars,vMatch,sMatch){
+  const provider=($("aiProvider")&&$("aiProvider").value)||localStorage.getItem(AI_PROV_LS)||"free";
   const model=($("aiModel")&&$("aiModel").value.trim())||aiModelOf(provider);
   const note=$("selNote");
-  if(provider!=="free"&&!aiKeyOf(provider)){if(note){note.style.color="var(--danger)";note.textContent=`Add your ${AI.providers[provider].label} key first.`;}if($("aiKey"))$("aiKey").click();return;}
-  // only LYRIC lines are rewritten; tags/blanks are preserved in place
-  const barIdx=selLines.map((l,i)=>(l.trim()&&!isTag(l))?i:-1).filter(i=>i>=0);
-  const bars=barIdx.map(i=>selLines[i]); const n=bars.length;
-  if(!n){if(note){note.style.color="var(--danger)";note.textContent="Highlight at least one lyric line.";}return;}
+  if(provider!=="free"&&!aiKeyOf(provider)){if(note){note.style.color="var(--danger)";note.textContent=`Add your ${AI.providers[provider].label} key first.`;}if($("aiKey"))$("aiKey").click();return null;}
+  bars=bars.filter(l=>l&&l.trim()&&!isTag(l));
+  const n=bars.length;
+  if(!n){if(note){note.style.color="var(--danger)";note.textContent="Select at least one lyric line.";}return null;}
   const skel=bars.map(l=>({syl:sylOfBar(l),vow:vowelClass(rhymeAnchorWord(l))}));
   const vHigh=vMatch>=50,vHard=vMatch>=80,sHigh=sMatch>=50;
   const sTol=sMatch>=80?1:sMatch>=50?2:99;                       // syllable tolerance from the dial (floored at 1)
@@ -1412,15 +1413,75 @@ Output ONLY the ${n} new bars, one per line. No tags, numbering, quotes, or comm
       if(a<maxTries&&note)note.textContent=`Tightening the match (try ${a+1})…`;
     }
     if(!out||!out.length)throw new Error("empty response");
-    pushUndo();
-    const rebuilt=selLines.slice(); out.forEach((b,k)=>{if(barIdx[k]!=null)rebuilt[barIdx[k]]=b;});
-    const text=doc.innerText; doc.textContent=text.slice(0,ls)+rebuilt.join("\n")+text.slice(le);
-    if(rhymeOn)paintRhymes();else update(); try{tagRegions();}catch(e){}
-    if(typeof saveProjectState==="function")saveProjectState();
-    hideSelPop();
-  }catch(err){if(note){note.style.color="var(--danger)";note.textContent="Failed: "+err.message;}}
-  if(go)go.disabled=false;
+    if(go)go.disabled=false; return out;
+  }catch(err){if(note){note.style.color="var(--danger)";note.textContent="Failed: "+err.message;} if(go)go.disabled=false; return null;}
 }
+async function replaceSelection(ls,le,selLines,vMatch,sMatch){
+  const barIdx=selLines.map((l,i)=>(l.trim()&&!isTag(l))?i:-1).filter(i=>i>=0);   // only lyric lines; tags/blanks preserved
+  const out=await _rewriteBars(barIdx.map(i=>selLines[i]),vMatch,sMatch);
+  if(!out)return;
+  pushUndo();
+  const rebuilt=selLines.slice(); out.forEach((b,k)=>{if(barIdx[k]!=null)rebuilt[barIdx[k]]=b;});
+  const text=doc.innerText; doc.textContent=text.slice(0,ls)+rebuilt.join("\n")+text.slice(le);
+  if(rhymeOn)paintRhymes();else update(); try{tagRegions();}catch(e){}
+  if(typeof saveProjectState==="function")saveProjectState();
+  hideSelPop();
+}
+/* MULTI-SELECT: Ctrl/Cmd+click bars to toggle them into a set the app tracks itself (the browser
+   can't hold a non-contiguous selection in an editable). Replace then rewrites ALL of them. */
+let _multiSel=new Set(), _multiEls=[];
+function _multiHide(){_multiEls.forEach(e=>e.remove());_multiEls=[];}
+function renderMultiSel(){
+  _multiHide(); if(!_multiSel.size)return;
+  const dr=doc.getBoundingClientRect(), lineH=28, padTop=18, padL=14;
+  _multiSel.forEach(idx=>{
+    const top=dr.top+padTop+idx*lineH-doc.scrollTop;
+    if(top<dr.top-2||top>dr.bottom-6)return;                    // off-screen → skip
+    const d=document.createElement("div"); d.className="barselHi";
+    d.style.left=(dr.left+padL)+"px"; d.style.width=Math.max(20,dr.width-padL*2)+"px"; d.style.top=top+"px";
+    document.body.appendChild(d); _multiEls.push(d);
+  });
+}
+function multiClear(){_multiSel.clear();_multiHide();}
+async function replaceMultiSel(vMatch,sMatch){
+  const lines=doc.innerText.split("\n");
+  const idxs=[..._multiSel].sort((a,b)=>a-b).filter(i=>{const t=(lines[i]||"").trim();return t&&!isTag(t);});
+  if(!idxs.length)return;
+  const out=await _rewriteBars(idxs.map(i=>lines[i]),vMatch,sMatch);
+  if(!out)return;
+  pushUndo();
+  const l2=doc.innerText.split("\n");
+  idxs.forEach((idx,k)=>{if(out[k]!=null&&idx<l2.length)l2[idx]=out[k];});
+  doc.textContent=l2.join("\n");
+  if(rhymeOn)paintRhymes();else update(); try{tagRegions();}catch(e){}
+  if(typeof saveProjectState==="function")saveProjectState();
+  multiClear(); hideSelPop();
+}
+function showMultiPop(){
+  const p=$("selPop"); if(!p||!_multiSel.size){hideSelPop();return;}
+  _selCap={multi:true};
+  const dr=doc.getBoundingClientRect(), idx=Math.max(..._multiSel), top=dr.top+18+idx*28-doc.scrollTop;
+  p.style.display="block"; $("selRepl").style.display="block";   // multi-sel → straight to the dials
+  const cnt=$("selCount"); if(cnt)cnt.textContent=`${_multiSel.size} bar${_multiSel.size>1?"s":""} selected`;
+  const pw=p.offsetWidth||230, ph=p.offsetHeight||120;
+  p.style.left=Math.min(window.innerWidth-pw-8,Math.max(8,dr.left+dr.width/2-pw/2))+"px";
+  let y=top+34; if(y+ph>window.innerHeight-8)y=Math.max(8,top-ph-6); p.style.top=y+"px";
+}
+// Ctrl/Cmd+click a lyric line → toggle it in the multi-select set
+doc.addEventListener("click",e=>{
+  if(e.ctrlKey||e.metaKey){
+    const dr=doc.getBoundingClientRect();
+    const idx=Math.floor((e.clientY-dr.top-18+doc.scrollTop)/28);
+    const lines=doc.innerText.split("\n"); const t=(lines[idx]||"").trim();
+    if(t&&!isTag(t)){e.preventDefault();
+      if(_multiSel.has(idx))_multiSel.delete(idx); else _multiSel.add(idx);
+      renderMultiSel(); if(_multiSel.size)showMultiPop(); else hideSelPop();}
+    return;
+  }
+  if(_multiSel.size){multiClear();hideSelPop();}                 // a plain click cancels the multi-select
+});
+doc.addEventListener("scroll",()=>{if(_multiSel.size){renderMultiSel();showMultiPop();}});
+document.addEventListener("keydown",e=>{if(e.key==="Escape"&&_multiSel.size){multiClear();hideSelPop();}});
 /* selection → editor-text offsets. #doc is white-space:pre-wrap, so newlines are literal chars and
    Range.toString() length lines up with doc.innerText offsets. */
 let _selCap=null;
@@ -1435,6 +1496,7 @@ function selOffsets(){
 function hideSelPop(){const p=$("selPop"); if(p)p.style.display="none"; _selCap=null;}
 function showSelPop(){
   const p=$("selPop"); if(!p)return;
+  if(_multiSel.size)return;                          // multi-select owns the popover; ignore browser-selection
   const o=selOffsets(); if(!o){hideSelPop();return;}
   const text=doc.innerText;
   const lstart=text.lastIndexOf("\n",o.start-1)+1; let lend=text.indexOf("\n",o.end); if(lend<0)lend=text.length;
@@ -1442,6 +1504,7 @@ function showSelPop(){
   if(!lines.some(l=>l.trim()&&!isTag(l))){hideSelPop();return;}
   _selCap={ls:lstart,le:lend,lines};
   const rect=window.getSelection().getRangeAt(0).getBoundingClientRect();
+  const cnt=$("selCount"); if(cnt)cnt.textContent="";          // contiguous selection → no multi-count label
   p.style.display="block"; $("selRepl").style.display="none";
   const pw=p.offsetWidth||230, ph=p.offsetHeight||40;
   p.style.left=Math.min(window.innerWidth-pw-8,Math.max(8,rect.left+rect.width/2-pw/2))+"px";
@@ -1449,10 +1512,12 @@ function showSelPop(){
 }
 doc.addEventListener("mouseup",()=>setTimeout(showSelPop,0));
 doc.addEventListener("keyup",e=>{if(e.key==="Shift"||e.shiftKey)setTimeout(showSelPop,0);});
-document.addEventListener("mousedown",e=>{const p=$("selPop");if(p&&p.style.display!=="none"&&!p.contains(e.target)&&!doc.contains(e.target))hideSelPop();},true);
+document.addEventListener("mousedown",e=>{const p=$("selPop");if(p&&p.style.display!=="none"&&!p.contains(e.target)&&!doc.contains(e.target)){hideSelPop();if(_multiSel.size)multiClear();}},true);
 if($("selReplace"))$("selReplace").onclick=()=>{$("selRepl").style.display="block";};
 if($("selAdd"))$("selAdd").onclick=()=>{const cap=_selCap;if(!cap)return;try{setCaret(cap.le);}catch(e){}hideSelPop();if(typeof generateLyrics==="function")generateLyrics();};
-if($("selGen"))$("selGen").onclick=()=>{const cap=_selCap;if(!cap)return;replaceSelection(cap.ls,cap.le,cap.lines,+($("selVowel").value||0),+($("selSyl").value||0));};
+if($("selGen"))$("selGen").onclick=()=>{const v=+($("selVowel").value||0),s=+($("selSyl").value||0);
+  if(_multiSel.size){replaceMultiSel(v,s);return;}
+  const cap=_selCap;if(!cap||cap.multi)return;replaceSelection(cap.ls,cap.le,cap.lines,v,s);};
 function syncSelVals(){if($("selVowelV"))$("selVowelV").textContent=($("selVowel").value||0)+"%";if($("selSylV"))$("selSylV").textContent=($("selSyl").value||0)+"%";}
 if($("selVowel"))$("selVowel").oninput=syncSelVals;
 if($("selSyl"))$("selSyl").oninput=syncSelVals;
