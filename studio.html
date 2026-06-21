@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Songflow — Lyric Studio</title>
-<link rel="stylesheet" href="ams.css?v=71">
+<link rel="stylesheet" href="ams.css?v=72">
 <style>
   /* standalone shell: no rail/drawer; the page fills the window */
   body{display:block}
@@ -35,6 +35,7 @@
   .inp{background:var(--panel2);border:1px solid var(--line);color:var(--txt);border-radius:9px;padding:7px 9px;font-size:12px;outline:none}
   .inp:focus{border-color:var(--accent2)}
   .inp::placeholder{color:var(--mut);opacity:.85}
+  .tbtn:disabled{opacity:.38;cursor:default;pointer-events:none}
   /* grouped beat-grid control cluster: BPM stepper · ×2/÷2 · Anchor · Slip */
   .gridctl{display:flex;align-items:center;gap:7px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:3px 7px}
   .gctk{display:flex;align-items:center;gap:3px}
@@ -264,6 +265,8 @@
         <option>Interlude</option><option>Outro</option>
       </select>
       <div class="spacer"></div>
+      <button class="tbtn" id="undoBtn" title="Undo (Ctrl+Z)" style="width:auto;padding:0 9px" disabled>&#8634; Undo</button>
+      <button class="tbtn" id="redoBtn" title="Redo (Ctrl+Shift+Z / Ctrl+Y)" style="width:auto;padding:0 9px" disabled>&#8635; Redo</button>
       <button class="tbtn" id="lRhyme" style="width:auto;padding:0 10px">&#127752; Rhyme colors</button>
       <button class="tbtn" id="lExport" title="export lyrics to a .txt file" style="width:auto;padding:0 10px">&#11015; Export .txt</button>
       <button class="tbtn" id="aExport" title="export the edited audio to a .wav file" style="width:auto;padding:0 10px">&#11015; Export audio</button>
@@ -537,11 +540,11 @@ $("helpClose").onclick=()=>showHelp(false);
 $("helpModal").addEventListener("click",e=>{if(e.target===$("helpModal"))showHelp(false);});
 document.addEventListener("keydown",e=>{if(e.key==="Escape")showHelp(false);});
 </script>
-<script src="ams-timeline.js?v=71"></script>
-<script src="ams-vowels.js?v=71"></script>
-<script src="ams-pron.js?v=71"></script>
-<script src="ams-bpm.js?v=71"></script>
-<script src="ams-sections.js?v=71"></script>
+<script src="ams-timeline.js?v=72"></script>
+<script src="ams-vowels.js?v=72"></script>
+<script src="ams-pron.js?v=72"></script>
+<script src="ams-bpm.js?v=72"></script>
+<script src="ams-sections.js?v=72"></script>
 <script>
 const doc=$("doc"),gut=$("gut");
 // keep the gutter (line #, syllables, rhyme vowel) locked to the lyric scroll — they share the
@@ -1237,6 +1240,6 @@ window.addEventListener("keydown",e=>{if(e.key==="Escape"&&$("tourOvl").classLis
 window.addEventListener("resize",()=>{if($("tourOvl").classList.contains("on"))tourShow();});
 if(!localStorage.getItem("ams.tour.seen"))setTimeout(()=>{try{tourStart();}catch(e){}},800);   // first visit → auto-run
 </script>
-<script src="lyric-core.js?v=71"></script>
+<script src="lyric-core.js?v=72"></script>
 </body>
 </html>

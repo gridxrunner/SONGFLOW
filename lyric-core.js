@@ -303,52 +303,58 @@ const _trimTrail=ls=>{const a=ls.slice();while(a.length&&!a[a.length-1].trim())a
 /* ---- structural undo: native contenteditable undo can't reach programmatic changes
    (delete region, rearrange, bar-length), so snapshot {text, positions} before each one
    and restore on Ctrl+Z. ---- */
-let undoStack=[];
+let undoStack=[], redoStack=[];
 // true once the user has typed into the lyric box since the last STRUCTURAL action. While true,
 // Ctrl+Z in the box defers to the editor's native char-by-char undo; while false, our stack owns
 // the last change (a generation, fill, grid/warp/BPM/audio edit, etc.) so ALL of them are undoable.
 let typedSinceStructural=false;
-function pushUndo(){try{undoStack.push({
+function _undoSnap(){return {
   text:doc.innerText,
   manualBars:(typeof manualBars!=="undefined"&&manualBars)?manualBars.slice():null,
   ga:(typeof gridAnchor!=="undefined")?gridAnchor:undefined, gs:(typeof gridSlip!=="undefined")?gridSlip:undefined,
   warp:(typeof warpMarkers!=="undefined"&&warpMarkers)?warpMarkers.slice():undefined,
   bpm:(typeof tl!=="undefined"&&tl)?tl.bpm:undefined,
   audioBuf:(typeof curBuf!=="undefined")?curBuf:undefined   // reference only (buffers are never mutated in place)
-  });
-  if(undoStack.length>60)undoStack.shift();
-  // bound memory: a decoded buffer is 100+ MB. Keep only the most recent DISTINCT buffers
-  // restorable; drop the references on older snapshots so the buffers can be GC'd (those deep
-  // audio edits become non-undoable, but text/grid undo still works).
-  const seen=[];for(const s of undoStack)if(s.audioBuf&&seen.indexOf(s.audioBuf)<0)seen.push(s.audioBuf);
-  if(seen.length>8){const drop=seen.slice(0,seen.length-8);for(const s of undoStack)if(s.audioBuf&&drop.indexOf(s.audioBuf)>=0)s.audioBuf=undefined;}
-  typedSinceStructural=false;
-}catch(e){}}
-function doUndo(){
-  if(!undoStack.length){if(typeof toast==="function")toast("Nothing to undo");return;}
-  const s=undoStack.pop();
+};}
+function _undoRestore(s){
   doc.textContent=s.text;
   if(typeof manualBars!=="undefined")manualBars=s.manualBars?s.manualBars.slice():null;
-  // BPM first (it sets beat spacing the grid/warp math reads)
   if(s.bpm!==undefined&&typeof tl!=="undefined"&&tl.bpm!==s.bpm){tl.setTempo(s.bpm);if(typeof detectedBpm!=="undefined")detectedBpm=s.bpm;if(typeof renderBpmReadout==="function")renderBpmReadout();}
-  // grid (anchor/slip) + warp pins — slip-drag, anchor, and warp are all undoable
   if(s.ga!==undefined&&typeof gridAnchor!=="undefined"){gridAnchor=s.ga;gridSlip=s.gs;}
   if(s.warp!==undefined&&typeof warpMarkers!=="undefined"){warpMarkers=s.warp?s.warp.slice():[];if(typeof applyWarp==="function")applyWarp(false);}
   if(typeof applyGrid==="function")applyGrid(false);
-  // audio buffer (cut / paste / delete / insert blank) — reloads the player only if it changed
   if(s.audioBuf!==undefined&&typeof restoreAudioBuffer==="function")restoreAudioBuffer(s.audioBuf);
   if(rhymeOn)paintRhymes();else update();
   try{tagRegions();}catch{}
   if(typeof tl!=="undefined"){tl.selRegions=[];tl.selRegion=-1;tl.sel=null;tl.render();}
   if(typeof saveProjectState==="function")saveProjectState();
-  typedSinceStructural=false;
+  typedSinceStructural=false; _syncUndoBtns();
+}
+function _syncUndoBtns(){const u=$("undoBtn"),r=$("redoBtn");if(u)u.disabled=!undoStack.length;if(r)r.disabled=!redoStack.length;}
+function pushUndo(){try{undoStack.push(_undoSnap()); redoStack=[];   // a new action invalidates the redo trail
+  if(undoStack.length>60)undoStack.shift();
+  // bound memory: a decoded buffer is 100+ MB. Keep only the most recent DISTINCT buffers restorable.
+  const seen=[];for(const s of undoStack)if(s.audioBuf&&seen.indexOf(s.audioBuf)<0)seen.push(s.audioBuf);
+  if(seen.length>8){const drop=seen.slice(0,seen.length-8);for(const s of undoStack)if(s.audioBuf&&drop.indexOf(s.audioBuf)>=0)s.audioBuf=undefined;}
+  typedSinceStructural=false; _syncUndoBtns();
+}catch(e){}}
+function doUndo(){
+  if(!undoStack.length){if(typeof toast==="function")toast("Nothing to undo");return;}
+  redoStack.push(_undoSnap()); _undoRestore(undoStack.pop());
   if(typeof toast==="function")toast("Undone");
+}
+function doRedo(){
+  if(!redoStack.length){if(typeof toast==="function")toast("Nothing to redo");return;}
+  undoStack.push(_undoSnap()); _undoRestore(redoStack.pop());
+  if(typeof toast==="function")toast("Redone");
 }
 // Ctrl/Cmd+Z: structural undo for everything our stack tracks. Inside the lyric box, defer to the
 // editor's native undo ONLY while the user is mid-typing (so char-undo still feels normal); the
 // moment a structural action happens (no typing since), our stack takes over even with the box focused.
 document.addEventListener("keydown",e=>{
-  if((e.ctrlKey||e.metaKey)&&!e.shiftKey&&(e.key==="z"||e.key==="Z")){
+  const z=(e.key==="z"||e.key==="Z"), y=(e.key==="y"||e.key==="Y");
+  if((e.ctrlKey||e.metaKey)&&((z&&e.shiftKey)||y)){e.preventDefault();doRedo();return;}   // redo: Ctrl+Shift+Z / Ctrl+Y
+  if((e.ctrlKey||e.metaKey)&&!e.shiftKey&&z){
     if(document.activeElement===doc){
       if(typedSinceStructural||!undoStack.length)return;                // typed since → native char undo
       e.preventDefault();doUndo();return;                              // last change was structural → our stack
@@ -359,6 +365,9 @@ document.addEventListener("keydown",e=>{
 // real typing/paste in the box flips us into native-undo mode; leaving the box hands control back
 doc.addEventListener("input",()=>{typedSinceStructural=true;});
 doc.addEventListener("blur",()=>{typedSinceStructural=false;});
+if($("undoBtn"))$("undoBtn").onclick=()=>doUndo();
+if($("redoBtn"))$("redoBtn").onclick=()=>doRedo();
+_syncUndoBtns();
 function _writeDoc(pre,orderedBlocks){
   const parts=[];const preT=_trimTrail(pre);if(preT.length)parts.push(preT.join("\n"));
   orderedBlocks.forEach(b=>parts.push(_trimTrail(b.lines).join("\n")));
@@ -1152,11 +1161,11 @@ const NSEL=$("ideaN");
 NSEL.innerHTML=Array.from({length:16},(_,i)=>`<option value="${i+1}"${i+1===4?" selected":""}>${i+1} bar${i?"s":""}</option>`).join("");
 
 function rhythmDirective(v){
-  if(v<=15)return "VERY RHYTHMIC: dense, percussive, syllable-packed rap phrasing — many short syllables per bar, hard internal rhythm. Work in INTERNAL rhymes too (extra rhyming syllables mid-bar that echo across the pair), not just the end-rhyme.";
-  if(v<=38)return "RHYTHMIC: busy, groove-forward phrasing with frequent internal stresses and at least one internal rhyme per bar where it lands naturally.";
+  if(v<=15)return "VERY RHYTHMIC: percussive, syncopated phrasing — clustered short syllables, hard internal rhythm, internal rhymes mid-bar. (This shapes the FEEL WITHIN each bar's syllable count, NOT the count.)";
+  if(v<=38)return "RHYTHMIC: busy, groove-forward phrasing with frequent internal stresses and the odd internal rhyme — within the bar's syllable count.";
   if(v<=62)return "BALANCED: a natural mix of held and quick syllables.";
-  if(v<=85)return "DRAWN-OUT: sparse, sustained, fewer syllables held longer.";
-  return "CHOIR-LIKE: very sparse and sustained — few syllables, long vowels, hymn-like space.";
+  if(v<=85)return "DRAWN-OUT: spacious phrasing — held vowels, more space between hits.";
+  return "CHOIR-LIKE: very sustained — long held vowels, hymn-like space.";
 }
 /* the CONTEXT axis (feelY): how much the lyric may trade literal meaning for a tighter meter. */
 function contextDirective(y){
@@ -1265,6 +1274,11 @@ async function generateLyrics(){
   const ctxY=(typeof feelY!=="undefined")?feelY:30;       // Y axis: on-theme ↔ rhythm-first
   const tol=sylTolerance(ctxY);                           // how much paired-bar mismatch we tolerate
   const {sec,prior}=priorContext();
+  // bar LENGTH is anchored: a forced override, else this section's established length, else a
+  // rough count from the X axis. The packed/sustained feel must NOT change this count.
+  const priorSyls=prior.map(sylOfBar).filter(x=>x>0);
+  const sectionSyl=priorSyls.length?Math.round(priorSyls.slice(-4).reduce((a,b)=>a+b,0)/Math.min(4,priorSyls.length)):0;
+  const sylTargetEff=targetSyl||sectionSyl||(rhythm<=25?8:rhythm<=50?6:rhythm<=75?5:4);
   const forced=[...$("forceRows").querySelectorAll(".frow")].filter(r=>r.querySelector(".toggle.on"))
     .map(r=>r.querySelector("select").value);
   // detect the live scheme from the bars above so the model continues the same one
@@ -1283,10 +1297,10 @@ async function generateLyrics(){
 3. PAIRED BARS LOCK TOGETHER. Two rhyming bars MUST have the SAME number of syllables, and the rhyme vowel must sit the SAME number of syllables from the downbeat in both — so the rhyme lands on the SAME beat. The rhyme should fall on a STRONG position (beat 1, or a 1/2, 1/4, or 1/8 subdivision), never a weak off-beat. There are usually many word choices that satisfy this — find one.
 4. A syllable-count difference between paired bars is allowed ONLY when a SUSTAINED/held vowel on a strong beat, or a PICKUP syllable before the downbeat, absorbs it AND the rhyme still lands on the same spot. Otherwise keep the counts equal.
 5. RHYME STRUCTURE — COUPLET (AABB, adjacent bars rhyme) or CROSS / ALTERNATING (ABAB, answered every other bar). ${schemeLine}
-6. DON'T overstay a scheme: after ~8 bars on one end-vowel, OPEN a new one with a CONTRASTING vowel (noticeably brighter or darker) so the ear gets relief.
+6. VARY THE RHYME ACROSS THESE BARS: move through SEVERAL end-vowels — a new rhyme sound roughly every couplet (2 bars). Do NOT end more than 2 bars in a row on the same vowel unless deliberately building a list. ${n>=4?`So ${n} bars should use ~${Math.max(2,Math.round(n/2))} different end-vowels, not one.`:""} (A run of ≥8 bars on one vowel reads as monotonous — never do that.)
 7. ${rhythmDirective(rhythm)}
 8. ${contextDirective(ctxY)}
-9. ${targetSyl?`Aim for ~${targetSyl} syllables per bar (1 line = 1 bar).`:"Match the syllable count and cadence of the prior bars."}
+9. LENGTH: each bar ≈ ${sylTargetEff} syllables (1 line = 1 bar)${sectionSyl&&!targetSyl?` — this section's bars are ${sectionSyl} syllables; MATCH that. Rule 7 sets the FEEL, never the length.`:"."}
 10. ${forced.length?`HARD OVERRIDE (intentional rule-break for effect): the END word of EVERY bar MUST carry one of these vowel sounds (ARPABET): ${forced.join(", ")}. Examples: ${forced.flatMap(v=>(NEAR[v]||[]).slice(0,3)).join(", ")}. This overrides rule 5 — obey it even if it fights the natural scheme.`:"Choose end-rhyme vowels that extend the prior bars' scheme per rule 5."}
 11. FRESHNESS — avoid generic AI-lyric clichés and pet imagery (e.g. ${CLICHE}). Reach for concrete, specific, surprising nouns and images over abstract emotion words; don't reuse end-words the prior bars already used.
 ${seedLine?`12. PREFERRED RHYMES — for a scheme vowel's end-word, lean on these real options from the writer's palette over your usual go-to rhymes (not mandatory, but prefer them to stay fresh and on-vowel): ${seedLine}.\n`:""}${directionClauses(sec)}
@@ -1301,32 +1315,32 @@ Output ONLY the ${n} lyric ${n>1?"bars":"bar"}, one per line. No section tags, n
   // with any provider. (No forced vowels → no hard check; we don't second-guess free writing.)
   const exWords=forced.flatMap(v=>(NEAR[v]||[]).slice(0,3));
   const endsOk=bars=>!forced.length||bars.every(b=>forced.includes(endVowelOf(b)));
-  // paired-bar syllable check — the structural net. Rhyming bars should match within the
-  // context-axis tolerance (looser when on-theme). When this section already holds an ODD number
-  // of bars, the first NEW bar closes a couplet with the last existing one, so include it (read-only).
-  const ctx=(scheme.type!=="ABAB"&&prior.length%2===1)?prior.slice(-1):[];
-  const matchBad=bars=>{const all=[...ctx,...bars],c=all.map(sylOfBar),gs=ctx.length,pr=barPairs(all.length,scheme.type);
-    return pr.filter(([a,b])=>(a>=gs||b>=gs)&&Math.abs(c[a]-c[b])>tol)   // only flag pairs that include a GENERATED bar
-      .map(([a,b])=>`"${all[a]}" (${c[a]} syl) vs "${all[b]}" (${c[b]} syl)`);};
+  // LENGTH check — every bar must land within tolerance of the section's syllable target, so the
+  // packed/sustained feel can't blow the bars out to double length. (Equal lengths => pairs match too.)
+  const matchBad=bars=>bars.map(b=>({b,c:sylOfBar(b)})).filter(x=>Math.abs(x.c-sylTargetEff)>tol)
+    .map(x=>`"${x.b}" (${x.c} syl, want ~${sylTargetEff})`);
   const matchOk=bars=>matchBad(bars).length===0;
+  // VARIETY check — flag a run of >2 generated bars on the same end-vowel (monotonous mono-rhyme).
+  const varyBad=bars=>{let run=1;for(let i=1;i<bars.length;i++){if(endVowelOf(bars[i])===endVowelOf(bars[i-1])){run++;if(run>2)return true;}else run=1;}return false;};
   try{
-    let bars=null;const maxTries=(forced.length||tol<2)?3:1;   // strictness scales with the Y axis
+    let bars=null;const maxTries=(forced.length||sylTargetEff)?3:1;   // a length target is always set → always allow retries
     for(let attempt=1;attempt<=maxTries;attempt++){
       let fix="";
       if(attempt>1&&bars){
         if(!endsOk(bars))fix+=`\n\nYour previous attempt broke the end-rhyme rule. EVERY one of the ${n} bars MUST end on a word whose stressed vowel is ${forced.join(" or ")} (e.g. ${exWords.join(", ")}). Rewrite all ${n} bars, fixing every final word.`;
         const bad=matchBad(bars);
-        if(bad.length)fix+=`\n\nSYLLABLE MISMATCH in paired bars: ${bad.join("; ")}. Paired (rhyming) bars MUST have the SAME syllable count so the rhyme lands on the same beat${tol?` (you may differ by at most ${tol}, and only if a held vowel or pickup absorbs it)`:""}. Rewrite ALL ${n} bars, equalizing each pair while keeping the rhymes and meaning.`;
+        if(bad.length)fix+=`\n\nWRONG BAR LENGTH: ${bad.join("; ")}. EVERY bar must be about ${sylTargetEff} syllables to match this section${tol?` (±${tol})`:""}. Rewrite all ${n} bars to that length — keep them short, do NOT pack extra syllables.`;
+        if(varyBad(bars))fix+=`\n\nTOO MONOTONOUS: too many bars end on the same vowel sound. Change the end-rhyme vowel every couplet (about ${Math.max(2,Math.round(n/2))} different rhyme sounds across the ${n} bars).`;
       }
       const out=await callLLM({provider,model,system:sys,user:usr+fix,maxTokens:2000});
       if(!out)throw new Error("empty response");
       bars=out.split("\n").map(s=>s.trim()).filter(Boolean).slice(0,n);
-      if(endsOk(bars)&&matchOk(bars))break;
+      if(endsOk(bars)&&matchOk(bars)&&!varyBad(bars))break;
       if(attempt<maxTries)note.textContent=`Tightening the rhythm (try ${attempt+1})…`;
     }
     genFillSlot(slot,bars);                           // swap the glowing placeholders for the real bars
     const vDrift=!endsOk(bars), mDrift=!matchOk(bars);
-    note.style.color="";note.textContent=`Generated ${bars.length} bar(s).`+(vDrift?" Couldn't fully lock the forced vowel — tweak as needed.":mDrift?" A paired bar's syllable count is still off — tweak as needed.":" Edit freely — they're in your document.");
+    note.style.color="";note.textContent=`Generated ${bars.length} bar(s).`+(vDrift?" Couldn't fully lock the forced vowel — tweak as needed.":mDrift?" A bar's length is still a little off — tweak as needed.":" Edit freely — they're in your document.");
   }catch(err){genCancelSlot(slot);note.className="muted";note.style.color="var(--danger)";note.textContent="Generation failed: "+err.message;}
   genGlowHide();btn.disabled=false;
 }
