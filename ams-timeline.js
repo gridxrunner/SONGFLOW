@@ -652,13 +652,12 @@ class AMSTimeline {
           this.opts.onSelectRegions && this.opts.onSelectRegions(this.selRegions.map(k => this.regions[k]));
           this.render(); return;
         }
-        if (e.shiftKey) {                    // shift+click: extend selection (adjacent only)
-          if (this.selRegions.length) {
-            const lo = Math.min(...this.selRegions), hi = Math.max(...this.selRegions);
-            if (i === lo - 1 || i === hi + 1) { if (!this.selRegions.includes(i)) this.selRegions.push(i); }
-            else if (!this.selRegions.includes(i)) toast("Shift+Click a section next to the selected one(s).");
-          } else this.selRegions = [i];
-          this.selRegion = i; this.sel = { ...this.regions[i] };
+        if (e.shiftKey) {                    // shift+click: select the whole RANGE from the anchor to here
+          const anchor = (this.selRegion != null && this.selRegion >= 0) ? this.selRegion
+            : (this.selRegions.length ? Math.min(...this.selRegions) : i);
+          const lo = Math.min(anchor, i), hi = Math.max(anchor, i);
+          this.selRegions = []; for (let k = lo; k <= hi; k++) this.selRegions.push(k);
+          this.selRegion = i; this.sel = this.regions[i] ? { ...this.regions[i] } : null;
           this.opts.onSelectRegions && this.opts.onSelectRegions(this.selRegions.map(k => this.regions[k]));
           this.render(); return;
         }

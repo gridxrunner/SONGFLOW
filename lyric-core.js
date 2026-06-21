@@ -312,6 +312,7 @@ let undoStack=[], redoStack=[], _genSeq=0;   // _genSeq: bump to CANCEL an in-fl
 let typedSinceStructural=false;
 function _undoSnap(){return {
   text:doc.innerText,
+  caret:(typeof caretOffset==="function")?caretOffset():null,   // keep the cursor near where it was (don't jump to top)
   manualBars:(typeof manualBars!=="undefined"&&manualBars)?manualBars.slice():null,
   ga:(typeof gridAnchor!=="undefined")?gridAnchor:undefined, gs:(typeof gridSlip!=="undefined")?gridSlip:undefined,
   warp:(typeof warpMarkers!=="undefined"&&warpMarkers)?warpMarkers.slice():undefined,
@@ -327,6 +328,7 @@ function _undoRestore(s){
   if(typeof applyGrid==="function")applyGrid(false);
   if(s.audioBuf!==undefined&&typeof restoreAudioBuffer==="function")restoreAudioBuffer(s.audioBuf);
   if(rhymeOn)paintRhymes();else update();
+  if(s.caret!=null&&typeof setCaret==="function"){try{setCaret(Math.min(s.caret,doc.innerText.length));}catch(e){}}   // restore cursor position
   try{tagRegions();}catch{}
   if(typeof tl!=="undefined"){tl.selRegions=[];tl.selRegion=-1;tl.sel=null;tl.render();}
   if(typeof saveProjectState==="function")saveProjectState();
@@ -1300,6 +1302,7 @@ async function generateLyrics(){
 2. RHYME = matching VOWEL SOUNDS landing on the SAME position across bars. The END rhyme (final stressed vowel of the bar) is the HIGHEST-priority pair; strong internal pairs are a bonus.
 3. PAIRED BARS LOCK TOGETHER. Two rhyming bars MUST have the SAME number of syllables, and the rhyme vowel must sit the SAME number of syllables from the downbeat in both — so the rhyme lands on the SAME beat. The rhyme should fall on a STRONG position (beat 1, or a 1/2, 1/4, or 1/8 subdivision), never a weak off-beat. There are usually many word choices that satisfy this — find one.
 4. A syllable-count difference between paired bars is allowed ONLY when a SUSTAINED/held vowel on a strong beat, or a PICKUP syllable before the downbeat, absorbs it AND the rhyme still lands on the same spot. Otherwise keep the counts equal.
+4b. LEAD-INS (pickups): a bar may end on 1-3 short trailing syllables that flow INTO the next bar (e.g. "Scraping at my knees, oh" → next bar). The rhyme still anchors on the word BEFORE the lead-in. If you use this, make it a CONSISTENT PATTERN — either after EVERY bar, or EVERY OTHER bar — never randomly on a single isolated bar.
 5. RHYME STRUCTURE — COUPLET (AABB, adjacent bars rhyme) or CROSS / ALTERNATING (ABAB, answered every other bar). ${schemeLine}
 6. VARY THE RHYME ACROSS THESE BARS: move through SEVERAL end-vowels — a new rhyme sound roughly every couplet (2 bars). Do NOT end more than 2 bars in a row on the same vowel unless deliberately building a list. ${n>=4?`So ${n} bars should use ~${Math.max(2,Math.round(n/2))} different end-vowels, not one.`:""} (A run of ≥8 bars on one vowel reads as monotonous — never do that.)
 7. ${rhythmDirective(rhythm)}
