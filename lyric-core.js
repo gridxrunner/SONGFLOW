@@ -931,6 +931,7 @@ document.querySelectorAll("[data-help]").forEach(d=>d.onclick=()=>{if(typeof sho
    provider. Each provider has a tiny request/response adapter. ---- */
 const AI={providers:{
   free:    {label:"Free open model", keyLS:null, models:[]},
+  groq:    {label:"Groq (fast · free tier)", keyLS:"ams.ai.key.groq", models:["llama-3.3-70b-versatile","llama-3.1-8b-instant","gemma2-9b-it"]},
   anthropic:{label:"Anthropic", keyLS:"ams.ai.key.anthropic", models:["claude-sonnet-4-6","claude-opus-4-8","claude-haiku-4-5-20251001"]},
   openai:  {label:"OpenAI", keyLS:"ams.ai.key.openai", models:["gpt-4o","gpt-4o-mini","gpt-4.1","gpt-4.1-mini"]},
   google:  {label:"Google Gemini", keyLS:"ams.ai.key.google", models:["gemini-2.5-flash","gemini-2.5-pro","gemini-2.0-flash"]}
@@ -956,11 +957,12 @@ async function callLLM({provider,model,system,user,maxTokens=600}){
     if(!res.ok)throw await aiErr(res,"anthropic");
     const d=await res.json();return (d.content||[]).map(c=>c.text||"").join("").trim();
   }
-  if(provider==="openai"){
-    const res=await fetch("https://api.openai.com/v1/chat/completions",{method:"POST",
+  if(provider==="openai"||provider==="groq"){          // Groq is OpenAI-compatible — same shape, different base URL
+    const url=provider==="groq"?"https://api.groq.com/openai/v1/chat/completions":"https://api.openai.com/v1/chat/completions";
+    const res=await fetch(url,{method:"POST",
       headers:{"content-type":"application/json","authorization":"Bearer "+key},
       body:JSON.stringify({model,max_tokens:maxTokens,messages:[{role:"system",content:system},{role:"user",content:user}]})});
-    if(!res.ok)throw await aiErr(res,"openai");
+    if(!res.ok)throw await aiErr(res,provider);
     const d=await res.json();return ((d.choices&&d.choices[0]&&d.choices[0].message&&d.choices[0].message.content)||"").trim();
   }
   if(provider==="google"){
@@ -984,7 +986,7 @@ function aiSyncUI(){
   if(!free&&$("aiModel"))$("aiModel").value=aiModelOf(p);
   const note=$("ideaNote");
   if(note){
-    if(free)note.innerHTML="<b>Free</b> open-model engine — no key needed. <i>(Hosting is being wired up; for now pick a provider below and use your own key.)</i>";
+    if(free)note.innerHTML="<b>Free</b> open-model engine — no key needed. <i>(Hosting is being wired up. For now pick <b>Groq</b> below — it has a free tier and is fast — and add your own key.)</i>";
     else note.innerHTML=aiKeyOf(p)?`Using your <b>${prov.label}</b> key (stored only in this browser).`:`Add your <b>${prov.label}</b> API key with the &#128273; Key button — stored only in this browser, you pay ${prov.label} directly.`;
   }
 }
