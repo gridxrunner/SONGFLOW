@@ -791,7 +791,7 @@ async function fillBarEndingOn(word){
     const tgt=(typeof sylForceOn==="function"&&sylForceOn()&&+($("sylTarget").value||0))||null;
     const sys=`You are a lyricist. Write ONE short lyric line (a single bar) for the [${ctx.sec}] section that ENDS on the exact word "${word}". ${line?`Build it from this partial line, keeping its words: "${line}".`:""} ${tgt?`Aim for ~${tgt} syllables.`:"Match the syllable count and cadence of the prior bars."} It must flow naturally and fit the vibe; rhythm and the end-rhyme matter most. Output ONLY the line — no quotes, no notes.`;
     const usr=(ctx.prior.length?`Prior bars:\n${ctx.prior.join("\n")}\n\n`:"")+`Write the line, ending on "${word}".`;
-    try{const out=await callLLM({provider,model:(($("aiModel")&&$("aiModel").value.trim())||aiModelOf(provider)),system:sys,user:usr,maxTokens:60});newLine=(out||"").split("\n").map(s=>s.trim()).filter(Boolean)[0]||null;}catch(e){newLine=null;}
+    try{const out=await callLLM({provider,model:(($("aiModel")&&$("aiModel").value.trim())||aiModelOf(provider)),system:sys,user:usr,maxTokens:800});newLine=(out||"").split("\n").map(s=>s.trim()).filter(Boolean)[0]||null;}catch(e){newLine=null;}
     if(note)note.textContent="";
   }
   if(!newLine)newLine=line?(line.replace(/[,;:]\s*$/,"")+" "+word):word;   // fallback: word at end of bar
@@ -836,7 +836,7 @@ async function fillBarWithWord(word){
     const ctx=(typeof priorContext==="function")?priorContext():{sec:"Verse",prior:[]};
     const sys=`You are a lyricist. Write ONE lyric bar for [${ctx.sec}] that ENDS on the exact word "${word}" and has about ${tgt} syllables, matching the cadence of the prior bars. Concrete, specific imagery; avoid clichés (${CLICHE}). Output ONLY the line — no quotes or notes.`;
     const usr=(ctx.prior.length?`Prior bars:\n${ctx.prior.join("\n")}\n\n`:"")+`Write the bar (~${tgt} syllables), ending on "${word}".`;
-    try{const out=await callLLM({provider,model:(($("aiModel")&&$("aiModel").value.trim())||aiModelOf(provider)),system:sys,user:usr,maxTokens:60});newLine=(out||"").split("\n").map(s=>s.trim()).filter(Boolean)[0]||null;}catch(e){newLine=null;}
+    try{const out=await callLLM({provider,model:(($("aiModel")&&$("aiModel").value.trim())||aiModelOf(provider)),system:sys,user:usr,maxTokens:800});newLine=(out||"").split("\n").map(s=>s.trim()).filter(Boolean)[0]||null;}catch(e){newLine=null;}
     if(note)note.textContent="";
   }
   if(!newLine)newLine=word;                                          // no key → just drop the word (still inserts/pushes)
@@ -1031,7 +1031,10 @@ async function callLLM({provider,model,system,user,maxTokens=600}){
     body[provider==="openai"?"max_completion_tokens":"max_tokens"]=maxTokens;   // GPT-5.x rejects max_tokens; Groq/OpenRouter still take it
     const res=await fetch(url,{method:"POST",headers,body:JSON.stringify(body)});
     if(!res.ok)throw await aiErr(res,provider);
-    const d=await res.json();return ((d.choices&&d.choices[0]&&d.choices[0].message&&d.choices[0].message.content)||"").trim();
+    const d=await res.json();
+    const ch=(d.choices&&d.choices[0])||{}; const txt=((ch.message&&ch.message.content)||"").trim();
+    if(!txt){const fr=ch.finish_reason||"none";throw new Error(`the model returned no text (finish_reason: ${fr}${fr==="length"?" — it hit the token limit, likely a reasoning model; raise the limit or pick a faster model like deepseek/deepseek-chat":""})`);}
+    return txt;
   }
   if(provider==="google"){
     const url=`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`;
@@ -1197,7 +1200,7 @@ ${seedLine?`12. PREFERRED RHYMES — for a scheme vowel's end-word, lean on thes
         const bad=matchBad(bars);
         if(bad.length)fix+=`\n\nSYLLABLE MISMATCH in paired bars: ${bad.join("; ")}. Paired (rhyming) bars MUST have the SAME syllable count so the rhyme lands on the same beat${tol?` (you may differ by at most ${tol}, and only if a held vowel or pickup absorbs it)`:""}. Rewrite ALL ${n} bars, equalizing each pair while keeping the rhymes and meaning.`;
       }
-      const out=await callLLM({provider,model,system:sys,user:usr+fix,maxTokens:600});
+      const out=await callLLM({provider,model,system:sys,user:usr+fix,maxTokens:2000});
       if(!out)throw new Error("empty response");
       bars=out.split("\n").map(s=>s.trim()).filter(Boolean).slice(0,n);
       if(endsOk(bars)&&matchOk(bars))break;
@@ -1263,7 +1266,7 @@ Output ONLY the ${n} new bars, one per line. No tags, numbering, quotes, or comm
         if(!vowOk(out))fix+=`\n\nFix the end-rhymes — each bar must end on its target vowel (${skel.map((s,i)=>`bar ${i+1}=${s.vow}`).join(", ")}).`;
         const cb=cntBad(out); if(cb.length)fix+=`\n\nFix syllable counts: ${cb.map(x=>`bar ${x.i+1} ~${skel[x.i].syl} (was ${sylOfBar(out[x.i])})`).join("; ")}.`;
       }
-      const res=await callLLM({provider,model,system:sys,user:usr+fix,maxTokens:600});
+      const res=await callLLM({provider,model,system:sys,user:usr+fix,maxTokens:2000});
       out=(res||"").split("\n").map(s=>s.trim()).filter(Boolean).slice(0,n);
       if(out.length&&vowOk(out)&&cntBad(out).length===0)break;
       if(a<maxTries&&note)note.textContent=`Tightening the match (try ${a+1})…`;
