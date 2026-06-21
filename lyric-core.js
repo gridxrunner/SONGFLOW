@@ -210,7 +210,9 @@ doc.addEventListener("keydown",e=>{
     doc.textContent=next;paintRhymes();setCaret(start);  // repaint keeps colors, caret restored
   }
 });
-doc.addEventListener("paste",e=>{e.preventDefault();const t=(e.clipboardData||window.clipboardData).getData("text");document.execCommand("insertText",false,t);});
+doc.addEventListener("paste",e=>{e.preventDefault();const t=(e.clipboardData||window.clipboardData).getData("text");document.execCommand("insertText",false,t);
+  // repaint so pasted lines get correct rhyme colors immediately (don't inherit the caret span's color)
+  if(rhymeOn){const off=(typeof caretOffset==="function")?caretOffset():null;paintRhymes();if(off!=null&&typeof setCaret==="function")setCaret(off);}else update();});
 $("lRhyme").onclick=()=>{rhymeOn=!rhymeOn;if(rhymeOn)paintRhymes();else unpaint();};
 $("lClear").onclick=()=>{if(confirm("Clear the document? You can undo with Ctrl+Z.")){pushUndo();doc.textContent="";update();}};
 /* ---- insert an arrangement tag at the caret (on its own line) ---- */
@@ -303,7 +305,7 @@ const _trimTrail=ls=>{const a=ls.slice();while(a.length&&!a[a.length-1].trim())a
 /* ---- structural undo: native contenteditable undo can't reach programmatic changes
    (delete region, rearrange, bar-length), so snapshot {text, positions} before each one
    and restore on Ctrl+Z. ---- */
-let undoStack=[], redoStack=[];
+let undoStack=[], redoStack=[], _genSeq=0;   // _genSeq: bump to CANCEL an in-flight generation (e.g. on undo)
 // true once the user has typed into the lyric box since the last STRUCTURAL action. While true,
 // Ctrl+Z in the box defers to the editor's native char-by-char undo; while false, our stack owns
 // the last change (a generation, fill, grid/warp/BPM/audio edit, etc.) so ALL of them are undoable.
@@ -329,6 +331,8 @@ function _undoRestore(s){
   if(typeof tl!=="undefined"){tl.selRegions=[];tl.selRegion=-1;tl.sel=null;tl.render();}
   if(typeof saveProjectState==="function")saveProjectState();
   typedSinceStructural=false; _syncUndoBtns();
+  // CANCEL any in-flight generation — its async fill must NOT land on the restored document
+  _genSeq++; if(typeof genGlowHide==="function")genGlowHide(); if($("ideaGo"))$("ideaGo").disabled=false;
 }
 function _syncUndoBtns(){const u=$("undoBtn"),r=$("redoBtn");if(u)u.disabled=!undoStack.length;if(r)r.disabled=!redoStack.length;}
 function pushUndo(){try{undoStack.push(_undoSnap()); redoStack=[];   // a new action invalidates the redo trail
@@ -1309,6 +1313,7 @@ Output ONLY the ${n} lyric ${n>1?"bars":"bar"}, one per line. No section tags, n
     `Write ${n} new bar${n>1?"s":""} that continue this section.`;
   const note=$("ideaNote"),btn=$("ideaGo");
   note.className="muted";note.style.color="";note.textContent="Generating…";btn.disabled=true;
+  const myGen=++_genSeq;                              // cancellation token — undo bumps _genSeq to abort this run
   const slot=genReserveSlot(n);                       // glowing placeholder bars at the cursor while we wait
   // validation+retry: when vowels are FORCED (a checkable contract), verify every generated
   // bar ends on one of them; if the model drifts, silently re-ask with a stricter fix. Works
@@ -1338,11 +1343,13 @@ Output ONLY the ${n} lyric ${n>1?"bars":"bar"}, one per line. No section tags, n
       if(endsOk(bars)&&matchOk(bars)&&!varyBad(bars))break;
       if(attempt<maxTries)note.textContent=`Tightening the rhythm (try ${attempt+1})…`;
     }
-    genFillSlot(slot,bars);                           // swap the glowing placeholders for the real bars
-    const vDrift=!endsOk(bars), mDrift=!matchOk(bars);
-    note.style.color="";note.textContent=`Generated ${bars.length} bar(s).`+(vDrift?" Couldn't fully lock the forced vowel — tweak as needed.":mDrift?" A bar's length is still a little off — tweak as needed.":" Edit freely — they're in your document.");
-  }catch(err){genCancelSlot(slot);note.className="muted";note.style.color="var(--danger)";note.textContent="Generation failed: "+err.message;}
-  genGlowHide();btn.disabled=false;
+    if(_genSeq===myGen){                              // still our run (not cancelled by an undo mid-flight)
+      genFillSlot(slot,bars);                         // swap the glowing placeholders for the real bars
+      const vDrift=!endsOk(bars), mDrift=!matchOk(bars);
+      note.style.color="";note.textContent=`Generated ${bars.length} bar(s).`+(vDrift?" Couldn't fully lock the forced vowel — tweak as needed.":mDrift?" A bar's length is still a little off — tweak as needed.":" Edit freely — they're in your document.");
+    }
+  }catch(err){if(_genSeq===myGen){genCancelSlot(slot);note.className="muted";note.style.color="var(--danger)";note.textContent="Generation failed: "+err.message;}}
+  if(_genSeq===myGen){genGlowHide();btn.disabled=false;}
 }
 function insertBarsAtCaret(bars){
   pushUndo();
