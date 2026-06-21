@@ -864,7 +864,10 @@ async function fillBarWithWord(word){
   if(mode==="insert"){
     let off=caretOffset(); if(off==null)off=(lastCaret!=null?lastCaret:text.length);
     ls=text.lastIndexOf("\n",off-1)+1; le=text.indexOf("\n",ls); if(le<0)le=text.length;
+    const lt=text.slice(ls,le);
+    if(lt.trim()&&!isTag(lt.trim())&&off>=le)mode="complete";        // caret at END of a bar you're writing → finish IT (keep typed syllables)
   }
+  const partial=(mode==="complete")?text.slice(ls,le).replace(/\s+$/,""):"";
   // ideal syllable target = the nearest lyric bar ABOVE the spot (the rhythm to echo)
   const lines=text.split("\n"), curIdx=text.slice(0,ls).split("\n").length-1;
   let tgt=null; for(let i=curIdx-1;i>=0;i--){const t=lines[i].trim();if(t&&!isTag(t)){tgt=sylOfBar(t);break;}}
@@ -875,15 +878,21 @@ async function fillBarWithWord(word){
   if(haveKey&&typeof callLLM==="function"){
     const note=$("ideaNote"); if(note){note.className="muted";note.style.color="";note.textContent="Phrasing…";}
     const ctx=(typeof priorContext==="function")?priorContext():{sec:"Verse",prior:[]};
-    const sys=`You are a lyricist. Write ONE lyric bar for [${ctx.sec}] that ENDS on the exact word "${word}" and has about ${tgt} syllables, matching the cadence of the prior bars. Concrete, specific imagery; avoid clichés (${CLICHE}). Output ONLY the line — no quotes or notes.`;
-    const usr=(ctx.prior.length?`Prior bars:\n${ctx.prior.join("\n")}\n\n`:"")+`Write the bar (~${tgt} syllables), ending on "${word}".`;
+    let sys,usr;
+    if(mode==="complete"){                                            // keep what's typed; fill the rest to the target, ending on the word
+      sys=`You are a lyricist. COMPLETE this partial lyric bar for [${ctx.sec}]: KEEP its existing words exactly at the start, then add context syllables so the WHOLE bar is about ${tgt} syllables and ENDS on the exact word "${word}". Concrete, specific imagery; avoid clichés (${CLICHE}). Output ONLY the completed line — no quotes or notes.`;
+      usr=`Partial bar so far (${sylOfBar(partial)} syllables): "${partial}". Complete it to ~${tgt} syllables, ending on "${word}".`;
+    }else{
+      sys=`You are a lyricist. Write ONE lyric bar for [${ctx.sec}] that ENDS on the exact word "${word}" and has about ${tgt} syllables, matching the cadence of the prior bars. Concrete, specific imagery; avoid clichés (${CLICHE}). Output ONLY the line — no quotes or notes.`;
+      usr=(ctx.prior.length?`Prior bars:\n${ctx.prior.join("\n")}\n\n`:"")+`Write the bar (~${tgt} syllables), ending on "${word}".`;
+    }
     try{const out=await callLLM({provider,model:(($("aiModel")&&$("aiModel").value.trim())||aiModelOf(provider)),system:sys,user:usr,maxTokens:800});newLine=(out||"").split("\n").map(s=>s.trim()).filter(Boolean)[0]||null;}catch(e){newLine=null;}
     if(note)note.textContent="";
   }
-  if(!newLine)newLine=word;                                          // no key → just drop the word (still inserts/pushes)
+  if(!newLine)newLine=(mode==="complete"&&partial)?(partial+" "+word):word;   // no key → keep the partial + word, else just the word
   pushUndo();
   const t2=doc.innerText;
-  if(mode==="replace")doc.textContent=t2.slice(0,ls)+newLine+t2.slice(le);
+  if(mode==="replace"||mode==="complete")doc.textContent=t2.slice(0,ls)+newLine+t2.slice(le);   // swap the line in place
   else{const cur=t2.slice(ls,le).trim();doc.textContent=cur?(t2.slice(0,ls)+newLine+"\n"+t2.slice(ls)):(t2.slice(0,ls)+newLine+t2.slice(le));}
   if(rhymeOn)paintRhymes();else update();
   setCaret(ls+newLine.length);
@@ -976,22 +985,28 @@ function renderPrediction(idx,lines){
 function refreshLinePanels(){
   const lines=doc.innerText.split("\n");
   const isContent=i=>{const t=lines[i].trim();return !!t&&!isTag(t);};
-  let idx=(selLine>=0&&selLine<lines.length&&isContent(selLine))?selLine:-1;
-  if(idx<0)for(let i=lines.length-1;i>=0;i--)if(isContent(i)){idx=i;break;}
+  // an EMPTY line is NOT a bar. If the caret sits on one, guide the NEXT bar (the one it WOULD
+  // become) using the bar ABOVE it in this section — never fall through to the doc's last bar.
+  let pending=false, idx=-1;
+  if(selLine>=0&&selLine<lines.length){
+    if(isContent(selLine))idx=selLine;
+    else for(let i=selLine;i>=0;i--){const t=lines[i].trim();if(/^\[.+\]$/.test(t))break;if(isContent(i)){idx=i;pending=true;break;}}
+  }else for(let i=lines.length-1;i>=0;i--)if(isContent(i)){idx=i;break;}   // no caret tracked → default to last bar
   if(idx<0){heldCls=null;heldWord=null;
     $("tbSection").textContent="—";$("tbBar").textContent="—";$("tbBadge").className="tbbadge";$("tbBadge").textContent="";$("tbSyl").textContent="";
     $("rhyWord").textContent="—";$("rhyPill").style.display="none";
     $("rhymeList").innerHTML='<span class="muted">—</span>';
-    if($("ideaCtx"))$("ideaCtx").textContent="Document is empty — write a line, then click it.";renderForce([]);
+    if($("ideaCtx"))$("ideaCtx").textContent=(selLine>=0)?"Not on a bar — type here to add the next bar.":"Document is empty — write a line, then click it.";renderForce([]);
     $("rhyNextHead").style.display="none";$("rhyNext").innerHTML="";return;}
   let secLab="—";for(let i=idx;i>=0;i--){const m=lines[i].trim().match(/^\[(.+)\]$/);if(m){secLab=m[1];break;}}
   let bar=0;for(let i=0;i<=idx;i++)if(isContent(i))bar++;
+  if(pending)bar++;                                              // the empty line is the NEXT bar in sequence
   const ws=lines[idx].trim().split(/\s+/);const syl=ws.reduce((n,w)=>n+syllables(w),0);const endW=rhymeAnchorWord(lines[idx]);
   // This-Bar card: section · bar № · even/odd badge · live syllables (vs target)
   const even=bar%2===0,tgt=(typeof sylForceOn==="function"&&sylForceOn())?+($("sylTarget").value||0):0;
-  $("tbSection").textContent="["+secLab+"]";$("tbBar").textContent=bar;
+  $("tbSection").textContent="["+secLab+"]";$("tbBar").innerHTML=pending?(bar+' <span style="opacity:.55">· next</span>'):String(bar);
   const badge=$("tbBadge");badge.className="tbbadge "+(even?"even":"odd");badge.textContent=even?"complete couplet":"open scheme";
-  $("tbSyl").innerHTML=tgt?`&middot; <b style="color:${syl>tgt?'var(--warn)':'var(--txt)'}">${syl}</b>/${tgt} syl`:`&middot; <b>${syl}</b> syl`;
+  $("tbSyl").innerHTML=pending?`&middot; <i>empty line</i> &middot; target <b>~${syl}</b> syl`:(tgt?`&middot; <b style="color:${syl>tgt?'var(--warn)':'var(--txt)'}">${syl}</b>/${tgt} syl`:`&middot; <b>${syl}</b> syl`);
   const {fams,cnt}=rhymeFams(lines);const classes=[];
   const addCls=w=>{const c=vowelClass(w);if(c&&!classes.includes(c)&&classes.length<3)classes.push(c);};
   addCls(endW);
