@@ -136,7 +136,7 @@ function update(){
   const lines=doc.innerText.split("\n");
   const target=+(localStorage.getItem(TKEY)||0);let bar=0;
   gut.innerHTML=lines.map((l)=>{const t=l.trim();if(!t||isTag(t))return "";bar++;
-    const ws=t.split(/\s+/);const syl=ws.reduce((n,w)=>n+syllables(w),0);
+    const syl=sylOfBar(t);                                  // CORE count — a trailing lead-in/pickup doesn't add to it
     const s=target&&syl>target?`<span class="over">${syl}</span>`:String(syl);
     const vc=vowelClass(rhymeAnchorWord(t));
     return `${bar} │ ${s}${vc?` <span class="sch">${vc}</span>`:""}`;}).join("\n");
@@ -517,7 +517,7 @@ function renderStats(){
   for(const l of lines){const t=l.trim();const m=t.match(/^\[(.+)\]$/);
     if(m){curSec={label:m[1],bars:0,words:0,syls:0};secs.push(curSec);continue;}
     if(!t)continue;if(!curSec){curSec={label:"—",bars:0,words:0,syls:0};secs.push(curSec);}
-    const ws=t.split(/\s+/);curSec.bars++;curSec.words+=ws.length;curSec.syls+=ws.reduce((n,w)=>n+syllables(w),0);
+    const ws=t.split(/\s+/);curSec.bars++;curSec.words+=ws.length;curSec.syls+=sylOfBar(t);
     endV.push(vowelClass(rhymeAnchorWord(t)));}
   if(!secs.length){$("statsBox").innerHTML='<div class="muted">Empty document.</div>';return;}
   const tot=secs.reduce((a,s)=>({bars:a.bars+s.bars,words:a.words+s.words,syls:a.syls+s.syls}),{bars:0,words:0,syls:0});
@@ -548,7 +548,7 @@ function renderSchemeMap(){
   for(const l of lines){const t=l.trim();const m=t.match(/^\[(.+)\]$/);
     if(m){cur={label:m[1],bars:[]};secs.push(cur);}
     else if(t){if(!cur){cur={label:"—",bars:[]};secs.push(cur);}
-      const ws=t.split(/\s+/);cur.bars.push({v:vowelClass(rhymeAnchorWord(t)),syl:ws.reduce((n,w)=>n+syllables(w),0)});}}
+      cur.bars.push({v:vowelClass(rhymeAnchorWord(t)),syl:sylOfBar(t)});}}
   const live=secs.filter(s=>s.bars.length);
   if(!live.length){el.innerHTML='<span class="muted">Write some bars to see the rhyme scheme.</span>';return;}
   el.innerHTML=live.map(s=>{
@@ -1023,7 +1023,7 @@ function refreshLinePanels(){
   let secLab="—";for(let i=idx;i>=0;i--){const m=lines[i].trim().match(/^\[(.+)\]$/);if(m){secLab=m[1];break;}}
   let bar=0;for(let i=0;i<=idx;i++)if(isContent(i))bar++;
   if(pending)bar++;                                              // the empty line is the NEXT bar in sequence
-  const ws=lines[idx].trim().split(/\s+/);const syl=ws.reduce((n,w)=>n+syllables(w),0);const endW=rhymeAnchorWord(lines[idx]);
+  const ws=lines[idx].trim().split(/\s+/);const syl=sylOfBar(lines[idx]);const endW=rhymeAnchorWord(lines[idx]);
   // This-Bar card: section · bar № · even/odd badge · live syllables (vs target)
   const even=bar%2===0,tgt=(typeof sylForceOn==="function"&&sylForceOn())?+($("sylTarget").value||0):0;
   $("tbSection").textContent="["+secLab+"]";$("tbBar").innerHTML=pending?(bar+' <span style="opacity:.55">· next</span>'):String(bar);
@@ -1181,7 +1181,16 @@ function contextDirective(y){
 }
 /* paired-bar syllable check (the retry net). syllable count of one bar; which index pairs
    to compare for the active scheme; how much mismatch the context axis tolerates. */
-function sylOfBar(line){return String(line||"").trim().split(/\s+/).filter(Boolean).reduce((nn,w)=>nn+syllables(w),0);}
+// CORE syllable count: start → the rhyme anchor, EXCLUDING a trailing lead-in/pickup (e.g.
+// "Imagination's reward, yeah" counts to "reward" = 7, the "yeah" is a free lead-in). Lead-ins flow
+// into the next bar and never change a bar's target. Drives the gutter, section target, and matching.
+function sylOfBar(line){
+  const ws=String(line||"").trim().split(/\s+/).filter(Boolean);
+  if(!ws.length)return 0;
+  const ai=(typeof rhymeAnchorIdx==="function")?rhymeAnchorIdx(ws):ws.length-1; const last=ai<0?ws.length-1:ai;
+  let n=0;for(let i=0;i<=last;i++)n+=syllables(ws[i]);
+  return n;
+}
 function barPairs(count,schemeType){
   const pr=[];
   if(schemeType==="ABAB"){
@@ -1302,12 +1311,12 @@ async function generateLyrics(){
 2. RHYME = matching VOWEL SOUNDS landing on the SAME position across bars. The END rhyme (final stressed vowel of the bar) is the HIGHEST-priority pair; strong internal pairs are a bonus.
 3. PAIRED BARS LOCK TOGETHER. Two rhyming bars MUST have the SAME number of syllables, and the rhyme vowel must sit the SAME number of syllables from the downbeat in both — so the rhyme lands on the SAME beat. The rhyme should fall on a STRONG position (beat 1, or a 1/2, 1/4, or 1/8 subdivision), never a weak off-beat. There are usually many word choices that satisfy this — find one.
 4. A syllable-count difference between paired bars is allowed ONLY when a SUSTAINED/held vowel on a strong beat, or a PICKUP syllable before the downbeat, absorbs it AND the rhyme still lands on the same spot. Otherwise keep the counts equal.
-4b. LEAD-INS (pickups): a bar may end on 1-3 short trailing syllables that flow INTO the next bar (e.g. "Scraping at my knees, oh" → next bar). The rhyme still anchors on the word BEFORE the lead-in. If you use this, make it a CONSISTENT PATTERN — either after EVERY bar, or EVERY OTHER bar — never randomly on a single isolated bar.
+4b. LEAD-INS (pickups): 1-3 short trailing syllables AFTER the rhyme word that flow INTO the next bar (e.g. "...knees, oh", or splitting a word across the barline: end one bar on "...the I-" and start the next on "magination..."). Lead-ins do NOT count toward the syllable target — they are FREE extra room to add words for meaning and flow, the release valve when a line needs more than the target allows. The rhyme still anchors on the word BEFORE the lead-in. If you use them, make it a CONSISTENT PATTERN — after EVERY bar, or EVERY OTHER bar — never randomly on one isolated bar.
 5. RHYME STRUCTURE — COUPLET (AABB, adjacent bars rhyme) or CROSS / ALTERNATING (ABAB, answered every other bar). ${schemeLine}
 6. VARY THE RHYME ACROSS THESE BARS: move through SEVERAL end-vowels — a new rhyme sound roughly every couplet (2 bars). Do NOT end more than 2 bars in a row on the same vowel unless deliberately building a list. ${n>=4?`So ${n} bars should use ~${Math.max(2,Math.round(n/2))} different end-vowels, not one.`:""} (A run of ≥8 bars on one vowel reads as monotonous — never do that.)
 7. ${rhythmDirective(rhythm)}
 8. ${contextDirective(ctxY)}
-9. LENGTH: each bar ≈ ${sylTargetEff} syllables (1 line = 1 bar)${sectionSyl&&!targetSyl?` — this section's bars are ${sectionSyl} syllables; MATCH that. Rule 7 sets the FEEL, never the length.`:"."}
+9. LENGTH: each bar's CORE (start → rhyme word, NOT counting any lead-in) ≈ ${sylTargetEff} syllables (1 line = 1 bar)${sectionSyl&&!targetSyl?` — this section's bars are ${sectionSyl}; MATCH that core length. Rule 7 sets the FEEL, never the length; lead-ins (4b) add words WITHOUT changing this count.`:"."}
 10. ${forced.length?`HARD OVERRIDE (intentional rule-break for effect): the END word of EVERY bar MUST carry one of these vowel sounds (ARPABET): ${forced.join(", ")}. Examples: ${forced.flatMap(v=>(NEAR[v]||[]).slice(0,3)).join(", ")}. This overrides rule 5 — obey it even if it fights the natural scheme.`:"Choose end-rhyme vowels that extend the prior bars' scheme per rule 5."}
 11. FRESHNESS — avoid generic AI-lyric clichés and pet imagery (e.g. ${CLICHE}). Reach for concrete, specific, surprising nouns and images over abstract emotion words; don't reuse end-words the prior bars already used.
 ${seedLine?`12. PREFERRED RHYMES — for a scheme vowel's end-word, lean on these real options from the writer's palette over your usual go-to rhymes (not mandatory, but prefer them to stay fresh and on-vowel): ${seedLine}.\n`:""}${directionClauses(sec)}
