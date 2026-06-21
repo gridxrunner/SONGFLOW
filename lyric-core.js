@@ -1178,6 +1178,97 @@ function insertBarsAtCaret(bars){
 }
 $("ideaGo").onclick=generateLyrics;
 
+/* ================= highlight → Replace / Add-after =================
+   Select bars in the editor → a popover offers Replace (rewrite to the selection's rhythm/rhyme
+   skeleton, governed by two fidelity dials) or Add after (normal continuation). Reuses the engine,
+   the quadrant feel, and the validation/retry from generateLyrics. */
+async function replaceSelection(ls,le,selLines,vMatch,sMatch){
+  const provider=($("aiProvider")&&$("aiProvider").value)||localStorage.getItem(AI_PROV_LS)||"groq";
+  const model=($("aiModel")&&$("aiModel").value.trim())||aiModelOf(provider);
+  const note=$("selNote");
+  if(provider!=="free"&&!aiKeyOf(provider)){if(note){note.style.color="var(--danger)";note.textContent=`Add your ${AI.providers[provider].label} key first.`;}if($("aiKey"))$("aiKey").click();return;}
+  // only LYRIC lines are rewritten; tags/blanks are preserved in place
+  const barIdx=selLines.map((l,i)=>(l.trim()&&!isTag(l))?i:-1).filter(i=>i>=0);
+  const bars=barIdx.map(i=>selLines[i]); const n=bars.length;
+  if(!n){if(note){note.style.color="var(--danger)";note.textContent="Highlight at least one lyric line.";}return;}
+  const skel=bars.map(l=>({syl:sylOfBar(l),vow:vowelClass(rhymeAnchorWord(l))}));
+  const vHigh=vMatch>=50,vHard=vMatch>=80,sHigh=sMatch>=50;
+  const sTol=sMatch>=80?1:sMatch>=50?2:99;                       // syllable tolerance from the dial (floored at 1)
+  const fx=(typeof feelX!=="undefined")?feelX:50, fy=(typeof feelY!=="undefined")?feelY:30;
+  const specs=skel.map((s,i)=>`Bar ${i+1}: ${sHigh?`~${s.syl} syllables`:"free length"}${vHigh&&s.vow?`, end-rhyme vowel ${s.vow}`:""}`).join("\n");
+  const sys=`You are REWRITING song lyrics: produce ${n} NEW bars with fresh words and a NEW meaning, while matching the original bars' rhythm/rhyme skeleton as specified. Priorities:
+- ${rhythmDirective(fx)}
+- ${contextDirective(fy)}
+- ${sHigh?`Match each bar's syllable count to its target (within ${sTol}; a held vowel or pickup may absorb a one-syllable difference).`:"Syllable counts are free."}
+- ${vHigh?`${vHard?"MUST":"Prefer to"} end each bar on a word whose final stressed vowel matches that bar's target ARPABET vowel, preserving the rhyme scheme.`:"Rhymes are free — choose new end-rhymes."}
+- FRESHNESS: avoid AI clichés (${CLICHE}); concrete, specific imagery; do NOT reuse the original's words.
+Per-bar targets:
+${specs}
+Output ONLY the ${n} new bars, one per line. No tags, numbering, quotes, or commentary.`;
+  const usr=`Original bars (rewrite with NEW meaning, keep the structure):\n${bars.join("\n")}\n\nWrite the ${n} new bars now.`;
+  const vowOk=o=>!vHard||o.every((b,i)=>!skel[i].vow||endVowelOf(b)===skel[i].vow);
+  const cntBad=o=>!sHigh?[]:o.map((b,i)=>({i,d:Math.abs(sylOfBar(b)-skel[i].syl)})).filter(x=>x.d>sTol);
+  if(note){note.style.color="";note.textContent="Rewriting…";} const go=$("selGen"); if(go)go.disabled=true;
+  try{
+    let out=null;const maxTries=(vHard||sHigh)?3:1;
+    for(let a=1;a<=maxTries;a++){
+      let fix="";
+      if(a>1&&out){
+        if(!vowOk(out))fix+=`\n\nFix the end-rhymes — each bar must end on its target vowel (${skel.map((s,i)=>`bar ${i+1}=${s.vow}`).join(", ")}).`;
+        const cb=cntBad(out); if(cb.length)fix+=`\n\nFix syllable counts: ${cb.map(x=>`bar ${x.i+1} ~${skel[x.i].syl} (was ${sylOfBar(out[x.i])})`).join("; ")}.`;
+      }
+      const res=await callLLM({provider,model,system:sys,user:usr+fix,maxTokens:600});
+      out=(res||"").split("\n").map(s=>s.trim()).filter(Boolean).slice(0,n);
+      if(out.length&&vowOk(out)&&cntBad(out).length===0)break;
+      if(a<maxTries&&note)note.textContent=`Tightening the match (try ${a+1})…`;
+    }
+    if(!out||!out.length)throw new Error("empty response");
+    pushUndo();
+    const rebuilt=selLines.slice(); out.forEach((b,k)=>{if(barIdx[k]!=null)rebuilt[barIdx[k]]=b;});
+    const text=doc.innerText; doc.textContent=text.slice(0,ls)+rebuilt.join("\n")+text.slice(le);
+    if(rhymeOn)paintRhymes();else update(); try{tagRegions();}catch(e){}
+    if(typeof saveProjectState==="function")saveProjectState();
+    hideSelPop();
+  }catch(err){if(note){note.style.color="var(--danger)";note.textContent="Failed: "+err.message;}}
+  if(go)go.disabled=false;
+}
+/* selection → editor-text offsets. #doc is white-space:pre-wrap, so newlines are literal chars and
+   Range.toString() length lines up with doc.innerText offsets. */
+let _selCap=null;
+function selOffsets(){
+  const sel=window.getSelection(); if(!sel||!sel.rangeCount)return null;
+  const r=sel.getRangeAt(0); if(r.collapsed||!doc.contains(r.commonAncestorContainer))return null;
+  const pre=document.createRange(); pre.selectNodeContents(doc);
+  try{pre.setEnd(r.startContainer,r.startOffset);}catch(e){return null;} const start=pre.toString().length;
+  try{pre.setEnd(r.endContainer,r.endOffset);}catch(e){return null;} const end=pre.toString().length;
+  return end>start?{start,end}:null;
+}
+function hideSelPop(){const p=$("selPop"); if(p)p.style.display="none"; _selCap=null;}
+function showSelPop(){
+  const p=$("selPop"); if(!p)return;
+  const o=selOffsets(); if(!o){hideSelPop();return;}
+  const text=doc.innerText;
+  const lstart=text.lastIndexOf("\n",o.start-1)+1; let lend=text.indexOf("\n",o.end); if(lend<0)lend=text.length;
+  const lines=text.slice(lstart,lend).split("\n");
+  if(!lines.some(l=>l.trim()&&!isTag(l))){hideSelPop();return;}
+  _selCap={ls:lstart,le:lend,lines};
+  const rect=window.getSelection().getRangeAt(0).getBoundingClientRect();
+  p.style.display="block"; $("selRepl").style.display="none";
+  const pw=p.offsetWidth||230, ph=p.offsetHeight||40;
+  p.style.left=Math.min(window.innerWidth-pw-8,Math.max(8,rect.left+rect.width/2-pw/2))+"px";
+  let y=rect.top-ph-8; if(y<8)y=rect.bottom+8; p.style.top=y+"px";
+}
+doc.addEventListener("mouseup",()=>setTimeout(showSelPop,0));
+doc.addEventListener("keyup",e=>{if(e.key==="Shift"||e.shiftKey)setTimeout(showSelPop,0);});
+document.addEventListener("mousedown",e=>{const p=$("selPop");if(p&&p.style.display!=="none"&&!p.contains(e.target)&&!doc.contains(e.target))hideSelPop();},true);
+if($("selReplace"))$("selReplace").onclick=()=>{$("selRepl").style.display="block";};
+if($("selAdd"))$("selAdd").onclick=()=>{const cap=_selCap;if(!cap)return;try{setCaret(cap.le);}catch(e){}hideSelPop();if(typeof generateLyrics==="function")generateLyrics();};
+if($("selGen"))$("selGen").onclick=()=>{const cap=_selCap;if(!cap)return;replaceSelection(cap.ls,cap.le,cap.lines,+($("selVowel").value||0),+($("selSyl").value||0));};
+function syncSelVals(){if($("selVowelV"))$("selVowelV").textContent=($("selVowel").value||0)+"%";if($("selSylV"))$("selSylV").textContent=($("selSyl").value||0)+"%";}
+if($("selVowel"))$("selVowel").oninput=syncSelVals;
+if($("selSyl"))$("selSyl").oninput=syncSelVals;
+syncSelVals();
+
 /* ---- init ---- */
 syncDocSel();
 update();

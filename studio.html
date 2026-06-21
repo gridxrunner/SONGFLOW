@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Songflow — Lyric Studio</title>
-<link rel="stylesheet" href="ams.css?v=63">
+<link rel="stylesheet" href="ams.css?v=64">
 <style>
   /* standalone shell: no rail/drawer; the page fills the window */
   body{display:block}
@@ -131,6 +131,18 @@
   .qpad .qhint{position:absolute;font-size:9px;color:var(--mut);opacity:.55;max-width:48%;line-height:1.25}
   .qfdot{position:absolute;width:18px;height:18px;border-radius:50%;background:var(--accent2);border:2px solid var(--panel);box-shadow:0 0 0 1px var(--accent2);transform:translate(-50%,-50%);cursor:grab;z-index:2}
   .qfdot:active{cursor:grabbing}
+  /* highlight-to-replace popover */
+  .selpop{position:fixed;z-index:80;background:var(--panel2);border:1px solid var(--line);border-radius:10px;box-shadow:0 8px 30px rgba(0,0,0,.5);padding:6px;min-width:230px}
+  .selpop-acts{display:flex;gap:6px}
+  .selpop-btn{flex:1;background:var(--panel);border:1px solid var(--line);color:var(--txt);border-radius:7px;padding:6px 8px;font-size:12px;cursor:pointer}
+  .selpop-btn:hover{border-color:var(--accent2)}
+  .selpop-panel{margin-top:6px;border-top:1px solid var(--line);padding-top:8px}
+  .selpop-row{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+  .selpop-row label{flex:0 0 84px;color:var(--mut);font-size:11px;cursor:default}
+  .selpop-row input[type=range]{flex:1;min-width:0}
+  .selpop-val{flex:0 0 36px;text-align:right;font-size:12px;font-variant-numeric:tabular-nums}
+  .selpop-go{width:100%;margin-top:2px;background:var(--grad);border:0;color:#0c0d12;font-weight:700;border-radius:7px;padding:7px;cursor:pointer;font-size:12px}
+  .selpop-note{margin-top:5px;font-size:10.5px;min-height:13px}
   .vw.vsel{outline:2px solid #fff;outline-offset:1px}
   /* right panel: This-Bar card, scheme map, legend, compact stats, help dots */
   .thisbar{background:linear-gradient(180deg,rgba(124,92,255,.12),rgba(25,211,197,.05));border:1px solid #34304f;border-radius:10px;padding:9px 11px;font-size:11.5px;line-height:1.55}
@@ -359,6 +371,19 @@
   <div id="flowHud"></div>
   <!-- tag autocomplete: appears when you type "[" in the lyric editor -->
   <div id="tagMenu"></div>
+  <!-- highlight a span of lyrics → Replace (rewrite to its skeleton) or Add after -->
+  <div id="selPop" class="selpop" style="display:none">
+    <div class="selpop-acts">
+      <button class="selpop-btn" id="selReplace" title="Rewrite the highlighted bars with new words, matching their rhythm/rhyme skeleton"><span style="color:var(--accent2)">&#8635;</span> Replace</button>
+      <button class="selpop-btn" id="selAdd" title="Generate fresh bars right after the highlighted section"><span style="color:var(--accent)">+</span> Add after</button>
+    </div>
+    <div id="selRepl" class="selpop-panel" style="display:none">
+      <div class="selpop-row"><label title="how strictly the new bars reuse the same rhyme vowels">Vowel match</label><input type="range" id="selVowel" min="0" max="100" value="80"><span id="selVowelV" class="selpop-val">80%</span></div>
+      <div class="selpop-row"><label title="how strictly the new bars keep the same per-bar syllable counts">Syllable match</label><input type="range" id="selSyl" min="0" max="100" value="80"><span id="selSylV" class="selpop-val">80%</span></div>
+      <button class="selpop-go" id="selGen">&#10024; Generate replacement</button>
+      <div id="selNote" class="selpop-note muted"></div>
+    </div>
+  </div>
 
   <!-- reusable text-input modal (new document / rename) -->
   <div class="ovl" id="askOvl"><div class="modal">
@@ -490,10 +515,10 @@ $("helpClose").onclick=()=>showHelp(false);
 $("helpModal").addEventListener("click",e=>{if(e.target===$("helpModal"))showHelp(false);});
 document.addEventListener("keydown",e=>{if(e.key==="Escape")showHelp(false);});
 </script>
-<script src="ams-timeline.js?v=63"></script>
-<script src="ams-vowels.js?v=63"></script>
-<script src="ams-bpm.js?v=63"></script>
-<script src="ams-sections.js?v=63"></script>
+<script src="ams-timeline.js?v=64"></script>
+<script src="ams-vowels.js?v=64"></script>
+<script src="ams-bpm.js?v=64"></script>
+<script src="ams-sections.js?v=64"></script>
 <script>
 const doc=$("doc"),gut=$("gut");
 // keep the gutter (line #, syllables, rhyme vowel) locked to the lyric scroll — they share the
@@ -1189,6 +1214,6 @@ window.addEventListener("keydown",e=>{if(e.key==="Escape"&&$("tourOvl").classLis
 window.addEventListener("resize",()=>{if($("tourOvl").classList.contains("on"))tourShow();});
 if(!localStorage.getItem("ams.tour.seen"))setTimeout(()=>{try{tourStart();}catch(e){}},800);   // first visit → auto-run
 </script>
-<script src="lyric-core.js?v=63"></script>
+<script src="lyric-core.js?v=64"></script>
 </body>
 </html>
