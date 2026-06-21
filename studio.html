@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Songflow — Lyric Studio</title>
-<link rel="stylesheet" href="ams.css?v=60">
+<link rel="stylesheet" href="ams.css?v=62">
 <style>
   /* standalone shell: no rail/drawer; the page fills the window */
   body{display:block}
@@ -118,6 +118,19 @@
   .warpmark{position:absolute;top:0;bottom:0;width:0;border-left:1.5px dashed #c266ff;pointer-events:auto}
   .warpmark .wmh{position:absolute;top:-1px;left:-6px;width:12px;height:12px;line-height:12px;text-align:center;font-size:11px;color:#c266ff;cursor:grab;text-shadow:0 0 3px #0c0d12}
   .tlhost.warping .laneTL,.tlhost.warping .ruler,.tlhost.warping .regionstrip{cursor:crosshair}
+  /* generation-feel 2D pad: X = packed↔sustained, Y = on-theme↔rhythm-first */
+  .qpadwrap{margin-top:6px}
+  .qrow{display:flex;align-items:stretch;gap:5px}
+  .qaxis{font-size:9px;color:var(--mut);letter-spacing:.4px;text-transform:uppercase;display:flex;align-items:center;justify-content:center}
+  .qtop,.qbot{padding:2px 0}
+  .qleft,.qright{writing-mode:vertical-rl}
+  .qleft{transform:rotate(180deg)}
+  .qpad{position:relative;flex:1;height:144px;background:var(--bg);border:1px solid var(--line);border-radius:8px;cursor:crosshair;touch-action:none}
+  .qpad .qcr{position:absolute;background:var(--line)}
+  .qpad .qv{left:50%;top:0;bottom:0;width:1px}.qpad .qh{top:50%;left:0;right:0;height:1px}
+  .qpad .qhint{position:absolute;font-size:9px;color:var(--mut);opacity:.55;max-width:48%;line-height:1.25}
+  .qfdot{position:absolute;width:18px;height:18px;border-radius:50%;background:var(--accent2);border:2px solid var(--panel);box-shadow:0 0 0 1px var(--accent2);transform:translate(-50%,-50%);cursor:grab;z-index:2}
+  .qfdot:active{cursor:grabbing}
   .vw.vsel{outline:2px solid #fff;outline-offset:1px}
   /* right panel: This-Bar card, scheme map, legend, compact stats, help dots */
   .thisbar{background:linear-gradient(180deg,rgba(124,92,255,.12),rgba(25,211,197,.05));border:1px solid #34304f;border-radius:10px;padding:9px 11px;font-size:11.5px;line-height:1.55}
@@ -276,9 +289,24 @@
         <div class="pdiv"></div><div class="psection">Generate <span class="qdot" data-help>?</span></div>
         <div class="lab">Generate how many bars?</div>
         <select class="inp" id="ideaN" style="width:100%" title="number of lyric bars to generate (1 line = 1 bar)"></select>
-        <div class="lab" style="margin-top:10px;display:flex;align-items:center;gap:6px"><span style="flex:1">Rhythm density <span class="meta" style="text-transform:none;letter-spacing:0;opacity:.65">packed &harr; sustained</span></span><span class="rangeval" id="rhythmV">Balanced</span></div>
-        <input type="range" id="rhythm" min="0" max="100" value="50" style="width:100%">
-        <div class="muted" style="margin-top:3px;font-size:10.5px">How the AI phrases new bars: far left = dense &amp; percussive, far right = sparse &amp; sustained.</div>
+        <div class="lab" style="margin-top:10px;display:flex;align-items:center;gap:6px"><span style="flex:1">Generation feel</span><span class="rangeval" id="feelV">Balanced · on-theme</span></div>
+        <div class="qpadwrap">
+          <div class="qaxis qtop">on-theme · coherent</div>
+          <div class="qrow">
+            <div class="qaxis qleft">packed</div>
+            <div class="qpad" id="qpad" title="Drag: left↔right = packed↔sustained phrasing · up↔down = stay on-theme ↔ let sound lead the meter">
+              <div class="qcr qv"></div><div class="qcr qh"></div>
+              <span class="qhint" style="top:5px;left:7px">tight, on-story</span>
+              <span class="qhint" style="top:5px;right:7px;text-align:right">airy &amp; meaningful</span>
+              <span class="qhint" style="bottom:5px;left:7px">locked groove</span>
+              <span class="qhint" style="bottom:5px;right:7px;text-align:right">sparse scaffold</span>
+              <div class="qfdot" id="qdot"></div>
+            </div>
+            <div class="qaxis qright">sustained</div>
+          </div>
+          <div class="qaxis qbot">rhythm-first · scaffold</div>
+        </div>
+        <div class="muted" style="margin-top:4px;font-size:10.5px">Left↔right = packed ↔ sustained phrasing. Up↔down = stay on-theme ↔ let sound lead (looser meaning buys tighter meter).</div>
         <div class="lab" style="margin-top:10px">Overrides <span class="meta" style="opacity:.7;text-transform:none;letter-spacing:0">— optional, off by default</span></div>
         <div class="muted" style="font-size:10.5px;margin-bottom:5px">Force a specific vowel or syllable count, even against the natural scheme.</div>
         <div id="forceRows"><span class="muted" style="font-size:10.5px">Click a line with a rhyme vowel to load it here.</span></div>
@@ -381,7 +409,7 @@
         <h4>Shaping & generating</h4>
         <ul>
           <li><b>Force rhyming vowel(s) (in Generate):</b> an <em>optional override</em>, off by default. Flip a switch to make the generator land every new bar on a specific vowel — even when it breaks the natural scheme. For deliberate effects/special cases; leave off to let the scheme lead.</li>
-          <li><b>Rhythm slider:</b> from dense/percussive to sustained/choir-like — sets the phrasing density.</li>
+          <li><b>Generation feel (the pad):</b> drag the dot. Left↔right sets phrasing density (packed ↔ sustained); up↔down sets how strictly it stays on-theme vs. lets sound lead the meter. Lower = looser meaning buys a tighter rhythm; the app then enforces matching syllables on paired bars and re-asks the AI if a pair drifts.</li>
           <li><b>Generate matching lyrics:</b> writes new bars that extend your scheme. Pick an <b>Engine</b>: a free hosted open model, or bring your own <b>Anthropic / OpenAI / Google</b> key (stored only in this browser — you pay that provider). Set the key with the &#128273; Key button and choose a model.</li>
           <li><b>Export .txt:</b> save the document with its title, BPM and key.</li>
         </ul>
@@ -462,10 +490,10 @@ $("helpClose").onclick=()=>showHelp(false);
 $("helpModal").addEventListener("click",e=>{if(e.target===$("helpModal"))showHelp(false);});
 document.addEventListener("keydown",e=>{if(e.key==="Escape")showHelp(false);});
 </script>
-<script src="ams-timeline.js?v=60"></script>
-<script src="ams-vowels.js?v=60"></script>
-<script src="ams-bpm.js?v=60"></script>
-<script src="ams-sections.js?v=60"></script>
+<script src="ams-timeline.js?v=62"></script>
+<script src="ams-vowels.js?v=62"></script>
+<script src="ams-bpm.js?v=62"></script>
+<script src="ams-sections.js?v=62"></script>
 <script>
 const doc=$("doc"),gut=$("gut");
 // keep the gutter (line #, syllables, rhyme vowel) locked to the lyric scroll — they share the
@@ -1161,6 +1189,6 @@ window.addEventListener("keydown",e=>{if(e.key==="Escape"&&$("tourOvl").classLis
 window.addEventListener("resize",()=>{if($("tourOvl").classList.contains("on"))tourShow();});
 if(!localStorage.getItem("ams.tour.seen"))setTimeout(()=>{try{tourStart();}catch(e){}},800);   // first visit → auto-run
 </script>
-<script src="lyric-core.js?v=60"></script>
+<script src="lyric-core.js?v=62"></script>
 </body>
 </html>

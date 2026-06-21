@@ -70,7 +70,9 @@ doc.textContent=docsState.docs[docsState.active].text;
 function syllables(word){
   word=word.toLowerCase().replace(/[^a-z]/g,"");
   if(!word)return 0;
-  let m=word.replace(/e$/,"").match(/[aeiouy]+/g);
+  word=word.replace(/([^aeiouy])e(s?)$/,"$1");   // silent final -e / -es after a consonant: leaves→leav, makes→mak, the→th
+  word=word.replace(/([^aeioudt])ed$/,"$1");      // silent -ed except after t/d: played→play, loved→lov (but want-ed, hat-ed keep it)
+  const m=word.match(/[aeiouy]{1,2}/g);           // a diphthong (oe, ea…) counts as one
   return Math.max(1,(m||[]).length);
 }
 function endVowelKey(word){
@@ -566,13 +568,27 @@ function applyBarGuide(){
 if($("barGuideTog"))$("barGuideTog").onclick=()=>{const on=localStorage.getItem("ams.barguide")==="1";localStorage.setItem("ams.barguide",on?"0":"1");applyBarGuide();};
 applyBarGuide();
 
-/* ---- rhythm slider ---- */
-const RKEY="ams.lyrics.rhythm";
-$("rhythm").value=localStorage.getItem(RKEY)||"50";
-function rhythmLabel(v){return v<=15?"Very rhythmic":v<=38?"Rhythmic":v<=62?"Balanced":v<=85?"Drawn-out":"Choir-like";}
-function syncRhythm(){$("rhythmV").textContent=rhythmLabel(+$("rhythm").value);}
-$("rhythm").oninput=()=>{localStorage.setItem(RKEY,$("rhythm").value);syncRhythm();};
-syncRhythm();
+/* ---- generation-feel 2D pad ----
+   feelX = rhythm density (0 packed/percussive → 100 sustained/spacious).
+   feelY = context fidelity (0 on-theme/coherent → 100 rhythm-first/scaffold).
+   Lower feelY lets the model trade meaning for a tighter meter; it also relaxes the
+   paired-bar syllable check below. Both persist per browser. */
+const FEELX="ams.lyrics.feelx", FEELY="ams.lyrics.feely";
+let feelX=(()=>{let v=parseInt(localStorage.getItem(FEELX));if(!isNaN(v))return v;v=parseInt(localStorage.getItem("ams.lyrics.rhythm"));return isNaN(v)?30:v;})();
+let feelY=(()=>{const v=parseInt(localStorage.getItem(FEELY));return isNaN(v)?30:v;})();
+function feelXLabel(x){return x<=15?"Packed":x<=38?"Rhythmic":x<=62?"Balanced":x<=85?"Drawn-out":"Sparse";}
+function feelYLabel(y){return y<=33?"on-theme":y<=66?"blended":"rhythm-first";}
+function renderFeel(){const d=$("qdot");if(d){d.style.left=feelX+"%";d.style.top=feelY+"%";}if($("feelV"))$("feelV").textContent=feelXLabel(feelX)+" · "+feelYLabel(feelY);}
+function setFeelFrom(e){const p=$("qpad");if(!p)return;const r=p.getBoundingClientRect();
+  feelX=Math.round(Math.min(100,Math.max(0,((e.clientX-r.left)/r.width)*100)));
+  feelY=Math.round(Math.min(100,Math.max(0,((e.clientY-r.top)/r.height)*100)));
+  try{localStorage.setItem(FEELX,feelX);localStorage.setItem(FEELY,feelY);}catch(e){}renderFeel();}
+if($("qpad")){let drag=false;const p=$("qpad");
+  p.addEventListener("pointerdown",e=>{drag=true;try{p.setPointerCapture(e.pointerId);}catch(_){}setFeelFrom(e);});
+  p.addEventListener("pointermove",e=>{if(drag)setFeelFrom(e);});
+  p.addEventListener("pointerup",()=>drag=false);
+  p.addEventListener("pointercancel",()=>drag=false);
+  renderFeel();}
 
 /* ---- vowel classes + rhyme banks ---- */
 const VOPTS=["AY","EY","OW","IY","UW","OY","AW","AE","EH","IH","AH","UH","AO","AR","OR","ER"];
@@ -1016,6 +1032,22 @@ function rhythmDirective(v){
   if(v<=85)return "DRAWN-OUT: sparse, sustained, fewer syllables held longer.";
   return "CHOIR-LIKE: very sparse and sustained — few syllables, long vowels, hymn-like space.";
 }
+/* the CONTEXT axis (feelY): how much the lyric may trade literal meaning for a tighter meter. */
+function contextDirective(y){
+  if(y<=33)return "MEANING + METER TOGETHER: keep lines coherent and on-theme. Honor the structural rules; when meaning needs room, absorb it with a held vowel or a pickup rather than breaking sense.";
+  if(y<=66)return "METER LEANS OVER MEANING: lock the syllable match and rhyme positions exactly; let imagery turn impressionistic where needed to keep the structure tight.";
+  return "RHYTHM-FIRST SCAFFOLD: nail the meter and rhyme positions above all else. Words may be abstract or placeholder — this is a rhythmic scaffold the writer will rewrite for meaning. NEVER break a structural rule to make literal sense.";
+}
+/* paired-bar syllable check (the retry net). syllable count of one bar; which index pairs
+   to compare for the active scheme; how much mismatch the context axis tolerates. */
+function sylOfBar(line){return String(line||"").trim().split(/\s+/).filter(Boolean).reduce((nn,w)=>nn+syllables(w),0);}
+function barPairs(count,schemeType){
+  const pr=[];
+  if(schemeType==="ABAB"){for(let i=0;i+3<count+ (count%4?4:0);i+=4){if(i+2<count)pr.push([i,i+2]);if(i+3<count)pr.push([i+1,i+3]);}}
+  else{for(let i=0;i+1<count;i+=2)pr.push([i,i+1]);}
+  return pr;
+}
+function sylTolerance(y){return y>66?0:y>33?1:2;}   // rhythm-first = exact; on-theme = up to ±2 (absorbers)
 function priorContext(){
   // the section + the preceding content bars (the rhythmic/rhyme template to extend)
   const lines=doc.innerText.split("\n");
@@ -1044,7 +1076,9 @@ async function generateLyrics(){
   const n=+NSEL.value||4;
   // syllable target: only when the Force-syllables override is on; otherwise match prior bars
   const targetSyl=(sylForceOn()&&+($("sylTarget").value||0)>0)?+$("sylTarget").value:null;
-  const rhythm=+$("rhythm").value;
+  const rhythm=(typeof feelX!=="undefined")?feelX:50;     // X axis: packed ↔ sustained
+  const ctxY=(typeof feelY!=="undefined")?feelY:30;       // Y axis: on-theme ↔ rhythm-first
+  const tol=sylTolerance(ctxY);                           // how much paired-bar mismatch we tolerate
   const {sec,prior}=priorContext();
   const forced=[...$("forceRows").querySelectorAll(".frow")].filter(r=>r.querySelector(".toggle.on"))
     .map(r=>r.querySelector("select").value);
@@ -1056,13 +1090,15 @@ async function generateLyrics(){
     : `No scheme yet — open with a clear end-rhyme vowel the next bar can answer.`;
   const sys=`You are a master lyricist writing to a strict rhythmic + rhyme methodology. RULES, in priority order:
 1. RHYTHM FIRST. Build a complementary rhythmic pattern and make the words ride it; echo the rhythmic pattern of the prior bars.
-2. RHYME = matching VOWEL SOUNDS landing on the SAME syllable position across bars. The END rhyme (final stressed vowel of the bar) is the HIGHEST-priority pair; strong internal pairs are a bonus.
-3. RHYME STRUCTURE — two shapes: COUPLET (AABB, adjacent bars rhyme) and CROSS / ALTERNATING rhyme (ABAB, answered every other bar; a consistent ABAB makes even loose "family" rhymes feel intentional). ${schemeLine}
-4. DON'T overstay a scheme: after ~8 bars on one end-vowel, OPEN a new one with a CONTRASTING vowel (noticeably brighter or darker) so the ear gets relief.
-5. ${rhythmDirective(rhythm)}
-6. ${targetSyl?`Aim for ~${targetSyl} syllables per bar (1 line = 1 bar).`:"Match the syllable count and cadence of the prior bars."}
-7. ${forced.length?`HARD OVERRIDE (intentional rule-break for effect): the END word of EVERY bar MUST carry one of these vowel sounds (ARPABET): ${forced.join(", ")}. Examples: ${forced.flatMap(v=>(NEAR[v]||[]).slice(0,3)).join(", ")}. This overrides rule 3 — obey it even if it fights the natural scheme.`:"Choose end-rhyme vowels that extend the prior bars' scheme per rule 3."}
-8. Lyrics should make sense, but rhythm and rhyme take priority over literal meaning.
+2. RHYME = matching VOWEL SOUNDS landing on the SAME position across bars. The END rhyme (final stressed vowel of the bar) is the HIGHEST-priority pair; strong internal pairs are a bonus.
+3. PAIRED BARS LOCK TOGETHER. Two rhyming bars MUST have the SAME number of syllables, and the rhyme vowel must sit the SAME number of syllables from the downbeat in both — so the rhyme lands on the SAME beat. The rhyme should fall on a STRONG position (beat 1, or a 1/2, 1/4, or 1/8 subdivision), never a weak off-beat. There are usually many word choices that satisfy this — find one.
+4. A syllable-count difference between paired bars is allowed ONLY when a SUSTAINED/held vowel on a strong beat, or a PICKUP syllable before the downbeat, absorbs it AND the rhyme still lands on the same spot. Otherwise keep the counts equal.
+5. RHYME STRUCTURE — COUPLET (AABB, adjacent bars rhyme) or CROSS / ALTERNATING (ABAB, answered every other bar). ${schemeLine}
+6. DON'T overstay a scheme: after ~8 bars on one end-vowel, OPEN a new one with a CONTRASTING vowel (noticeably brighter or darker) so the ear gets relief.
+7. ${rhythmDirective(rhythm)}
+8. ${contextDirective(ctxY)}
+9. ${targetSyl?`Aim for ~${targetSyl} syllables per bar (1 line = 1 bar).`:"Match the syllable count and cadence of the prior bars."}
+10. ${forced.length?`HARD OVERRIDE (intentional rule-break for effect): the END word of EVERY bar MUST carry one of these vowel sounds (ARPABET): ${forced.join(", ")}. Examples: ${forced.flatMap(v=>(NEAR[v]||[]).slice(0,3)).join(", ")}. This overrides rule 5 — obey it even if it fights the natural scheme.`:"Choose end-rhyme vowels that extend the prior bars' scheme per rule 5."}
 Output ONLY the ${n} lyric ${n>1?"bars":"bar"}, one per line. No section tags, no numbering, no commentary, no quotes.`;
   const usr=(prior.length?`Section: [${sec}]\nPrior bars to extend (match their rhythm & rhyme scheme):\n${prior.join("\n")}\n\n`:`Section: [${sec}]\n\n`)+
     `Write ${n} new bar${n>1?"s":""} that continue this section.`;
@@ -1073,19 +1109,29 @@ Output ONLY the ${n} lyric ${n>1?"bars":"bar"}, one per line. No section tags, n
   // with any provider. (No forced vowels → no hard check; we don't second-guess free writing.)
   const exWords=forced.flatMap(v=>(NEAR[v]||[]).slice(0,3));
   const endsOk=bars=>!forced.length||bars.every(b=>forced.includes(endVowelOf(b)));
+  // paired-bar syllable check — the structural net. Rhyming bars should match within the
+  // context-axis tolerance (exact when rhythm-first, looser when on-theme).
+  const matchBad=bars=>{const c=bars.map(sylOfBar),pr=barPairs(bars.length,scheme.type);
+    return pr.filter(([a,b])=>Math.abs(c[a]-c[b])>tol).map(([a,b])=>`"${bars[a]}" (${c[a]} syl) vs "${bars[b]}" (${c[b]} syl)`);};
+  const matchOk=bars=>matchBad(bars).length===0;
   try{
-    let bars=null;const maxTries=forced.length?3:1;
+    let bars=null;const maxTries=(forced.length||tol<2)?3:1;   // strictness scales with the Y axis
     for(let attempt=1;attempt<=maxTries;attempt++){
-      const fix=attempt>1?`\n\nYour previous attempt broke the end-rhyme rule. EVERY one of the ${n} bars MUST end on a word whose stressed vowel is ${forced.join(" or ")} (e.g. ${exWords.join(", ")}). Rewrite all ${n} bars now, fixing every final word.`:"";
+      let fix="";
+      if(attempt>1&&bars){
+        if(!endsOk(bars))fix+=`\n\nYour previous attempt broke the end-rhyme rule. EVERY one of the ${n} bars MUST end on a word whose stressed vowel is ${forced.join(" or ")} (e.g. ${exWords.join(", ")}). Rewrite all ${n} bars, fixing every final word.`;
+        const bad=matchBad(bars);
+        if(bad.length)fix+=`\n\nSYLLABLE MISMATCH in paired bars: ${bad.join("; ")}. Paired (rhyming) bars MUST have the SAME syllable count so the rhyme lands on the same beat${tol?` (you may differ by at most ${tol}, and only if a held vowel or pickup absorbs it)`:""}. Rewrite ALL ${n} bars, equalizing each pair while keeping the rhymes and meaning.`;
+      }
       const out=await callLLM({provider,model,system:sys,user:usr+fix,maxTokens:600});
       if(!out)throw new Error("empty response");
       bars=out.split("\n").map(s=>s.trim()).filter(Boolean).slice(0,n);
-      if(endsOk(bars))break;
-      if(attempt<maxTries)note.textContent=`Tightening the rhyme (try ${attempt+1})…`;
+      if(endsOk(bars)&&matchOk(bars))break;
+      if(attempt<maxTries)note.textContent=`Tightening the rhythm (try ${attempt+1})…`;
     }
     insertBarsAtCaret(bars);
-    const drift=!endsOk(bars);
-    note.style.color="";note.textContent=`Generated ${bars.length} bar(s).`+(drift?" Couldn't fully lock the forced vowel — tweak as needed.":" Edit freely — they're in your document.");
+    const vDrift=!endsOk(bars), mDrift=!matchOk(bars);
+    note.style.color="";note.textContent=`Generated ${bars.length} bar(s).`+(vDrift?" Couldn't fully lock the forced vowel — tweak as needed.":mDrift?" A paired bar's syllable count is still off — tweak as needed.":" Edit freely — they're in your document.");
   }catch(err){note.className="muted";note.style.color="var(--danger)";note.textContent="Generation failed: "+err.message;}
   btn.disabled=false;
 }
