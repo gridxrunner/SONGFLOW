@@ -1051,7 +1051,7 @@ document.querySelectorAll("[data-help]").forEach(d=>d.onclick=()=>{if(typeof sho
 const AI={providers:{
   free:    {label:"Free open model", keyLS:null, models:[]},
   groq:    {label:"Groq (fast · free tier)", keyLS:"ams.ai.key.groq", models:["llama-3.3-70b-versatile","llama-3.1-8b-instant","gemma2-9b-it"]},
-  openrouter:{label:"OpenRouter (any model)", keyLS:"ams.ai.key.openrouter", models:["openai/gpt-5.5","anthropic/claude-opus-4.8","meta-llama/llama-3.3-70b-instruct","deepseek/deepseek-chat","openai/gpt-4o"]},   // default = a GENERALLY-AVAILABLE model (Fable 5 is access-gated by Anthropic → 404 for most)
+  openrouter:{label:"OpenRouter (any model)", keyLS:"ams.ai.key.openrouter", models:["deepseek/deepseek-chat","openai/gpt-5.5","anthropic/claude-opus-4.8","meta-llama/llama-3.3-70b-instruct","google/gemini-2.0-flash-001"]},   // default = deepseek: cheap, fast, non-reasoning, excellent for lyrics
   anthropic:{label:"Anthropic", keyLS:"ams.ai.key.anthropic", models:["claude-sonnet-4-6","claude-opus-4-8","claude-haiku-4-5-20251001"]},
   openai:  {label:"OpenAI", keyLS:"ams.ai.key.openai", models:["gpt-4o","gpt-4o-mini","gpt-4.1","gpt-4.1-mini"]},
   google:  {label:"Google Gemini", keyLS:"ams.ai.key.google", models:["gemini-2.5-flash","gemini-2.5-pro","gemini-2.0-flash"]}

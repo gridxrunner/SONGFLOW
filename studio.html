@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Songflow — Lyric Studio</title>
-<link rel="stylesheet" href="ams.css?v=69">
+<link rel="stylesheet" href="ams.css?v=70">
 <style>
   /* standalone shell: no rail/drawer; the page fills the window */
   body{display:block}
@@ -32,6 +32,9 @@
   .statrow span:not(.nm){width:36px;text-align:right;font-variant-numeric:tabular-nums;flex:0 0 auto}
   .statrow.sthd{color:#5c6076;font-size:9.5px;text-transform:uppercase;letter-spacing:.5px}.statrow.tot{font-weight:700;border-bottom:0}
   input.numv{width:54px;background:var(--panel);color:var(--txt);border:1px solid var(--line);border-radius:7px;padding:5px;font-size:11px;text-align:right}
+  .inp{background:var(--panel2);border:1px solid var(--line);color:var(--txt);border-radius:9px;padding:7px 9px;font-size:12px;outline:none}
+  .inp:focus{border-color:var(--accent2)}
+  .inp::placeholder{color:var(--mut);opacity:.85}
   /* grouped beat-grid control cluster: BPM stepper · ×2/÷2 · Anchor · Slip */
   .gridctl{display:flex;align-items:center;gap:7px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:3px 7px}
   .gctk{display:flex;align-items:center;gap:3px}
@@ -534,10 +537,10 @@ $("helpClose").onclick=()=>showHelp(false);
 $("helpModal").addEventListener("click",e=>{if(e.target===$("helpModal"))showHelp(false);});
 document.addEventListener("keydown",e=>{if(e.key==="Escape")showHelp(false);});
 </script>
-<script src="ams-timeline.js?v=69"></script>
-<script src="ams-vowels.js?v=69"></script>
-<script src="ams-bpm.js?v=69"></script>
-<script src="ams-sections.js?v=69"></script>
+<script src="ams-timeline.js?v=70"></script>
+<script src="ams-vowels.js?v=70"></script>
+<script src="ams-bpm.js?v=70"></script>
+<script src="ams-sections.js?v=70"></script>
 <script>
 const doc=$("doc"),gut=$("gut");
 // keep the gutter (line #, syllables, rhyme vowel) locked to the lyric scroll — they share the
@@ -1233,6 +1236,6 @@ window.addEventListener("keydown",e=>{if(e.key==="Escape"&&$("tourOvl").classLis
 window.addEventListener("resize",()=>{if($("tourOvl").classList.contains("on"))tourShow();});
 if(!localStorage.getItem("ams.tour.seen"))setTimeout(()=>{try{tourStart();}catch(e){}},800);   // first visit → auto-run
 </script>
-<script src="lyric-core.js?v=69"></script>
+<script src="lyric-core.js?v=70"></script>
 </body>
 </html>
