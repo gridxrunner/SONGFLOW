@@ -595,6 +595,47 @@ if($("qpad")){let drag=false;const p=$("qpad");
   p.addEventListener("pointercancel",()=>drag=false);
   renderFeel();}
 
+/* ---- Direction controls: theme / voice / mood / rhyme strength / internal rhyme / word lists / section ---- */
+const DIR_KEYS=["dirTheme","dirPov","dirTense","dirMood","dirRhy","dirInt","dirInclude","dirAvoid","dirSection"];
+function dirRhyLabel(v){return v<=25?"Perfect":v<=55?"Family":v<=80?"Slant":"Assonance";}
+function dirIntLabel(v){return v<=20?"None":v<=50?"Some":v<=80?"Frequent":"Dense";}
+function syncDir(){const r=$("dirRhy"),i=$("dirInt");if(r&&$("dirRhyV"))$("dirRhyV").textContent=dirRhyLabel(+r.value);if(i&&$("dirIntV"))$("dirIntV").textContent=dirIntLabel(+i.value);}
+(function initDir(){
+  DIR_KEYS.forEach(k=>{const el=$(k);if(!el)return;
+    const saved=localStorage.getItem("ams.dir."+k);
+    if(saved!=null){if(el.type==="checkbox")el.checked=saved==="1";else el.value=saved;}
+    const ev=(el.tagName==="SELECT"||el.type==="checkbox")?"change":"input";
+    el.addEventListener(ev,()=>{try{localStorage.setItem("ams.dir."+k,el.type==="checkbox"?(el.checked?"1":"0"):el.value);}catch(e){}syncDir();});
+  });
+  syncDir();
+})();
+/* the DIRECTION block injected into generation prompts (sec = current section name). All optional. */
+function directionClauses(sec){
+  const g=k=>{const el=$(k);return el?(el.type==="checkbox"?el.checked:String(el.value||"").trim()):"";};
+  const out=[];
+  const theme=g("dirTheme"); if(theme)out.push(`THEME — write about: ${theme}. Serve this subject while keeping every rhythm/rhyme rule.`);
+  const pov=g("dirPov"),tense=g("dirTense");
+  const povMap={first:"first person singular (I/me/my)",firstpl:"first person plural (we/us/our)",second:"second person (you/your)",third:"third person (they/he/she)"};
+  if(pov||tense)out.push(`VOICE — ${[pov?povMap[pov]:"",tense?tense+" tense":""].filter(Boolean).join(", ")}; keep it consistent across the bars.`);
+  const mood=g("dirMood"); if(mood)out.push(`MOOD — ${mood}: let word choice and imagery carry this tone.`);
+  const rhy=+g("dirRhy")||0; out.push(`RHYME STRENGTH — ${rhy<=25?"PERFECT rhymes only (matching vowel AND ending consonants)":rhy<=55?"FAMILY rhymes: matching vowel, similar consonants — slant is fine":rhy<=80?"SLANT rhymes welcome: match the vowel, consonants are free":"ASSONANCE: vowel echoes suffice, consonants need not match"}.`);
+  const intd=+g("dirInt")||0; if(intd>20)out.push(`INTERNAL RHYME — ${intd<=50?"add the occasional internal rhyme":intd<=80?"weave in frequent internal rhymes (several rhyming syllables per bar)":"pack dense internal rhymes throughout, rap-style"}, on top of the end-rhyme.`);
+  const inc=g("dirInclude"); if(inc)out.push(`MUST INCLUDE — naturally work in: ${inc}.`);
+  const avo=g("dirAvoid"); if(avo)out.push(`AVOID — never use: ${avo}.`);
+  if(g("dirSection")){
+    const s=(sec||"").toLowerCase(); let sp="";
+    if(/pre.?chorus/.test(s))sp="PRE-CHORUS: build tension toward the chorus; you may tighten the rhythm.";
+    else if(/chorus|hook/.test(s))sp="CHORUS: the memorable HOOK — more repetition, simpler/stickier phrasing, the emotional center; bars may share a length.";
+    else if(/bridge/.test(s))sp="BRIDGE: contrast and lift — a new angle, fresh imagery, often the emotional turn.";
+    else if(/intro|outro/.test(s))sp="INTRO/OUTRO: spare and atmospheric; set or release the mood.";
+    else if(/verse/.test(s))sp="VERSE: narrative — advance the story with concrete detail; a little line-length variety is natural.";
+    if(sp)out.push("SECTION — "+sp);
+  }
+  // soft cadence/stress mirror (true programmatic stress-lock needs a pronunciation dict — roadmap item)
+  out.push("CADENCE — by ear, mirror the stressed-syllable pattern (the strong beats) of the prior bars, not just the syllable count.");
+  return out.length?`\n\nDIRECTION (high priority for meaning; the numbered rhythm/rhyme rules still bind):\n- ${out.join("\n- ")}`:"";
+}
+
 /* ---- vowel classes + rhyme banks ---- */
 const VOPTS=["AY","EY","OW","IY","UW","OY","AW","AE","EH","IH","AH","UH","AO","AR","OR","ER"];
 const VC={AY:"#7c5cff",EY:"#19d3c5",OW:"#ff8a4c",IY:"#5b6cff",UW:"#48b06a",OY:"#ff8a4c",AW:"#48b06a",
@@ -1173,7 +1214,8 @@ async function generateLyrics(){
 9. ${targetSyl?`Aim for ~${targetSyl} syllables per bar (1 line = 1 bar).`:"Match the syllable count and cadence of the prior bars."}
 10. ${forced.length?`HARD OVERRIDE (intentional rule-break for effect): the END word of EVERY bar MUST carry one of these vowel sounds (ARPABET): ${forced.join(", ")}. Examples: ${forced.flatMap(v=>(NEAR[v]||[]).slice(0,3)).join(", ")}. This overrides rule 5 — obey it even if it fights the natural scheme.`:"Choose end-rhyme vowels that extend the prior bars' scheme per rule 5."}
 11. FRESHNESS — avoid generic AI-lyric clichés and pet imagery (e.g. ${CLICHE}). Reach for concrete, specific, surprising nouns and images over abstract emotion words; don't reuse end-words the prior bars already used.
-${seedLine?`12. PREFERRED RHYMES — for a scheme vowel's end-word, lean on these real options from the writer's palette over your usual go-to rhymes (not mandatory, but prefer them to stay fresh and on-vowel): ${seedLine}.\n`:""}Output ONLY the ${n} lyric ${n>1?"bars":"bar"}, one per line. No section tags, no numbering, no commentary, no quotes.`;
+${seedLine?`12. PREFERRED RHYMES — for a scheme vowel's end-word, lean on these real options from the writer's palette over your usual go-to rhymes (not mandatory, but prefer them to stay fresh and on-vowel): ${seedLine}.\n`:""}${directionClauses(sec)}
+Output ONLY the ${n} lyric ${n>1?"bars":"bar"}, one per line. No section tags, no numbering, no commentary, no quotes.`;
   const usr=(prior.length?`Section: [${sec}]\nPrior bars to extend (match their rhythm & rhyme scheme):\n${prior.join("\n")}\n\n`:`Section: [${sec}]\n\n`)+
     `Write ${n} new bar${n>1?"s":""} that continue this section.`;
   const note=$("ideaNote"),btn=$("ideaGo");
@@ -1253,6 +1295,7 @@ async function replaceSelection(ls,le,selLines,vMatch,sMatch){
 - FRESHNESS: avoid AI clichés (${CLICHE}); concrete, specific imagery; do NOT reuse the original's words.
 Per-bar targets:
 ${specs}
+${directionClauses((typeof priorContext==="function")?priorContext().sec:"")}
 Output ONLY the ${n} new bars, one per line. No tags, numbering, quotes, or commentary.`;
   const usr=`Original bars (rewrite with NEW meaning, keep the structure):\n${bars.join("\n")}\n\nWrite the ${n} new bars now.`;
   const vowOk=o=>!vHard||o.every((b,i)=>!skel[i].vow||endVowelOf(b)===skel[i].vow);

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Songflow — Lyric Studio</title>
-<link rel="stylesheet" href="ams.css?v=66">
+<link rel="stylesheet" href="ams.css?v=67">
 <style>
   /* standalone shell: no rail/drawer; the page fills the window */
   body{display:block}
@@ -319,6 +319,22 @@
           <div class="qaxis qbot">rhythm-first · scaffold</div>
         </div>
         <div class="muted" style="margin-top:4px;font-size:10.5px">Left↔right = packed ↔ sustained phrasing. Up↔down = stay on-theme ↔ let sound lead (looser meaning buys tighter meter).</div>
+        <div class="lab" style="margin-top:11px">Direction <span class="meta" style="opacity:.7;text-transform:none;letter-spacing:0">— what to write (all optional)</span></div>
+        <input class="inp" id="dirTheme" placeholder="What's this section about?" style="width:100%;margin-bottom:6px" title="steers the meaning; the rhythm + rhyme rules still apply">
+        <div style="display:flex;gap:6px;margin-bottom:6px">
+          <select class="inp" id="dirPov" style="flex:1" title="point of view"><option value="">POV —</option><option value="first">I / me</option><option value="firstpl">we / us</option><option value="second">you</option><option value="third">they / he / she</option></select>
+          <select class="inp" id="dirTense" style="flex:1" title="tense"><option value="">tense —</option><option value="past">past</option><option value="present">present</option><option value="future">future</option></select>
+          <select class="inp" id="dirMood" style="flex:1" title="mood / tone"><option value="">mood —</option><option>tender</option><option>defiant</option><option>joyful</option><option>melancholic</option><option>menacing</option><option>playful</option><option>hopeful</option><option>dark</option></select>
+        </div>
+        <div class="lab" style="display:flex;align-items:center;gap:6px"><span style="flex:1">Rhyme strength <span class="meta" style="text-transform:none;letter-spacing:0;opacity:.6">perfect ↔ assonance</span></span><span class="rangeval" id="dirRhyV">Family</span></div>
+        <input type="range" id="dirRhy" min="0" max="100" value="35" style="width:100%">
+        <div class="lab" style="display:flex;align-items:center;gap:6px;margin-top:7px"><span style="flex:1">Internal rhyme <span class="meta" style="text-transform:none;letter-spacing:0;opacity:.6">none ↔ dense</span></span><span class="rangeval" id="dirIntV">Some</span></div>
+        <input type="range" id="dirInt" min="0" max="100" value="30" style="width:100%">
+        <div style="display:flex;gap:6px;margin-top:7px">
+          <input class="inp" id="dirInclude" placeholder="Must include…" style="flex:1;min-width:0" title="words or images to weave in">
+          <input class="inp" id="dirAvoid" placeholder="Avoid…" style="flex:1;min-width:0" title="words to avoid (on top of the built-in cliché list)">
+        </div>
+        <label class="muted" style="display:flex;align-items:center;gap:6px;margin-top:7px;font-size:10.5px;cursor:pointer"><input type="checkbox" id="dirSection" checked style="cursor:pointer"> Adapt to section type (verse = narrative · chorus = hook · bridge = lift)</label>
         <div class="lab" style="margin-top:10px">Overrides <span class="meta" style="opacity:.7;text-transform:none;letter-spacing:0">— optional, off by default</span></div>
         <div class="muted" style="font-size:10.5px;margin-bottom:5px">Force a specific vowel or syllable count, even against the natural scheme.</div>
         <div id="forceRows"><span class="muted" style="font-size:10.5px">Click a line with a rhyme vowel to load it here.</span></div>
@@ -515,10 +531,10 @@ $("helpClose").onclick=()=>showHelp(false);
 $("helpModal").addEventListener("click",e=>{if(e.target===$("helpModal"))showHelp(false);});
 document.addEventListener("keydown",e=>{if(e.key==="Escape")showHelp(false);});
 </script>
-<script src="ams-timeline.js?v=66"></script>
-<script src="ams-vowels.js?v=66"></script>
-<script src="ams-bpm.js?v=66"></script>
-<script src="ams-sections.js?v=66"></script>
+<script src="ams-timeline.js?v=67"></script>
+<script src="ams-vowels.js?v=67"></script>
+<script src="ams-bpm.js?v=67"></script>
+<script src="ams-sections.js?v=67"></script>
 <script>
 const doc=$("doc"),gut=$("gut");
 // keep the gutter (line #, syllables, rhyme vowel) locked to the lyric scroll — they share the
@@ -1214,6 +1230,6 @@ window.addEventListener("keydown",e=>{if(e.key==="Escape"&&$("tourOvl").classLis
 window.addEventListener("resize",()=>{if($("tourOvl").classList.contains("on"))tourShow();});
 if(!localStorage.getItem("ams.tour.seen"))setTimeout(()=>{try{tourStart();}catch(e){}},800);   // first visit → auto-run
 </script>
-<script src="lyric-core.js?v=66"></script>
+<script src="lyric-core.js?v=67"></script>
 </body>
 </html>
