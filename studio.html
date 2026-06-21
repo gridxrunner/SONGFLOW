@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Songflow — Lyric Studio</title>
-<link rel="stylesheet" href="ams.css?v=57">
+<link rel="stylesheet" href="ams.css?v=58">
 <style>
   /* standalone shell: no rail/drawer; the page fills the window */
   body{display:block}
@@ -462,10 +462,10 @@ $("helpClose").onclick=()=>showHelp(false);
 $("helpModal").addEventListener("click",e=>{if(e.target===$("helpModal"))showHelp(false);});
 document.addEventListener("keydown",e=>{if(e.key==="Escape")showHelp(false);});
 </script>
-<script src="ams-timeline.js?v=57"></script>
-<script src="ams-vowels.js?v=57"></script>
-<script src="ams-bpm.js?v=57"></script>
-<script src="ams-sections.js?v=57"></script>
+<script src="ams-timeline.js?v=58"></script>
+<script src="ams-vowels.js?v=58"></script>
+<script src="ams-bpm.js?v=58"></script>
+<script src="ams-sections.js?v=58"></script>
 <script>
 const doc=$("doc"),gut=$("gut");
 let rhymeOn=true,cur=null,curBuf=null,detectedBpm=120,curKey=null,bpmCycle=0,regionsFromAudio=false;
@@ -1158,6 +1158,6 @@ window.addEventListener("keydown",e=>{if(e.key==="Escape"&&$("tourOvl").classLis
 window.addEventListener("resize",()=>{if($("tourOvl").classList.contains("on"))tourShow();});
 if(!localStorage.getItem("ams.tour.seen"))setTimeout(()=>{try{tourStart();}catch(e){}},800);   // first visit → auto-run
 </script>
-<script src="lyric-core.js?v=57"></script>
+<script src="lyric-core.js?v=58"></script>
 </body>
 </html>
