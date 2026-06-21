@@ -1083,14 +1083,26 @@ async function callLLM({provider,model,system,user,maxTokens=600}){
              :"https://api.openai.com/v1/chat/completions";
     const headers={"content-type":"application/json","authorization":"Bearer "+key};
     if(provider==="openrouter"){headers["HTTP-Referer"]="https://songflow.pages.dev";headers["X-Title"]="Songflow Lyric Studio";}  // OpenRouter attribution (optional)
-    const body={model,messages:[{role:"system",content:system},{role:"user",content:user}]};
-    body[provider==="openai"?"max_completion_tokens":"max_tokens"]=maxTokens;   // GPT-5.x rejects max_tokens; Groq/OpenRouter still take it
-    const res=await fetch(url,{method:"POST",headers,body:JSON.stringify(body)});
-    if(!res.ok)throw await aiErr(res,provider);
-    const d=await res.json();
-    const ch=(d.choices&&d.choices[0])||{}; const txt=((ch.message&&ch.message.content)||"").trim();
-    if(!txt){const fr=ch.finish_reason||"none";throw new Error(`the model returned no text (finish_reason: ${fr}${fr==="length"?" — it hit the token limit, likely a reasoning model; raise the limit or pick a faster model like deepseek/deepseek-chat":""})`);}
-    return txt;
+    const tokKey=provider==="openai"?"max_completion_tokens":"max_tokens";       // GPT-5.x rejects max_tokens; Groq/OpenRouter still take it
+    const lbl=AI.providers[provider].label;
+    let budget=maxTokens;
+    for(let attempt=0;attempt<2;attempt++){
+      const body={model,messages:[{role:"system",content:system},{role:"user",content:user}]}; body[tokKey]=budget;
+      const res=await fetch(url,{method:"POST",headers,body:JSON.stringify(body)});
+      if(res.ok){
+        const d=await res.json();
+        const ch=(d.choices&&d.choices[0])||{}; const txt=((ch.message&&ch.message.content)||"").trim();
+        if(!txt){const fr=ch.finish_reason||"none";throw new Error(`the model returned no text (finish_reason: ${fr}${fr==="length"?" — it hit the token limit, likely a reasoning model; raise the limit or pick a faster model like deepseek/deepseek-chat":""})`);}
+        return txt;
+      }
+      let bt=""; try{bt=await res.text();}catch(e){}
+      // OpenRouter pre-reserves the WHOLE max_tokens against your balance; on a low balance it 402s
+      // with "can only afford N". Retry ONCE within that budget — a few short bars need only ~150 tokens.
+      if(res.status===402&&attempt===0){const m=bt.match(/afford\s+(\d+)/i);if(m){budget=Math.max(64,parseInt(m[1],10)-16);continue;}}
+      if(res.status===401||res.status===403){const ks=AI.providers[provider]&&AI.providers[provider].keyLS;if(ks)localStorage.removeItem(ks);throw new Error(`${lbl} key rejected (${res.status}) — set it again with the Key button.`);}
+      if(res.status===402)throw new Error(`${lbl}: not enough balance for this request. Add credits, or switch to a cheaper model like deepseek/deepseek-chat (paste it in the model box).`);
+      throw new Error(`${lbl} error ${res.status}: ${(bt||"").slice(0,160)}`);
+    }
   }
   if(provider==="google"){
     const url=`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`;
@@ -1191,6 +1203,47 @@ function analyzeScheme(vows){
   if(m>=3&&w[m-1]===w[m-3]&&w[m-1]!==w[m-2])return {type:"ABAB",altVowels:[w[m-1],w[m-2]]};  // A B A → emerging cross
   return {type:"couplet",altVowels:[w[m-1]]};
 }
+/* ---- generation: reserve N placeholder bars at the cursor and pulse a glow over them until the
+   real lyrics land. The cursor's (blank) line becomes the 1st bar; existing bars push down. ---- */
+let _genGlow=null;
+function genGlowHide(){if(_genGlow){_genGlow.remove();_genGlow=null;}}
+function genGlowOver(startLine,nLines){
+  genGlowHide();
+  const dr=doc.getBoundingClientRect(), lineH=28, padTop=18, padL=18;
+  const g=document.createElement("div"); g.className="genglow";
+  g.style.left=(dr.left+padL)+"px"; g.style.width=Math.max(40,dr.width-padL*2)+"px";
+  g.style.top=(dr.top+padTop+startLine*lineH-doc.scrollTop)+"px"; g.style.height=(nLines*lineH)+"px";
+  document.body.appendChild(g); _genGlow=g;
+}
+function genReserveSlot(n){
+  pushUndo();
+  const lines=doc.innerText.split("\n");
+  let off=caretOffset(); if(off==null)off=(lastCaret!=null?lastCaret:doc.innerText.length);
+  const ci=doc.innerText.slice(0,off).split("\n").length-1;            // caret line index
+  const blank=!lines[ci]||!lines[ci].trim();
+  const startLine=blank?ci:ci+1;                                       // the blank line becomes bar 1, else go below the content line
+  const head=lines.slice(0,startLine), tail=lines.slice(ci+1);
+  doc.textContent=[...head,...Array(n).fill(""),...tail].join("\n");
+  if(rhymeOn)paintRhymes();else update();
+  const startOff=head.join("\n").length+(head.length?1:0);
+  try{setCaret(startOff);}catch(e){}
+  genGlowOver(startLine,n);
+  return {startLine,n};
+}
+function genFillSlot(slot,bars){
+  const lines=doc.innerText.split("\n");
+  lines.splice(slot.startLine,slot.n,...bars);                        // swap the placeholders for the real bars
+  doc.textContent=lines.join("\n");
+  if(rhymeOn)paintRhymes();else update();
+  try{tagRegions();}catch(e){}
+  try{setCaret(lines.slice(0,slot.startLine+bars.length).join("\n").length);}catch(e){}
+}
+function genCancelSlot(slot){
+  const lines=doc.innerText.split("\n");
+  lines.splice(slot.startLine,slot.n);
+  doc.textContent=lines.join("\n");
+  if(rhymeOn)paintRhymes();else update();
+}
 async function generateLyrics(){
   const provider=($("aiProvider")&&$("aiProvider").value)||localStorage.getItem(AI_PROV_LS)||"free";
   const model=($("aiModel")&&$("aiModel").value.trim())||aiModelOf(provider);
@@ -1235,6 +1288,7 @@ Output ONLY the ${n} lyric ${n>1?"bars":"bar"}, one per line. No section tags, n
     `Write ${n} new bar${n>1?"s":""} that continue this section.`;
   const note=$("ideaNote"),btn=$("ideaGo");
   note.className="muted";note.style.color="";note.textContent="Generating…";btn.disabled=true;
+  const slot=genReserveSlot(n);                       // glowing placeholder bars at the cursor while we wait
   // validation+retry: when vowels are FORCED (a checkable contract), verify every generated
   // bar ends on one of them; if the model drifts, silently re-ask with a stricter fix. Works
   // with any provider. (No forced vowels → no hard check; we don't second-guess free writing.)
@@ -1263,11 +1317,11 @@ Output ONLY the ${n} lyric ${n>1?"bars":"bar"}, one per line. No section tags, n
       if(endsOk(bars)&&matchOk(bars))break;
       if(attempt<maxTries)note.textContent=`Tightening the rhythm (try ${attempt+1})…`;
     }
-    insertBarsAtCaret(bars);
+    genFillSlot(slot,bars);                           // swap the glowing placeholders for the real bars
     const vDrift=!endsOk(bars), mDrift=!matchOk(bars);
     note.style.color="";note.textContent=`Generated ${bars.length} bar(s).`+(vDrift?" Couldn't fully lock the forced vowel — tweak as needed.":mDrift?" A paired bar's syllable count is still off — tweak as needed.":" Edit freely — they're in your document.");
-  }catch(err){note.className="muted";note.style.color="var(--danger)";note.textContent="Generation failed: "+err.message;}
-  btn.disabled=false;
+  }catch(err){genCancelSlot(slot);note.className="muted";note.style.color="var(--danger)";note.textContent="Generation failed: "+err.message;}
+  genGlowHide();btn.disabled=false;
 }
 function insertBarsAtCaret(bars){
   pushUndo();

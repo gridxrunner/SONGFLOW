@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Songflow — Lyric Studio</title>
-<link rel="stylesheet" href="ams.css?v=68">
+<link rel="stylesheet" href="ams.css?v=69">
 <style>
   /* standalone shell: no rail/drawer; the page fills the window */
   body{display:block}
@@ -143,6 +143,9 @@
   .selpop-val{flex:0 0 36px;text-align:right;font-size:12px;font-variant-numeric:tabular-nums}
   .selpop-go{width:100%;margin-top:2px;background:var(--grad);border:0;color:#0c0d12;font-weight:700;border-radius:7px;padding:7px;cursor:pointer;font-size:12px}
   .selpop-note{margin-top:5px;font-size:10.5px;min-height:13px}
+  /* oscillating glow over the bars being generated */
+  @keyframes genpulse{0%,100%{box-shadow:0 0 0 1.5px var(--accent2) inset,0 0 16px rgba(25,211,197,.22);background:rgba(25,211,197,.06)}50%{box-shadow:0 0 0 1.5px var(--accent) inset,0 0 26px rgba(124,92,255,.4);background:rgba(124,92,255,.13)}}
+  .genglow{position:fixed;z-index:60;border-radius:8px;pointer-events:none;animation:genpulse 1.15s ease-in-out infinite}
   .vw.vsel{outline:2px solid #fff;outline-offset:1px}
   /* right panel: This-Bar card, scheme map, legend, compact stats, help dots */
   .thisbar{background:linear-gradient(180deg,rgba(124,92,255,.12),rgba(25,211,197,.05));border:1px solid #34304f;border-radius:10px;padding:9px 11px;font-size:11.5px;line-height:1.55}
@@ -531,10 +534,10 @@ $("helpClose").onclick=()=>showHelp(false);
 $("helpModal").addEventListener("click",e=>{if(e.target===$("helpModal"))showHelp(false);});
 document.addEventListener("keydown",e=>{if(e.key==="Escape")showHelp(false);});
 </script>
-<script src="ams-timeline.js?v=68"></script>
-<script src="ams-vowels.js?v=68"></script>
-<script src="ams-bpm.js?v=68"></script>
-<script src="ams-sections.js?v=68"></script>
+<script src="ams-timeline.js?v=69"></script>
+<script src="ams-vowels.js?v=69"></script>
+<script src="ams-bpm.js?v=69"></script>
+<script src="ams-sections.js?v=69"></script>
 <script>
 const doc=$("doc"),gut=$("gut");
 // keep the gutter (line #, syllables, rhyme vowel) locked to the lyric scroll — they share the
@@ -1230,6 +1233,6 @@ window.addEventListener("keydown",e=>{if(e.key==="Escape"&&$("tourOvl").classLis
 window.addEventListener("resize",()=>{if($("tourOvl").classList.contains("on"))tourShow();});
 if(!localStorage.getItem("ams.tour.seen"))setTimeout(()=>{try{tourStart();}catch(e){}},800);   // first visit → auto-run
 </script>
-<script src="lyric-core.js?v=68"></script>
+<script src="lyric-core.js?v=69"></script>
 </body>
 </html>
