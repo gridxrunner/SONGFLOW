@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Songflow — Lyric Studio</title>
-<link rel="stylesheet" href="ams.css?v=62">
+<link rel="stylesheet" href="ams.css?v=63">
 <style>
   /* standalone shell: no rail/drawer; the page fills the window */
   body{display:block}
@@ -490,10 +490,10 @@ $("helpClose").onclick=()=>showHelp(false);
 $("helpModal").addEventListener("click",e=>{if(e.target===$("helpModal"))showHelp(false);});
 document.addEventListener("keydown",e=>{if(e.key==="Escape")showHelp(false);});
 </script>
-<script src="ams-timeline.js?v=62"></script>
-<script src="ams-vowels.js?v=62"></script>
-<script src="ams-bpm.js?v=62"></script>
-<script src="ams-sections.js?v=62"></script>
+<script src="ams-timeline.js?v=63"></script>
+<script src="ams-vowels.js?v=63"></script>
+<script src="ams-bpm.js?v=63"></script>
+<script src="ams-sections.js?v=63"></script>
 <script>
 const doc=$("doc"),gut=$("gut");
 // keep the gutter (line #, syllables, rhyme vowel) locked to the lyric scroll — they share the
@@ -696,7 +696,7 @@ const warpBtnEl=$("warpBtn");
 if(warpBtnEl)warpBtnEl.onclick=()=>{
   warpShow=!warpShow; warpBtnEl.classList.toggle("on",warpShow); tl.armWarp(warpShow);
   toast(warpShow
-    ? "Warping vision ON — pins are visible. Click a downbeat to pin it; drag a pin to move it; click a pin to remove it. Play to hear the metronome track the bend."
+    ? "Warping vision ON — pins are visible. Click a downbeat to pin it; drag to move; click a pin to remove it. The beat grid + metronome bend to the pins; section tags stay on the straight grid."
     : (warpMarkers.length?"Warping vision off — pins hidden, but the grid stays bent to them.":"Warping vision off."));
 };
 
@@ -1189,6 +1189,6 @@ window.addEventListener("keydown",e=>{if(e.key==="Escape"&&$("tourOvl").classLis
 window.addEventListener("resize",()=>{if($("tourOvl").classList.contains("on"))tourShow();});
 if(!localStorage.getItem("ams.tour.seen"))setTimeout(()=>{try{tourStart();}catch(e){}},800);   // first visit → auto-run
 </script>
-<script src="lyric-core.js?v=62"></script>
+<script src="lyric-core.js?v=63"></script>
 </body>
 </html>

@@ -460,7 +460,11 @@ class AMSTimeline {
   }
   _maxPxPerSec() { return this.duration ? 32000 / this.duration : 1e6; }   // zoom ceiling that keeps width ≤ cap
   _x(t) { return this.duration ? this.LBL + (t / this.duration) * this._width() : this.LBL; }
-  _xo(t) { return this._x(t + this.gridOffset); }   // bar-space time → pixel, shifted by the slip offset
+  // bar-space time → pixel, shifted by the slip offset. NOTE: this is LINEAR (constant-BPM). When
+  // warp is active (this.beats set) the beat grid + metronome bend, but regions are still placed
+  // linearly here, so a tag edge can sit slightly off a bent bar line. Intentional for now — a full
+  // warp remap of region coords is a follow-up (would need the warp's global-beat origin in here).
+  _xo(t) { return this._x(t + this.gridOffset); }
   _tAtClientX(clientX) {
     const r = this.scrollEl.getBoundingClientRect();
     const x = clientX - r.left - this.LBL;

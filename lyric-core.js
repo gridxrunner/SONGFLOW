@@ -310,6 +310,11 @@ function pushUndo(){try{undoStack.push({
   audioBuf:(typeof curBuf!=="undefined")?curBuf:undefined   // reference only (buffers are never mutated in place)
   });
   if(undoStack.length>60)undoStack.shift();
+  // bound memory: a decoded buffer is 100+ MB. Keep only the most recent DISTINCT buffers
+  // restorable; drop the references on older snapshots so the buffers can be GC'd (those deep
+  // audio edits become non-undoable, but text/grid undo still works).
+  const seen=[];for(const s of undoStack)if(s.audioBuf&&seen.indexOf(s.audioBuf)<0)seen.push(s.audioBuf);
+  if(seen.length>8){const drop=seen.slice(0,seen.length-8);for(const s of undoStack)if(s.audioBuf&&drop.indexOf(s.audioBuf)>=0)s.audioBuf=undefined;}
   typedSinceStructural=false;
 }catch(e){}}
 function doUndo(){
@@ -980,8 +985,9 @@ async function callLLM({provider,model,system,user,maxTokens=600}){
              :"https://api.openai.com/v1/chat/completions";
     const headers={"content-type":"application/json","authorization":"Bearer "+key};
     if(provider==="openrouter"){headers["HTTP-Referer"]="https://songflow.pages.dev";headers["X-Title"]="Songflow Lyric Studio";}  // OpenRouter attribution (optional)
-    const res=await fetch(url,{method:"POST",headers,
-      body:JSON.stringify({model,max_tokens:maxTokens,messages:[{role:"system",content:system},{role:"user",content:user}]})});
+    const body={model,messages:[{role:"system",content:system},{role:"user",content:user}]};
+    body[provider==="openai"?"max_completion_tokens":"max_tokens"]=maxTokens;   // GPT-5.x rejects max_tokens; Groq/OpenRouter still take it
+    const res=await fetch(url,{method:"POST",headers,body:JSON.stringify(body)});
     if(!res.ok)throw await aiErr(res,provider);
     const d=await res.json();return ((d.choices&&d.choices[0]&&d.choices[0].message&&d.choices[0].message.content)||"").trim();
   }
@@ -1011,7 +1017,7 @@ function aiSyncUI(){
   }
 }
 if($("aiProvider")){
-  $("aiProvider").value=localStorage.getItem(AI_PROV_LS)||"free";
+  $("aiProvider").value=localStorage.getItem(AI_PROV_LS)||"groq";   // a working keyed provider by default, not the not-yet-wired "free"
   $("aiProvider").onchange=()=>{localStorage.setItem(AI_PROV_LS,$("aiProvider").value);aiSyncUI();};
   if($("aiModel"))$("aiModel").onchange=()=>{const p=$("aiProvider").value;if(p!=="free")localStorage.setItem(AI_MODEL_LS+p,$("aiModel").value.trim());};
   if($("aiKey"))$("aiKey").onclick=async()=>{
@@ -1043,17 +1049,30 @@ function contextDirective(y){
 function sylOfBar(line){return String(line||"").trim().split(/\s+/).filter(Boolean).reduce((nn,w)=>nn+syllables(w),0);}
 function barPairs(count,schemeType){
   const pr=[];
-  if(schemeType==="ABAB"){for(let i=0;i+3<count+ (count%4?4:0);i+=4){if(i+2<count)pr.push([i,i+2]);if(i+3<count)pr.push([i+1,i+3]);}}
-  else{for(let i=0;i+1<count;i+=2)pr.push([i,i+1]);}
+  if(schemeType==="ABAB"){
+    for(let g=0;g+3<count;g+=4){pr.push([g,g+2]);pr.push([g+1,g+3]);}   // COMPLETE 4-bar groups only; a 1-3 bar tail is left unpaired
+  }else{
+    for(let i=0;i+1<count;i+=2)pr.push([i,i+1]);                         // couplets; a trailing odd bar is left unpaired
+  }
   return pr;
 }
-function sylTolerance(y){return y>66?0:y>33?1:2;}   // rhythm-first = exact; on-theme = up to ±2 (absorbers)
+// floored at ±1: a held/stretched vowel or a pickup can always absorb one syllable (sung "le-eave"),
+// so we never demand a literally identical count — only on-theme allows a looser ±2.
+function sylTolerance(y){return y<=33?2:1;}
+// anti-cliché: the imagery LLMs reach for by default — a dead giveaway. We steer away from these
+// and toward concrete, specific nouns. (Full two-layer rhyme-word seeding is the deeper follow-up.)
+const CLICHE="neon, shadows, whispers, echo, flames, fire, burning, ashes, soul, heart, dreams, infinite, eternal, forever, chains, broken, demons, angels, storm, thunder, lightning, phoenix, rise and fall, the edge, the void, abyss, electric, golden, diamond, shine, glow, wild and free, alive, scars, gravity, horizon";
 function priorContext(){
-  // the section + the preceding content bars (the rhythmic/rhyme template to extend)
+  // the section + the preceding content bars WITHIN it (the template to extend). Collection STOPS at
+  // this section's [tag] so a new chorus is never matched to the previous verse's syllable count.
   const lines=doc.innerText.split("\n");
   let idx=(selLine>=0&&selLine<lines.length)?selLine:lines.length-1;
-  let sec="Verse";for(let i=idx;i>=0;i--){const m=lines[i].trim().match(/^\[(.+)\]$/);if(m){sec=m[1];break;}}
-  const prior=[];for(let i=idx;i>=0&&prior.length<6;i--){const t=lines[i].trim();if(t&&!isTag(t))prior.unshift(t);}
+  let sec="Verse"; const prior=[];
+  for(let i=idx;i>=0;i--){
+    const t=lines[i].trim(), m=t.match(/^\[(.+)\]$/);
+    if(m){sec=m[1];break;}                              // reached this section's header → done
+    if(t&&!isTag(t)&&prior.length<6)prior.unshift(t);   // keep the 6 nearest bars of THIS section
+  }
   return {sec,prior};
 }
 /* detect the active end-rhyme scheme from the prior bars' end-vowels — the SAME judgement
@@ -1062,9 +1081,14 @@ function endVowelOf(line){return vowelClass(rhymeAnchorWord(line));}
 function analyzeScheme(vows){
   const n=vows.length;
   if(n<2)return {type:"open",altVowels:[]};
-  const v1=vows[n-1],v2=vows[n-2],v3=n>=3?vows[n-3]:null;
-  if(v3&&v1!==v2&&v3===v1)return {type:"ABAB",altVowels:[v1,v2]};   // ...A B A → cross/alternating
-  return {type:"couplet",altVowels:[v1]};
+  const w=vows.slice(-6), m=w.length;                               // judge over a recent window, not just 3
+  if(m>=4){                                                         // true ABAB: i matches i-2, adjacents differ
+    const a=w[m-1],b=w[m-2],c=w[m-3],d=w[m-4];
+    if(a===c&&b===d&&a!==b)return {type:"ABAB",altVowels:[a,b]};
+  }
+  if(w[m-1]===w[m-2])return {type:"couplet",altVowels:[w[m-1]]};    // adjacent pair shares a vowel
+  if(m>=3&&w[m-1]===w[m-3]&&w[m-1]!==w[m-2])return {type:"ABAB",altVowels:[w[m-1],w[m-2]]};  // A B A → emerging cross
+  return {type:"couplet",altVowels:[w[m-1]]};
 }
 async function generateLyrics(){
   const provider=($("aiProvider")&&$("aiProvider").value)||localStorage.getItem(AI_PROV_LS)||"free";
@@ -1099,6 +1123,7 @@ async function generateLyrics(){
 8. ${contextDirective(ctxY)}
 9. ${targetSyl?`Aim for ~${targetSyl} syllables per bar (1 line = 1 bar).`:"Match the syllable count and cadence of the prior bars."}
 10. ${forced.length?`HARD OVERRIDE (intentional rule-break for effect): the END word of EVERY bar MUST carry one of these vowel sounds (ARPABET): ${forced.join(", ")}. Examples: ${forced.flatMap(v=>(NEAR[v]||[]).slice(0,3)).join(", ")}. This overrides rule 5 — obey it even if it fights the natural scheme.`:"Choose end-rhyme vowels that extend the prior bars' scheme per rule 5."}
+11. FRESHNESS — avoid generic AI-lyric clichés and pet imagery (e.g. ${CLICHE}). Reach for concrete, specific, surprising nouns and images over abstract emotion words; don't reuse end-words the prior bars already used.
 Output ONLY the ${n} lyric ${n>1?"bars":"bar"}, one per line. No section tags, no numbering, no commentary, no quotes.`;
   const usr=(prior.length?`Section: [${sec}]\nPrior bars to extend (match their rhythm & rhyme scheme):\n${prior.join("\n")}\n\n`:`Section: [${sec}]\n\n`)+
     `Write ${n} new bar${n>1?"s":""} that continue this section.`;
@@ -1110,9 +1135,12 @@ Output ONLY the ${n} lyric ${n>1?"bars":"bar"}, one per line. No section tags, n
   const exWords=forced.flatMap(v=>(NEAR[v]||[]).slice(0,3));
   const endsOk=bars=>!forced.length||bars.every(b=>forced.includes(endVowelOf(b)));
   // paired-bar syllable check — the structural net. Rhyming bars should match within the
-  // context-axis tolerance (exact when rhythm-first, looser when on-theme).
-  const matchBad=bars=>{const c=bars.map(sylOfBar),pr=barPairs(bars.length,scheme.type);
-    return pr.filter(([a,b])=>Math.abs(c[a]-c[b])>tol).map(([a,b])=>`"${bars[a]}" (${c[a]} syl) vs "${bars[b]}" (${c[b]} syl)`);};
+  // context-axis tolerance (looser when on-theme). When this section already holds an ODD number
+  // of bars, the first NEW bar closes a couplet with the last existing one, so include it (read-only).
+  const ctx=(scheme.type!=="ABAB"&&prior.length%2===1)?prior.slice(-1):[];
+  const matchBad=bars=>{const all=[...ctx,...bars],c=all.map(sylOfBar),gs=ctx.length,pr=barPairs(all.length,scheme.type);
+    return pr.filter(([a,b])=>(a>=gs||b>=gs)&&Math.abs(c[a]-c[b])>tol)   // only flag pairs that include a GENERATED bar
+      .map(([a,b])=>`"${all[a]}" (${c[a]} syl) vs "${all[b]}" (${c[b]} syl)`);};
   const matchOk=bars=>matchBad(bars).length===0;
   try{
     let bars=null;const maxTries=(forced.length||tol<2)?3:1;   // strictness scales with the Y axis
