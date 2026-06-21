@@ -68,13 +68,20 @@ doc.textContent=docsState.docs[docsState.active].text;
 
 /* ---- syllables / vowels ---- */
 function syllables(word){
-  word=word.toLowerCase().replace(/[^a-z]/g,"");
-  if(!word)return 0;
-  word=word.replace(/([^aeiouy])e(s?)$/,"$1");   // silent final -e / -es after a consonant: leaves→leav, makes→mak, the→th
-  word=word.replace(/([^aeioudt])ed$/,"$1");      // silent -ed except after t/d: played→play, loved→lov (but want-ed, hat-ed keep it)
-  const m=word.match(/[aeiouy]{1,2}/g);           // a diphthong (oe, ea…) counts as one
+  let w=word.toLowerCase().replace(/[^a-z']/g,"");
+  if(!w)return 0;
+  // EXACT count from CMUdict (126k words) — stress pattern length = syllable count
+  if(typeof PRON!=="undefined"){const p=PRON[w]||(w.indexOf("'")>=0?PRON[w.replace(/'/g,"")]:null); if(p)return p.length;}
+  w=w.replace(/'/g,""); if(!w)return 0;
+  // heuristic fallback for words not in the dictionary (names, slang, coinages)
+  w=w.replace(/([^aeiouy])e(s?)$/,"$1");          // silent final -e / -es after a consonant: leaves→leav, makes→mak
+  w=w.replace(/([^aeioudt])ed$/,"$1");             // silent -ed except after t/d: played→play, loved→lov
+  const m=w.match(/[aeiouy]{1,2}/g);               // a diphthong (oe, ea…) counts as one
   return Math.max(1,(m||[]).length);
 }
+/* stress pattern for a word ("101" = primary,unstressed,primary), from CMUdict — '' if unknown.
+   Feeds the beat/pocket model: which syllables are strong, used to place the rhyme on a strong beat. */
+function stressOf(word){const w=String(word||"").toLowerCase().replace(/[^a-z']/g,"");if(typeof PRON==="undefined")return"";return PRON[w]||(w.indexOf("'")>=0?PRON[w.replace(/'/g,"")]:"")||"";}
 function endVowelKey(word){
   word=word.toLowerCase().replace(/[^a-z]/g,"");
   const m=word.match(/[aeiouy]+[^aeiouy]*$/);
