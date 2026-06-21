@@ -932,6 +932,7 @@ document.querySelectorAll("[data-help]").forEach(d=>d.onclick=()=>{if(typeof sho
 const AI={providers:{
   free:    {label:"Free open model", keyLS:null, models:[]},
   groq:    {label:"Groq (fast · free tier)", keyLS:"ams.ai.key.groq", models:["llama-3.3-70b-versatile","llama-3.1-8b-instant","gemma2-9b-it"]},
+  openrouter:{label:"OpenRouter (any model)", keyLS:"ams.ai.key.openrouter", models:["anthropic/claude-3.5-sonnet","openai/gpt-4o","meta-llama/llama-3.3-70b-instruct","google/gemini-2.0-flash-001","deepseek/deepseek-chat"]},
   anthropic:{label:"Anthropic", keyLS:"ams.ai.key.anthropic", models:["claude-sonnet-4-6","claude-opus-4-8","claude-haiku-4-5-20251001"]},
   openai:  {label:"OpenAI", keyLS:"ams.ai.key.openai", models:["gpt-4o","gpt-4o-mini","gpt-4.1","gpt-4.1-mini"]},
   google:  {label:"Google Gemini", keyLS:"ams.ai.key.google", models:["gemini-2.5-flash","gemini-2.5-pro","gemini-2.0-flash"]}
@@ -957,10 +958,13 @@ async function callLLM({provider,model,system,user,maxTokens=600}){
     if(!res.ok)throw await aiErr(res,"anthropic");
     const d=await res.json();return (d.content||[]).map(c=>c.text||"").join("").trim();
   }
-  if(provider==="openai"||provider==="groq"){          // Groq is OpenAI-compatible — same shape, different base URL
-    const url=provider==="groq"?"https://api.groq.com/openai/v1/chat/completions":"https://api.openai.com/v1/chat/completions";
-    const res=await fetch(url,{method:"POST",
-      headers:{"content-type":"application/json","authorization":"Bearer "+key},
+  if(provider==="openai"||provider==="groq"||provider==="openrouter"){   // all OpenAI-compatible — same shape, different base URL
+    const url=provider==="groq"?"https://api.groq.com/openai/v1/chat/completions"
+             :provider==="openrouter"?"https://openrouter.ai/api/v1/chat/completions"
+             :"https://api.openai.com/v1/chat/completions";
+    const headers={"content-type":"application/json","authorization":"Bearer "+key};
+    if(provider==="openrouter"){headers["HTTP-Referer"]="https://songflow.pages.dev";headers["X-Title"]="Songflow Lyric Studio";}  // OpenRouter attribution (optional)
+    const res=await fetch(url,{method:"POST",headers,
       body:JSON.stringify({model,max_tokens:maxTokens,messages:[{role:"system",content:system},{role:"user",content:user}]})});
     if(!res.ok)throw await aiErr(res,provider);
     const d=await res.json();return ((d.choices&&d.choices[0]&&d.choices[0].message&&d.choices[0].message.content)||"").trim();
