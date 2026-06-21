@@ -771,7 +771,7 @@ function insertAtCaret(w){
 function chipEvents(el){
   el.querySelectorAll("[data-w]").forEach(c=>{
     c.onmousedown=e=>e.preventDefault();
-    c.onclick=e=>{const w=c.dataset.w;if(e.shiftKey)copyChip(w);else insertAtCaret(w);};
+    c.onclick=e=>{const w=c.dataset.w;if(e.shiftKey)copyChip(w);else fillBarWithWord(w);};
   });
 }
 /* GUIDANCE chips: land the rhyme at the END of the current bar, generating context-aware
@@ -805,6 +805,48 @@ function chipEventsGen(el){
     c.onmousedown=e=>e.preventDefault();
     c.onclick=e=>{const w=c.dataset.w;if(e.shiftKey)copyChip(w);else fillBarEndingOn(w);};
   });
+}
+/* RHYME-WORD click (the "Rhyme words for…" list): write a WHOLE new bar that ENDS on the word with the
+   ideal number of lead-in syllables (matched to the bar above), then INSERT it — the cursor's bar and
+   everything below it push down. EXCEPTION: highlight exactly one whole bar and it REPLACES that bar.
+   A partial highlight never replaces. Shift+click still copies. (chips suppress mousedown → caret/selection kept.) */
+async function fillBarWithWord(word){
+  doc.focus();
+  const text=doc.innerText;
+  let mode="insert",ls,le;
+  const o=(typeof selOffsets==="function")?selOffsets():null;
+  if(o){                                                              // whole first bar highlighted → replace it
+    const fls=text.lastIndexOf("\n",o.start-1)+1; let fle=text.indexOf("\n",fls); if(fle<0)fle=text.length;
+    const lt=text.slice(fls,fle).trim();
+    if(o.start<=fls&&o.end>=fle&&lt&&!isTag(lt)){mode="replace";ls=fls;le=fle;}
+  }
+  if(mode==="insert"){
+    let off=caretOffset(); if(off==null)off=(lastCaret!=null?lastCaret:text.length);
+    ls=text.lastIndexOf("\n",off-1)+1; le=text.indexOf("\n",ls); if(le<0)le=text.length;
+  }
+  // ideal syllable target = the nearest lyric bar ABOVE the spot (the rhythm to echo)
+  const lines=text.split("\n"), curIdx=text.slice(0,ls).split("\n").length-1;
+  let tgt=null; for(let i=curIdx-1;i>=0;i--){const t=lines[i].trim();if(t&&!isTag(t)){tgt=sylOfBar(t);break;}}
+  if(!tgt)tgt=(typeof sylForceOn==="function"&&sylForceOn()&&+($("sylTarget").value||0))||6;
+  const provider=($("aiProvider")&&$("aiProvider").value)||localStorage.getItem(AI_PROV_LS)||"groq";
+  const haveKey=provider!=="free"&&typeof aiKeyOf==="function"&&aiKeyOf(provider);
+  let newLine=null;
+  if(haveKey&&typeof callLLM==="function"){
+    const note=$("ideaNote"); if(note){note.className="muted";note.style.color="";note.textContent="Phrasing…";}
+    const ctx=(typeof priorContext==="function")?priorContext():{sec:"Verse",prior:[]};
+    const sys=`You are a lyricist. Write ONE lyric bar for [${ctx.sec}] that ENDS on the exact word "${word}" and has about ${tgt} syllables, matching the cadence of the prior bars. Concrete, specific imagery; avoid clichés (${CLICHE}). Output ONLY the line — no quotes or notes.`;
+    const usr=(ctx.prior.length?`Prior bars:\n${ctx.prior.join("\n")}\n\n`:"")+`Write the bar (~${tgt} syllables), ending on "${word}".`;
+    try{const out=await callLLM({provider,model:(($("aiModel")&&$("aiModel").value.trim())||aiModelOf(provider)),system:sys,user:usr,maxTokens:60});newLine=(out||"").split("\n").map(s=>s.trim()).filter(Boolean)[0]||null;}catch(e){newLine=null;}
+    if(note)note.textContent="";
+  }
+  if(!newLine)newLine=word;                                          // no key → just drop the word (still inserts/pushes)
+  pushUndo();
+  const t2=doc.innerText;
+  if(mode==="replace")doc.textContent=t2.slice(0,ls)+newLine+t2.slice(le);
+  else{const cur=t2.slice(ls,le).trim();doc.textContent=cur?(t2.slice(0,ls)+newLine+"\n"+t2.slice(ls)):(t2.slice(0,ls)+newLine+t2.slice(le));}
+  if(rhymeOn)paintRhymes();else update();
+  setCaret(ls+newLine.length);
+  try{tagRegions();}catch(e){}
 }
 /* vowel "brightness" (high-front = bright → low-back = dark). Used to pick CONTRAST
    when opening a new scheme: a fresh anchor far in brightness from the one you just
@@ -923,7 +965,7 @@ function refreshLinePanels(){
   if(cls){pill.style.display="";pill.textContent=cls;pill.style.background=VC[cls];pill.title=vFriendly(cls);}else pill.style.display="none";
   // unified, strength-tagged, vowel-colored rhyme word list (rhyme = vowel match, slant = assonance)
   const col=(VC[cls]||"#7c8")+"77";
-  const mk=(w,kind)=>`<span class="chip rchip" data-w="${esc(w)}" style="border-color:${col}">${esc(w)}<span class="tg">${kind}</span></span>`;
+  const mk=(w,kind)=>`<span class="chip rchip" data-w="${esc(w)}" style="border-color:${col}" title="click: write a new bar ending on &quot;${esc(w)}&quot; (ideal syllables) and insert it · highlight a whole bar first to replace that bar · Shift+click: copy">${esc(w)}<span class="tg">${kind}</span></span>`;
   const near=((cls&&NEAR[cls])||[]).filter(w=>w!==self);
   const slant=((cls&&SLANT[cls])||[]).filter(w=>w!==self);
   $("rhymeList").innerHTML=(near.map(w=>mk(w,"rhyme")).join("")+slant.map(w=>mk(w,"slant")).join(""))||'<span class="muted">—</span>';
@@ -1032,8 +1074,8 @@ const NSEL=$("ideaN");
 NSEL.innerHTML=Array.from({length:16},(_,i)=>`<option value="${i+1}"${i+1===4?" selected":""}>${i+1} bar${i?"s":""}</option>`).join("");
 
 function rhythmDirective(v){
-  if(v<=15)return "VERY RHYTHMIC: dense, percussive, syllable-packed rap phrasing — many short syllables per bar, hard internal rhythm, even if the melody is melodic.";
-  if(v<=38)return "RHYTHMIC: busy, groove-forward phrasing with frequent internal stresses.";
+  if(v<=15)return "VERY RHYTHMIC: dense, percussive, syllable-packed rap phrasing — many short syllables per bar, hard internal rhythm. Work in INTERNAL rhymes too (extra rhyming syllables mid-bar that echo across the pair), not just the end-rhyme.";
+  if(v<=38)return "RHYTHMIC: busy, groove-forward phrasing with frequent internal stresses and at least one internal rhyme per bar where it lands naturally.";
   if(v<=62)return "BALANCED: a natural mix of held and quick syllables.";
   if(v<=85)return "DRAWN-OUT: sparse, sustained, fewer syllables held longer.";
   return "CHOIR-LIKE: very sparse and sustained — few syllables, long vowels, hymn-like space.";
@@ -1112,6 +1154,10 @@ async function generateLyrics(){
   const schemeLine=priorVowels.length
     ? `ACTIVE SCHEME — the bars above end on these vowels (oldest→newest): ${priorVowels.join(", ")}. Read it as ${scheme.type==="ABAB"?`an ALTERNATING / cross rhyme (ABAB): a vowel is answered the bar AFTER next, so a pair lands every other bar. Continue it by alternating end-vowels between ${scheme.altVowels.join(" and ")}`:scheme.type==="couplet"?`a COUPLET (AABB): adjacent bars pair; close an open couplet on the vowel it opened with`:"open — set a clear end-rhyme the next bar can answer"}. Continue this exact scheme.`
     : `No scheme yet — open with a clear end-rhyme vowel the next bar can answer.`;
+  // anti-cliché seeding: hand the model the writer's OWN rhyme palette (same lists as the on-screen
+  // rhyme chips) for the active scheme vowels, so end-words come from quality real rhymes, not pet defaults.
+  const seedVows=[...new Set([...(scheme.altVowels||[]),...priorVowels])].filter(Boolean).slice(0,3);
+  const seedLine=seedVows.map(v=>{const ws=[...((NEAR[v]||[])),...((SLANT[v]||[]))].slice(0,12);return ws.length?`${v} → ${ws.join(", ")}`:"";}).filter(Boolean).join("   |   ");
   const sys=`You are a master lyricist writing to a strict rhythmic + rhyme methodology. RULES, in priority order:
 1. RHYTHM FIRST. Build a complementary rhythmic pattern and make the words ride it; echo the rhythmic pattern of the prior bars.
 2. RHYME = matching VOWEL SOUNDS landing on the SAME position across bars. The END rhyme (final stressed vowel of the bar) is the HIGHEST-priority pair; strong internal pairs are a bonus.
@@ -1124,7 +1170,7 @@ async function generateLyrics(){
 9. ${targetSyl?`Aim for ~${targetSyl} syllables per bar (1 line = 1 bar).`:"Match the syllable count and cadence of the prior bars."}
 10. ${forced.length?`HARD OVERRIDE (intentional rule-break for effect): the END word of EVERY bar MUST carry one of these vowel sounds (ARPABET): ${forced.join(", ")}. Examples: ${forced.flatMap(v=>(NEAR[v]||[]).slice(0,3)).join(", ")}. This overrides rule 5 — obey it even if it fights the natural scheme.`:"Choose end-rhyme vowels that extend the prior bars' scheme per rule 5."}
 11. FRESHNESS — avoid generic AI-lyric clichés and pet imagery (e.g. ${CLICHE}). Reach for concrete, specific, surprising nouns and images over abstract emotion words; don't reuse end-words the prior bars already used.
-Output ONLY the ${n} lyric ${n>1?"bars":"bar"}, one per line. No section tags, no numbering, no commentary, no quotes.`;
+${seedLine?`12. PREFERRED RHYMES — for a scheme vowel's end-word, lean on these real options from the writer's palette over your usual go-to rhymes (not mandatory, but prefer them to stay fresh and on-vowel): ${seedLine}.\n`:""}Output ONLY the ${n} lyric ${n>1?"bars":"bar"}, one per line. No section tags, no numbering, no commentary, no quotes.`;
   const usr=(prior.length?`Section: [${sec}]\nPrior bars to extend (match their rhythm & rhyme scheme):\n${prior.join("\n")}\n\n`:`Section: [${sec}]\n\n`)+
     `Write ${n} new bar${n>1?"s":""} that continue this section.`;
   const note=$("ideaNote"),btn=$("ideaGo");
