@@ -1175,9 +1175,9 @@ function rhythmDirective(v){
 }
 /* the CONTEXT axis (feelY): how much the lyric may trade literal meaning for a tighter meter. */
 function contextDirective(y){
-  if(y<=33)return "MEANING + METER TOGETHER: keep lines coherent and on-theme. Honor the structural rules; when meaning needs room, absorb it with a held vowel or a pickup rather than breaking sense.";
-  if(y<=66)return "METER LEANS OVER MEANING: lock the syllable match and rhyme positions exactly; let imagery turn impressionistic where needed to keep the structure tight.";
-  return "RHYTHM-FIRST SCAFFOLD: nail the meter and rhyme positions above all else. Words may be abstract or placeholder — this is a rhythmic scaffold the writer will rewrite for meaning. NEVER break a structural rule to make literal sense.";
+  if(y<=33)return "MEANING + METER TOGETHER: keep lines coherent and on-theme, telling a clear little story. This is where LEAD-INS earn their keep — whenever a line wants more words than the core target allows, ADD a 1-3 syllable lead-in (rule 4b) in a consistent pattern to make ROOM for the meaning, instead of cramming the bar or going abstract. Lean on lead-ins here.";
+  if(y<=66)return "METER LEANS OVER MEANING: lock the syllable match and rhyme positions exactly; let imagery turn impressionistic where needed to keep the structure tight. Use lead-ins sparingly.";
+  return "RHYTHM-FIRST SCAFFOLD: nail the meter and rhyme positions above all else; keep bars TIGHT with minimal lead-ins. Words may be abstract or placeholder — a rhythmic scaffold the writer rewrites for meaning. NEVER break a structural rule to make literal sense.";
 }
 /* paired-bar syllable check (the retry net). syllable count of one bar; which index pairs
    to compare for the active scheme; how much mismatch the context axis tolerates. */
@@ -1236,16 +1236,24 @@ function analyzeScheme(vows){
 }
 /* ---- generation: reserve N placeholder bars at the cursor and pulse a glow over them until the
    real lyrics land. The cursor's (blank) line becomes the 1st bar; existing bars push down. ---- */
-let _genGlow=null;
-function genGlowHide(){if(_genGlow){_genGlow.remove();_genGlow=null;}}
+let _genGlow=null, _genGlowPos=null;
+function genGlowHide(){if(_genGlow){_genGlow.remove();_genGlow=null;}_genGlowPos=null;}
+function _genGlowPlace(){
+  if(!_genGlow||!_genGlowPos)return;
+  const dr=doc.getBoundingClientRect(), lineH=28, padTop=18, padL=18;
+  _genGlow.style.left=(dr.left+padL)+"px"; _genGlow.style.width=Math.max(40,dr.width-padL*2)+"px";
+  _genGlow.style.top=(dr.top+padTop+_genGlowPos.startLine*lineH-doc.scrollTop)+"px"; _genGlow.style.height=(_genGlowPos.nLines*lineH)+"px";
+}
 function genGlowOver(startLine,nLines){
   genGlowHide();
-  const dr=doc.getBoundingClientRect(), lineH=28, padTop=18, padL=18;
   const g=document.createElement("div"); g.className="genglow";
-  g.style.left=(dr.left+padL)+"px"; g.style.width=Math.max(40,dr.width-padL*2)+"px";
-  g.style.top=(dr.top+padTop+startLine*lineH-doc.scrollTop)+"px"; g.style.height=(nLines*lineH)+"px";
-  document.body.appendChild(g); _genGlow=g;
+  document.body.appendChild(g); _genGlow=g; _genGlowPos={startLine,nLines};
+  _genGlowPlace();
 }
+// keep the glow stuck to its bars while the page scrolls (it's a fixed overlay)
+doc.addEventListener("scroll",()=>{if(_genGlow)_genGlowPlace();});
+window.addEventListener("scroll",()=>{if(_genGlow)_genGlowPlace();},true);
+window.addEventListener("resize",()=>{if(_genGlow)_genGlowPlace();});
 function genReserveSlot(n){
   pushUndo();
   const lines=doc.innerText.split("\n");
