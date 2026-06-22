@@ -220,6 +220,7 @@ const TAGS=["Intro","Verse","Verse 1","Verse 2","Pre-Chorus","Chorus","Post-Chor
 $("tagIns").onchange=()=>{
   const v=$("tagIns").value;$("tagIns").value="";if(!v)return;
   doc.focus();
+  if(typeof pushUndo==="function")pushUndo();
   const text=doc.innerText;
   let off=(typeof caretOffset==="function"&&caretOffset()!=null)?caretOffset():text.length;
   let ins="["+v+"]";
@@ -227,9 +228,14 @@ $("tagIns").onchange=()=>{
   if(before&&!before.endsWith("\n"))ins="\n"+ins;
   if(after&&!after.startsWith("\n"))ins=ins+"\n";
   const next=before+ins+after;
-  // keep the OTHER sections where the user placed them: splice a null position in at
-  // the new tag's order index instead of letting tagRegions reset everything.
-  if(typeof manualBars!=="undefined"&&manualBars)manualBars.splice((before.match(/^\s*\[.+\]\s*$/gm)||[]).length,0,null);
+  // place the new tag at the PLAY MARKER (not auto-packed at bar 0) and keep the OTHER sections put:
+  // materialize the current positions if needed, then splice the new section in at its order index.
+  if(typeof manualBars!=="undefined"&&typeof tl!=="undefined"){
+    const spb=(60/tl.bpm)*tl.beatsPerBar, go=tl.gridOffset||0;
+    const phBar=Math.max(-go/spb, Math.round(((tl.playhead!=null?tl.playhead:0)-go)/spb));   // the play marker, in bars
+    if(!manualBars||!manualBars.length)manualBars=(tl.regions||[]).map(r=>Math.round(r.start/spb*1000)/1000);
+    manualBars.splice((before.match(/^\s*\[.+\]\s*$/gm)||[]).length,0,phBar);
+  }
   doc.textContent=next;
   if(rhymeOn)paintRhymes();else update();
   if(typeof setCaret==="function")setCaret((before+ins).length);
