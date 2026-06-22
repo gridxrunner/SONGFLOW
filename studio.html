@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Songflow — Lyric Studio</title>
-<link rel="stylesheet" href="ams.css?v=81">
+<link rel="stylesheet" href="ams.css?v=82">
 <style>
   /* standalone shell: no rail/drawer; the page fills the window */
   body{display:block}
@@ -37,6 +37,8 @@
   .inp::placeholder{color:var(--mut);opacity:.85}
   .tbtn:disabled{opacity:.38;cursor:default;pointer-events:none}
   .barselHi{position:fixed;height:28px;background:rgba(124,92,255,.18);border-left:3px solid var(--accent);box-sizing:border-box;pointer-events:none;z-index:55;border-radius:0 4px 4px 0}
+  /* karaoke playback highlight — covers the UNSUNG (right) part of the current bar; left edge = the now-cursor */
+  .kbwipe{position:fixed;background:rgba(25,211,197,.17);border-left:2px solid var(--accent2);border-radius:0 3px 3px 0;pointer-events:none;z-index:5;display:none}
   /* grouped beat-grid control cluster: BPM stepper · ×2/÷2 · Anchor · Slip */
   .gridctl{display:flex;align-items:center;gap:7px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:3px 7px}
   .gctk{display:flex;align-items:center;gap:3px}
@@ -542,11 +544,11 @@ $("helpClose").onclick=()=>showHelp(false);
 $("helpModal").addEventListener("click",e=>{if(e.target===$("helpModal"))showHelp(false);});
 document.addEventListener("keydown",e=>{if(e.key==="Escape")showHelp(false);});
 </script>
-<script src="ams-timeline.js?v=81"></script>
-<script src="ams-vowels.js?v=81"></script>
-<script src="ams-pron.js?v=81"></script>
-<script src="ams-bpm.js?v=81"></script>
-<script src="ams-sections.js?v=81"></script>
+<script src="ams-timeline.js?v=82"></script>
+<script src="ams-vowels.js?v=82"></script>
+<script src="ams-pron.js?v=82"></script>
+<script src="ams-bpm.js?v=82"></script>
+<script src="ams-sections.js?v=82"></script>
 <script>
 const doc=$("doc"),gut=$("gut");
 // keep the gutter (line #, syllables, rhyme vowel) locked to the lyric scroll — they share the
@@ -591,6 +593,45 @@ _pl.addEventListener("timeupdate",()=>{
 });
 _pl.addEventListener("play",()=>tl.setPlaying(isCur()));
 _pl.addEventListener("pause",()=>tl.setPlaying(false));
+
+/* ================= karaoke playback highlight =================
+   As the track plays, the bar currently sounding lights up in the lyric editor and the highlight
+   DEPLETES left→right (letter by letter) as the bar elapses — empty by the time the next bar starts,
+   where it refills and repeats. A pure fixed overlay; it never touches the editable text. */
+let _kbEl=null,_kbRAF=null,_kbMap=null,_kbKey="";
+function _kbBuildMap(){
+  const spb=(60/(tl.bpm||120))*tl.beatsPerBar, go=tl.gridOffset||0;
+  const lines=doc.innerText.split("\n"), regs=tl.regions||[];
+  const map=[]; let off=0, ri=-1, li=0;
+  for(const l of lines){const t=l.trim();
+    if(/^\[.+\]$/.test(t)){ri++;li=0;}
+    else if(t){const reg=regs[ri]; if(reg){const t0=reg.start+li*spb+go; map.push({ls:off,le:off+l.length,t0,t1:t0+spb});} li++;}
+    off+=l.length+1;}
+  return map;
+}
+function _kbMapCached(){const k=tl.bpm+"|"+(tl.gridOffset||0)+"|"+doc.innerText.length;if(k!==_kbKey){_kbMap=_kbBuildMap();_kbKey=k;}return _kbMap;}
+function _kbRangeRect(ls,le){
+  function pt(o){let n=0;const w=document.createTreeWalker(doc,NodeFilter.SHOW_TEXT);let nd;while(nd=w.nextNode()){const len=nd.nodeValue.length;if(n+len>=o)return{node:nd,o:o-n};n+=len;}return null;}
+  const a=pt(ls),b=pt(le); if(!a||!b)return null;
+  try{const r=document.createRange();r.setStart(a.node,a.o);r.setEnd(b.node,b.o);return r.getBoundingClientRect();}catch(e){return null;}
+}
+function _kbHide(){if(_kbEl)_kbEl.style.display="none";}
+function _kbRender(t){
+  const m=_kbMapCached().find(x=>t>=x.t0&&t<x.t1);
+  if(!m){_kbHide();return;}
+  const rect=_kbRangeRect(m.ls,m.le); if(!rect||rect.width<1){_kbHide();return;}
+  const dr=doc.getBoundingClientRect(); if(rect.bottom<dr.top+2||rect.top>dr.bottom-2){_kbHide();return;}   // scrolled off-screen
+  if(!_kbEl){_kbEl=document.createElement("div");_kbEl.className="kbwipe";document.body.appendChild(_kbEl);}
+  const frac=Math.max(0,Math.min(1,(t-m.t0)/(m.t1-m.t0))), left=rect.left+frac*rect.width;   // highlight the unsung (right) part
+  _kbEl.style.display="block";
+  _kbEl.style.left=left+"px"; _kbEl.style.top=(rect.top-1)+"px";
+  _kbEl.style.width=Math.max(0,rect.right-left)+"px"; _kbEl.style.height=(rect.height+2)+"px";
+}
+function _kbLoop(){ if(!isCur()||_pl.paused){_kbHide();_kbRAF=null;return;} _kbRender(_pl.currentTime); _kbRAF=requestAnimationFrame(_kbLoop); }
+function _kbStart(){ if(!_kbRAF)_kbRAF=requestAnimationFrame(_kbLoop); }
+_pl.addEventListener("play",_kbStart);
+_pl.addEventListener("pause",_kbHide);
+_pl.addEventListener("seeked",()=>{ if(isCur()&&!_pl.paused)_kbStart(); });
 tl.setTempo(detectedBpm);
 
 /* ---- load a LOCAL audio file (no server). On load we AUTO-detect tempo (so the
@@ -1242,6 +1283,6 @@ window.addEventListener("keydown",e=>{if(e.key==="Escape"&&$("tourOvl").classLis
 window.addEventListener("resize",()=>{if($("tourOvl").classList.contains("on"))tourShow();});
 if(!localStorage.getItem("ams.tour.seen"))setTimeout(()=>{try{tourStart();}catch(e){}},800);   // first visit → auto-run
 </script>
-<script src="lyric-core.js?v=81"></script>
+<script src="lyric-core.js?v=82"></script>
 </body>
 </html>
