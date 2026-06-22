@@ -608,7 +608,7 @@ class AMSTimeline {
                 for (let bar = start; bar <= bars; bar += every) {
                   const x = this._xo(bar * spb) - this.LBL;
                   if (x < -24 || x > w + 24) continue;
-                  out.push(`<div class="tick${bar < 0 ? " negt" : ""}" style="left:${x}px">${bar + 1}</div>`);
+                  out.push(`<div class="tick${bar < 0 ? " negt" : ""}" style="left:${x}px">${bar >= 0 ? bar + 1 : bar}</div>`);   // anchor=1; left of it counts -1,-2,… (no bar 0)
                 }
                 return out.join("");
               })()}
