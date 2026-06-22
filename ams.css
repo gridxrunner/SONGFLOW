@@ -142,6 +142,14 @@ body{padding-bottom:46px}
 .region .rlbl{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1 1 auto;min-width:0}
 .region .rbars{flex:0 0 auto;background:rgba(0,0,0,.35);border-radius:3px;padding:0 3px;font-weight:800;font-variant-numeric:tabular-nums;cursor:pointer}
 .region .rbars:hover{background:var(--accent2);color:#0c0d12}
+
+/* sleek themed scrollbars (replace the chunky default OS bars on the timeline + lyric editor + panels) */
+*{scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.18) transparent}
+::-webkit-scrollbar{width:11px;height:11px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:rgba(255,255,255,.18);border-radius:8px;border:3px solid transparent;background-clip:content-box}
+::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.3)}
+::-webkit-scrollbar-corner{background:transparent}
 /* bar-length dropdown */
 .barsmenu{position:fixed;z-index:90;background:#15161e;border:1px solid var(--accent2);border-radius:8px;padding:4px;box-shadow:0 8px 24px rgba(0,0,0,.6);min-width:118px}
 .barsmenu .bmopt{padding:6px 10px;border-radius:6px;font-size:12px;color:var(--txt);cursor:pointer;white-space:nowrap}
