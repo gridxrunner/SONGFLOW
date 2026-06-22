@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Songflow — Lyric Studio</title>
-<link rel="stylesheet" href="ams.css?v=83">
+<link rel="stylesheet" href="ams.css?v=84">
 <style>
   /* standalone shell: no rail/drawer; the page fills the window */
   body{display:block}
@@ -544,11 +544,11 @@ $("helpClose").onclick=()=>showHelp(false);
 $("helpModal").addEventListener("click",e=>{if(e.target===$("helpModal"))showHelp(false);});
 document.addEventListener("keydown",e=>{if(e.key==="Escape")showHelp(false);});
 </script>
-<script src="ams-timeline.js?v=83"></script>
-<script src="ams-vowels.js?v=83"></script>
-<script src="ams-pron.js?v=83"></script>
-<script src="ams-bpm.js?v=83"></script>
-<script src="ams-sections.js?v=83"></script>
+<script src="ams-timeline.js?v=84"></script>
+<script src="ams-vowels.js?v=84"></script>
+<script src="ams-pron.js?v=84"></script>
+<script src="ams-bpm.js?v=84"></script>
+<script src="ams-sections.js?v=84"></script>
 <script>
 const doc=$("doc"),gut=$("gut");
 // keep the gutter (line #, syllables, rhyme vowel) locked to the lyric scroll — they share the
@@ -565,12 +565,28 @@ let playAnchor=0;
 function transport(returnOnStop){
   if(!cur){toast("Load an audio file first.");return;}
   if(!_pl.src){playInPlayer(cur.name,cur.url);playAnchor=0;return;}
-  if(_pl.paused){playAnchor=_pl.currentTime;_pl.play();}
+  if(_pl.paused){playAnchor=_pl.currentTime;tl.setCue(playAnchor);_pl.play();}   // leave the static cue at the start point
   else{_pl.pause();if(returnOnStop){_pl.currentTime=playAnchor;tl.setPlayhead(playAnchor);}}
+}
+/* ---- play-start CUE marker (static) + its link to the lyric cursor ---- */
+let _markLink=false;
+function setCueAt(t,opts){
+  opts=opts||{}; t=Math.max(0,t||0);
+  tl.setCue(t); tl.setPlayhead(t);              // the static cue + the progress marker (coincide until you play)
+  playAnchor=t;
+  if(isCur()&&_pl.duration){try{_pl.currentTime=t;}catch(e){}}
+  if(opts.fromTimeline&&!_markLink){_markLink=true;try{_caretFromTime(t);}finally{_markLink=false;}}   // timeline click → move the lyric cursor to that bar
+}
+function _caretFromTime(t){
+  if(typeof _kbBuildMap!=="function"||typeof setCaret!=="function"||typeof doc==="undefined")return;
+  const map=_kbBuildMap(); if(!map.length)return;
+  let m=map.find(x=>t>=x.t0&&t<x.t1);
+  if(!m){let bd=Infinity;for(const x of map){const d=Math.abs(x.t0-t);if(d<bd){bd=d;m=x;}}}   // gap/edge → nearest bar
+  if(m){try{doc.focus();setCaret(m.ls);}catch(e){}}
 }
 const tl=new AMSTimeline($("tl"),{
   onPlayPause:(returnOnStop)=>transport(!!returnOnStop),
-  onSeek:t=>{if(isCur()&&_pl.duration)_pl.currentTime=t; tl.setPlayhead(t);},   // always show the marker, even before first play
+  onSeek:t=>setCueAt(t,{fromTimeline:true}),   // a timeline click places the static cue + moves the lyric cursor to that bar
   onAnchor:t=>{gridAnchor=Math.max(0,t);gridSlip=0;applyGrid();},   // (legacy click-to-anchor path)
   onSlipDrag:eff=>{gridSlip=eff-gridAnchor;updateSlipReadout();if(typeof saveProjectState==="function")saveProjectState();}, // ruler drag → adjust slip
   onRegions:()=>{regionsFromAudio=true;},   // any manual region edit (drag/create) locks them from tag re-mapping
@@ -1284,6 +1300,6 @@ window.addEventListener("keydown",e=>{if(e.key==="Escape"&&$("tourOvl").classLis
 window.addEventListener("resize",()=>{if($("tourOvl").classList.contains("on"))tourShow();});
 if(!localStorage.getItem("ams.tour.seen"))setTimeout(()=>{try{tourStart();}catch(e){}},800);   // first visit → auto-run
 </script>
-<script src="lyric-core.js?v=83"></script>
+<script src="lyric-core.js?v=84"></script>
 </body>
 </html>

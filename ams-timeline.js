@@ -179,6 +179,12 @@ class AMSTimeline {
     const px = this._x(t);
     this.host.querySelectorAll(".playhead").forEach(p => p.style.left = px + "px");
   }
+  /* the CUE marker: a STATIC marker at the play-start position (where the last click landed). It
+     stays put while the playhead (progress) moves, and it's the one linked to the lyric cursor. */
+  setCue(t) {
+    this.cue = t;
+    this.host.querySelectorAll(".cuemark").forEach(p => p.style.left = (t == null ? -9999 : this._x(t)) + "px");
+  }
   getLoop() {
     if (!this.loop) return null;                         // loop must be activated (button)
     if (this.selRegions && this.selRegions.length) {
@@ -629,6 +635,7 @@ class AMSTimeline {
           this.warpMarkers.filter(t => t >= -0.5 && t < this.duration + 0.5)
             .map(t => `<div class="warpmark" style="left:${(t / this.duration) * w}px" title="warp pin — drag to move, click to remove"><span class="wmh">&#9670;</span></div>`).join("") +
           `</div>` : ""}
+      ${this.cue != null ? `<div class="cuemark" style="left:${this._x(this.cue)}px"></div>` : ""}
       <div class="playhead" style="left:${this._x(this.playhead)}px"></div>`;
 
     // SLIP-DRAG: when on, the whole timeline gets the ↔ cursor and a drag shoves the grid
