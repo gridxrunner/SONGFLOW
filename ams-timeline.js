@@ -652,11 +652,11 @@ class AMSTimeline {
           this.opts.onSelectRegions && this.opts.onSelectRegions(this.selRegions.map(k => this.regions[k]));
           this.render(); return;
         }
-        if (e.shiftKey) {                    // shift+click: select the whole RANGE from the anchor to here
+        if (e.shiftKey) {                    // shift+click: ADD the range (anchor → here) to the existing selection
           const anchor = (this.selRegion != null && this.selRegion >= 0) ? this.selRegion
-            : (this.selRegions.length ? Math.min(...this.selRegions) : i);
+            : (this.selRegions.length ? this.selRegions[this.selRegions.length - 1] : i);
           const lo = Math.min(anchor, i), hi = Math.max(anchor, i);
-          this.selRegions = []; for (let k = lo; k <= hi; k++) this.selRegions.push(k);
+          for (let k = lo; k <= hi; k++) if (!this.selRegions.includes(k)) this.selRegions.push(k);   // union, keep prior picks
           this.selRegion = i; this.sel = this.regions[i] ? { ...this.regions[i] } : null;
           this.opts.onSelectRegions && this.opts.onSelectRegions(this.selRegions.map(k => this.regions[k]));
           this.render(); return;
