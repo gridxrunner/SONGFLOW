@@ -248,7 +248,7 @@ class AMSTimeline {
       // single-region drag = MOVE to where you drop it (left edge, beat-snapped); the insert
       // line shows the landing spot. Regions it overlaps get rippled aside on release.
       if (this._adrag.mode === 1) {
-        const newStart = Math.max(0, anchor.start + dt);
+        const newStart = anchor.start + dt;                 // may be NEGATIVE: a section (e.g. the intro) can sit before the anchor / bar 1
         this._adrag.dropStart = newStart;
         this._showDropIndicator(this._xo(newStart));
       }
@@ -327,10 +327,10 @@ class AMSTimeline {
      other sections inserts there and pushes the overlapped ones aside. Order follows position. */
   _arrangeReorder(a) {
     const spb = this._secPerBar(), orig = a.orig, di = a.i, eps = 1e-6;
-    const dropStart = (a.dropStart != null) ? a.dropStart : Math.max(0, orig[di].start + (a.dt || 0));
+    const dropStart = (a.dropStart != null) ? a.dropStart : (orig[di].start + (a.dt || 0));   // negative OK (before the anchor)
     const list = orig.map((r, k) => ({ i: k, start: k === di ? dropStart : r.start, len: r.end - r.start }));
     list.sort((x, y) => Math.abs(x.start - y.start) > eps ? x.start - y.start : (x.i === di ? -1 : y.i === di ? 1 : 0));
-    let cur = 0;
+    let cur = list.length ? list[0].start : 0;               // start packing at the leftmost section, even if it's before bar 1
     for (const o of list) { if (o.start < cur - eps) o.start = cur; cur = o.start + o.len; }
     return list.map(o => ({ i: o.i, startBar: o.start / spb }));   // already left→right
   }

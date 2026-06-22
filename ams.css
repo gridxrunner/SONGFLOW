@@ -135,9 +135,10 @@ body{padding-bottom:46px}
 .regionstrip{flex:1;position:relative;background:#0d0e15;border-bottom:1px solid var(--line);height:18px;cursor:crosshair}
 .region{position:absolute;top:2px;bottom:2px;background:rgba(25,211,197,.16);border:1px solid var(--accent2);border-radius:4px;font-size:8.5px;color:var(--accent2);padding:0 3px;overflow:hidden;white-space:nowrap;cursor:pointer;transition:left .12s ease,width .12s ease;display:flex;align-items:center;gap:3px}
 .region.on{background:rgba(25,211,197,.35)}
-/* lyric-bearing region = teal (default); arrangement-only (no lyrics) = amber/orange */
-.region.nolyr{background:rgba(255,138,76,.16);border-color:#ff8a4c;color:#ffc09a}
-.region.nolyr.on{background:rgba(255,138,76,.34)}
+/* lyric-bearing region = vivid teal (default); arrangement-only (no lyrics) = a MUTED teal — same
+   family, just dimmed, so it reads as "the instrumental version" rather than a warning */
+.region.nolyr{background:rgba(98,166,163,.16);border-color:#62a6a3;color:#b6dad8}
+.region.nolyr.on{background:rgba(98,166,163,.36)}
 .region .rlbl{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1 1 auto;min-width:0}
 .region .rbars{flex:0 0 auto;background:rgba(0,0,0,.35);border-radius:3px;padding:0 3px;font-weight:800;font-variant-numeric:tabular-nums;cursor:pointer}
 .region .rbars:hover{background:var(--accent2);color:#0c0d12}

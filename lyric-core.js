@@ -388,7 +388,7 @@ function applyArrange(items){
   if(items.some(x=>x.i<0||x.i>=blocks.length))return;
   pushUndo();
   _writeDoc(pre, items.map(x=>blocks[x.i]));
-  if(typeof manualBars!=="undefined")manualBars=items.map(x=>Math.max(0,Math.round(x.startBar*1000)/1000)); // positions, in new order
+  if(typeof manualBars!=="undefined")manualBars=items.map(x=>Math.round(x.startBar*1000)/1000); // positions, in new order (negative = before the anchor / bar 1)
   try{tagRegions();}catch{}
   if(typeof saveProjectState==="function")saveProjectState();   // persist the new region positions
   if(typeof tl!=="undefined"){tl.selRegions=[];tl.selRegion=-1;tl.sel=null;tl.render();}
