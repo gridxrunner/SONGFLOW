@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Songflow — Lyric Studio</title>
-<link rel="stylesheet" href="ams.css?v=94">
+<link rel="stylesheet" href="ams.css?v=95">
 <style>
   /* standalone shell: no rail/drawer; the page fills the window */
   body{display:block}
@@ -344,6 +344,7 @@
             <option value="poprap">Pop-rap</option>
           </select>
         </div>
+        <div class="lab" style="margin-top:6px;display:flex;align-items:center;gap:6px"><span style="flex:1">Grid</span><button id="gridTog" class="miniToggle" title="Straight = even 8th/16th feel. Triplet = trap/drill: 3 syllables per beat, denser and rolling — the density the pattern table can't express on its own.">Straight</button></div>
         <div class="lab" style="margin-top:8px;display:flex;align-items:center;gap:6px"><span style="flex:1">Generation feel</span><span class="rangeval" id="feelV">Balanced · on-theme</span></div>
         <div class="qpadwrap">
           <div class="qaxis qtop">on-theme · coherent</div>
@@ -575,11 +576,11 @@ $("helpClose").onclick=()=>showHelp(false);
 $("helpModal").addEventListener("click",e=>{if(e.target===$("helpModal"))showHelp(false);});
 document.addEventListener("keydown",e=>{if(e.key==="Escape")showHelp(false);});
 </script>
-<script src="ams-timeline.js?v=94"></script>
-<script src="ams-vowels.js?v=94"></script>
-<script src="ams-pron.js?v=94"></script>
-<script src="ams-bpm.js?v=94"></script>
-<script src="ams-sections.js?v=94"></script>
+<script src="ams-timeline.js?v=95"></script>
+<script src="ams-vowels.js?v=95"></script>
+<script src="ams-pron.js?v=95"></script>
+<script src="ams-bpm.js?v=95"></script>
+<script src="ams-sections.js?v=95"></script>
 <script>
 const doc=$("doc"),gut=$("gut");
 // keep the gutter (line #, syllables, rhyme vowel) locked to the lyric scroll — they share the
@@ -1497,6 +1498,6 @@ window.addEventListener("keydown",e=>{if(e.key==="Escape"&&$("tourOvl").classLis
 window.addEventListener("resize",()=>{if($("tourOvl").classList.contains("on"))tourShow();});
 if(!localStorage.getItem("ams.tour.seen"))setTimeout(()=>{try{tourStart();}catch(e){}},800);   // first visit → auto-run
 </script>
-<script src="lyric-core.js?v=94"></script>
+<script src="lyric-core.js?v=95"></script>
 </body>
 </html>
