@@ -1206,6 +1206,11 @@ if($("aiProvider")){
 }
 const NSEL=$("ideaN");
 NSEL.innerHTML=Array.from({length:16},(_,i)=>`<option value="${i+1}"${i+1===4?" selected":""}>${i+1} bar${i?"s":""}</option>`).join("");
+// two-layer end-word planner toggle (default ON — proven to beat monotony/leakage/echo)
+function planRhymes(){return localStorage.getItem("ams.planrhymes")!=="0";}
+function renderPlanTog(){const b=$("planTog");if(b){const on=planRhymes();b.textContent=on?"Plan rhymes: on":"Plan rhymes: off";b.classList.toggle("on",on);}}
+if($("planTog"))$("planTog").onclick=()=>{const on=!planRhymes();try{localStorage.setItem("ams.planrhymes",on?"1":"0");}catch(e){}renderPlanTog();};
+renderPlanTog();
 
 function rhythmDirective(v){
   if(v<=15)return "VERY RHYTHMIC: percussive, syncopated phrasing — clustered short syllables, hard internal rhythm, internal rhymes mid-bar. (This shapes the FEEL WITHIN each bar's syllable count, NOT the count.)";
@@ -1355,6 +1360,31 @@ async function generateLyrics(){
   // rhyme chips) for the active scheme vowels, so end-words come from quality real rhymes, not pet defaults.
   const seedVows=[...new Set([...(scheme.altVowels||[]),...priorVowels])].filter(Boolean).slice(0,3);
   const seedLine=seedVows.map(v=>{const ws=[...((NEAR[v]||[])),...((SLANT[v]||[]))].slice(0,12);return ws.length?`${v} → ${ws.join(", ")}`:"";}).filter(Boolean).join("   |   ");
+  // ===== LAYER 1 — concrete END-WORD PLAN (the two-layer engine). Proven by the 3-set calibration to
+  // kill vowel monotony, rhyme-in-pickup leakage, and prior-echo at once. Picks varied, context-fitting
+  // end-words from the writer's OWN rhyme palette (NEAR/SLANT), assigned per the active scheme, and
+  // deliberately off the prior bars' dominant vowel. Optional (planRhymes toggle, default on).
+  let endPlan=null;
+  if(planRhymes()){
+    const usedW=new Set(prior.map(b=>rhymeAnchorWord(b).toLowerCase()).filter(Boolean));
+    const priorDom=(()=>{const c={};let b=null,bn=0;for(const v of priorVowels){c[v]=(c[v]||0)+1;if(c[v]>bn){bn=c[v];b=v;}}return b;})();
+    let pool=forced.length?forced.slice():Object.keys(NEAR).filter(k=>(NEAR[k]||[]).length>=4);
+    if(pool.length){
+      const sh=pool.slice().sort(()=>Math.random()-0.5);
+      const A=forced[0]||sh.find(v=>v!==priorDom)||sh[0];
+      const B=forced[1]||sh.find(v=>v!==A&&v!==priorDom)||sh.find(v=>v!==A)||A;
+      const cliche=new Set(CLICHE.toLowerCase().split(/[,\s]+/).filter(Boolean));
+      const seq=[],chosen=[],usedNow=new Set();
+      for(let i=0;i<n;i++)seq.push((scheme.type==="ABAB")?(i%2?B:A):(Math.floor(i/2)%2?B:A));
+      for(const v of seq){
+        const list=[...(NEAR[v]||[]),...(SLANT[v]||[])].filter(w=>w&&!usedW.has(w.toLowerCase())&&!usedNow.has(w.toLowerCase())&&!cliche.has(w.toLowerCase()));
+        const w=list.length?list[Math.floor(Math.random()*Math.min(list.length,12))]:null;
+        if(w)usedNow.add(w.toLowerCase());chosen.push(w);
+      }
+      if(chosen.filter(Boolean).length>=Math.ceil(n/2))endPlan=chosen;
+    }
+  }
+  const planLine=endPlan?`END-WORD PLAN (Layer 1 — follow EXACTLY): ${endPlan.map((w,i)=>w?`bar ${i+1} ends on "${w}"`:`bar ${i+1} ends on a fresh rhyme`).join("; ")}. Each bar's FINAL word is EXACTLY that word — no comma or words after it. Build each bar to land naturally on its word and still make sense.`:"";
   const sys=`You are a master lyricist writing to a strict rhythmic + rhyme methodology. RULES, in priority order:
 1. RHYTHM FIRST. Build a complementary rhythmic pattern and make the words ride it; echo the rhythmic pattern of the prior bars.
 2. RHYME = matching VOWEL SOUNDS landing on the SAME position across bars. The END rhyme (final stressed vowel of the bar) is the HIGHEST-priority pair; strong internal pairs are a bonus.
@@ -1372,6 +1402,7 @@ async function generateLyrics(){
 ${seedLine?`12. PREFERRED RHYMES — for a scheme vowel's end-word, lean on these real options from the writer's palette over your usual go-to rhymes (not mandatory, but prefer them to stay fresh and on-vowel): ${seedLine}.\n`:""}${directionClauses(sec)}
 OUTPUT FORMAT (STRICT): output ONLY the ${n} new lyric ${n>1?"bars":"bar"}, one per line, and NOTHING else. NO numbering, NO quotes, NO section tags, NO commentary/notes/explanations, NO blank lines, and do NOT repeat or echo any of the prior bars — every line must be brand new.`;
   const usr=(prior.length?`Section: [${sec}]\nPrior bars to extend (match their rhythm & rhyme scheme):\n${prior.join("\n")}\n\n`:`Section: [${sec}]\n\n`)+
+    (planLine?planLine+"\n\n":"")+
     `Write ${n} new bar${n>1?"s":""} that continue this section.`;
   const note=$("ideaNote"),btn=$("ideaGo");
   note.className="muted";note.style.color="";note.textContent="Generating…";btn.disabled=true;

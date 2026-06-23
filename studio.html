@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Songflow — Lyric Studio</title>
-<link rel="stylesheet" href="ams.css?v=97">
+<link rel="stylesheet" href="ams.css?v=98">
 <style>
   /* standalone shell: no rail/drawer; the page fills the window */
   body{display:block}
@@ -332,6 +332,7 @@
         <div class="pdiv"></div><div class="psection">Generate <span class="qdot" data-help>?</span></div>
         <div class="lab">Generate how many bars?</div>
         <select class="inp" id="ideaN" style="width:100%" title="number of lyric bars to generate (1 line = 1 bar)"></select>
+        <div class="lab" style="margin-top:8px;display:flex;align-items:center;gap:6px"><span style="flex:1">Rhyme planner</span><button id="planTog" class="miniToggle" title="Two-layer: picks varied end-rhyme words from your palette up front, then writes bars to them — beats vowel monotony and rhymes hiding in pickups. Turn off to let the model pick its own rhymes.">Plan rhymes: on</button></div>
         <div class="lab" style="margin-top:10px;display:flex;align-items:center;gap:6px"><span style="flex:1">Genre preset</span>
           <select class="mini" id="genrePreset" title="Jump the Lyrics pattern table to the sweet spot for a genre. Starting positions — being calibrated with real generations.">
             <option value="">— pick a genre —</option>
@@ -576,11 +577,11 @@ $("helpClose").onclick=()=>showHelp(false);
 $("helpModal").addEventListener("click",e=>{if(e.target===$("helpModal"))showHelp(false);});
 document.addEventListener("keydown",e=>{if(e.key==="Escape")showHelp(false);});
 </script>
-<script src="ams-timeline.js?v=97"></script>
-<script src="ams-vowels.js?v=97"></script>
-<script src="ams-pron.js?v=97"></script>
-<script src="ams-bpm.js?v=97"></script>
-<script src="ams-sections.js?v=97"></script>
+<script src="ams-timeline.js?v=98"></script>
+<script src="ams-vowels.js?v=98"></script>
+<script src="ams-pron.js?v=98"></script>
+<script src="ams-bpm.js?v=98"></script>
+<script src="ams-sections.js?v=98"></script>
 <script>
 const doc=$("doc"),gut=$("gut");
 // keep the gutter (line #, syllables, rhyme vowel) locked to the lyric scroll — they share the
@@ -1498,6 +1499,6 @@ window.addEventListener("keydown",e=>{if(e.key==="Escape"&&$("tourOvl").classLis
 window.addEventListener("resize",()=>{if($("tourOvl").classList.contains("on"))tourShow();});
 if(!localStorage.getItem("ams.tour.seen"))setTimeout(()=>{try{tourStart();}catch(e){}},800);   // first visit → auto-run
 </script>
-<script src="lyric-core.js?v=97"></script>
+<script src="lyric-core.js?v=98"></script>
 </body>
 </html>
