@@ -757,6 +757,7 @@ class AMSTimeline {
         const raw = this._snapGrid(this._tAtClientX(e.clientX));      // snap the playhead to the grid
         this.clockEl.innerHTML = `&#128337; ${fmt(raw)}.${String(Math.floor((raw % 1) * 1000)).padStart(3, "0")}`;
         if (!press.moved) { this.sel = null; this.opts.onSeek && this.opts.onSeek(raw); }   // genuine click → seek
+        else if (this.selRegion < 0 && !this.selRegions.length && this.opts.onSelectSpan) this.opts.onSelectSpan(this.sel);   // MANUAL waveform span (not an arrangement region) → notify the app
         press = null; this.render();
       };
       row.querySelectorAll("[data-tg]").forEach(b => b.onclick = e => {

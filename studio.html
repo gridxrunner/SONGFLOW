@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Songflow — Lyric Studio</title>
-<link rel="stylesheet" href="ams.css?v=89">
+<link rel="stylesheet" href="ams.css?v=90">
 <style>
   /* standalone shell: no rail/drawer; the page fills the window */
   body{display:block}
@@ -50,6 +50,8 @@
   .apind.ap-tl .apdot{background:var(--accent)} .apind.ap-tl b{color:var(--accent)}
   body.ap-editor .lyx{outline:2px solid var(--accent2);outline-offset:2px;border-radius:5px}
   body.ap-timeline #tl{outline:2px solid var(--accent);outline-offset:1px;border-radius:5px}
+  /* lyrics highlighted by a manual waveform span — click-drag the waveform, then type to replace */
+  .wavehl{position:fixed;background:rgba(124,92,255,.28);box-shadow:0 0 0 1px rgba(124,92,255,.5) inset;border-radius:2px;pointer-events:none;z-index:4}
   /* grouped beat-grid control cluster: BPM stepper · ×2/÷2 · Anchor · Slip */
   .gridctl{display:flex;align-items:center;gap:7px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:3px 7px}
   .gctk{display:flex;align-items:center;gap:3px}
@@ -557,11 +559,11 @@ $("helpClose").onclick=()=>showHelp(false);
 $("helpModal").addEventListener("click",e=>{if(e.target===$("helpModal"))showHelp(false);});
 document.addEventListener("keydown",e=>{if(e.key==="Escape")showHelp(false);});
 </script>
-<script src="ams-timeline.js?v=89"></script>
-<script src="ams-vowels.js?v=89"></script>
-<script src="ams-pron.js?v=89"></script>
-<script src="ams-bpm.js?v=89"></script>
-<script src="ams-sections.js?v=89"></script>
+<script src="ams-timeline.js?v=90"></script>
+<script src="ams-vowels.js?v=90"></script>
+<script src="ams-pron.js?v=90"></script>
+<script src="ams-bpm.js?v=90"></script>
+<script src="ams-sections.js?v=90"></script>
 <script>
 const doc=$("doc"),gut=$("gut");
 // keep the gutter (line #, syllables, rhyme vowel) locked to the lyric scroll — they share the
@@ -610,6 +612,7 @@ function _caretFromTime(t){
 const tl=new AMSTimeline($("tl"),{
   onPlayPause:(returnOnStop)=>transport(!!returnOnStop),
   spaceWantsTimeline:()=>activePanel==="timeline",   // Space plays only when the timeline is the active panel (editor active → Space types)
+  onSelectSpan:(span)=>highlightLyricsForSpan(span),   // manual waveform span → highlight the lyrics in that time range (type to replace)
   onSeek:t=>setCueAt(t,{fromTimeline:true}),   // a timeline click places the static cue + moves the lyric cursor to that bar
   onAnchor:t=>{gridAnchor=Math.max(0,t);gridSlip=0;applyGrid();},   // (legacy click-to-anchor path)
   onSlipDrag:eff=>{gridSlip=eff-gridAnchor;updateSlipReadout();if(typeof saveProjectState==="function")saveProjectState();}, // ruler drag → adjust slip
@@ -699,8 +702,8 @@ function toggleActivePanel(){
   else{setActivePanel("editor");try{doc.focus();}catch(e){}}
 }
 // USER intent sets the active panel (the cursor-link's programmatic doc.focus() does NOT fire mousedown)
-$("tl").addEventListener("mousedown",()=>setActivePanel("timeline"),true);   // capture → fires before the timeline's own handlers stopPropagation
-$("doc").addEventListener("mousedown",()=>setActivePanel("editor"),true);
+$("tl").addEventListener("mousedown",()=>{setActivePanel("timeline");clearWaveSel();},true);   // capture → fires before the timeline's own handlers stopPropagation; any new timeline gesture drops the old span-highlight (a span-drag recreates it on release)
+$("doc").addEventListener("mousedown",()=>{setActivePanel("editor");clearWaveSel();},true);
 if($("apInd"))$("apInd").onclick=()=>toggleActivePanel();
 // global routing (capture phase, so we beat the timeline's document keydown for Tab / letter-jump)
 document.addEventListener("keydown",e=>{
@@ -709,11 +712,58 @@ document.addEventListener("keydown",e=>{
   // type a letter/number/punct while the TIMELINE is active → jump to the editor and let it type
   // (but never when a real form field — BPM box, theme select, dialog input — has focus)
   if(activePanel==="timeline"&&!inField&&e.key&&e.key.length===1&&e.key!==" "&&!e.ctrlKey&&!e.metaKey&&!e.altKey){
+    if(waveLyricSel){ e.preventDefault();e.stopPropagation();replaceWaveSel(e.key);return; }   // type over a manual-span highlight → replace those lyrics
     setActivePanel("editor");
     if(document.activeElement!==doc){try{doc.focus();}catch(e2){}}   // caret returns to its last spot; the char then types in
   }
 },true);
 setActivePanel("editor");
+document.addEventListener("keydown",e=>{ if(e.key==="Escape")clearWaveSel(); });
+
+/* ===== manual waveform span → highlight the lyrics in that time range; type to replace =====
+   A click-drag on the WAVEFORM (not an arrangement-tag click) selects a time span. We map that span
+   to the lyric lines that play in it (reusing the karaoke time map) and paint a highlight over them.
+   The editor stays UNfocused so audio Copy/Cut/Paste and Space-to-audition keep working; the first
+   letter you type replaces the highlighted lyrics (undoable). Clicking the editor / scrolling / Esc
+   clears it. Does NOT trigger for arrangement-region selections (those never call onSelectSpan). */
+let waveLyricSel=null, _waveHi=[];
+function clearWaveSel(){ waveLyricSel=null; _waveHi.forEach(d=>d.remove()); _waveHi=[]; }
+function _docPoint(off){   // char offset (doc.innerText) → {node,offset}; same walker the karaoke map uses
+  let n=0;const w=document.createTreeWalker(doc,NodeFilter.SHOW_TEXT);let nd;
+  while(nd=w.nextNode()){const len=nd.nodeValue.length;if(n+len>=off)return{node:nd,o:off-n};n+=len;}
+  return null;
+}
+function highlightLyricsForSpan(span){
+  clearWaveSel();
+  if(!span||span.end<=span.start||typeof _kbBuildMap!=="function")return;
+  const map=_kbBuildMap();                                  // [{ls,le,t0,t1}] per lyric line, t in AUDIO seconds
+  const hit=map.filter(m=>m.t1>span.start&&m.t0<span.end);  // lines whose play-window overlaps the span
+  if(!hit.length)return;
+  const cs=Math.min(...hit.map(m=>m.ls)), ce=Math.max(...hit.map(m=>m.le));
+  const a=_docPoint(cs), b=_docPoint(ce); if(!a||!b)return;
+  let r;try{r=document.createRange();r.setStart(a.node,a.o);r.setEnd(b.node,b.o);}catch(e){return;}
+  waveLyricSel={cs,ce};
+  for(const rect of r.getClientRects()){ if(rect.width<1)continue;
+    const d=document.createElement("div");d.className="wavehl";
+    d.style.left=rect.left+"px";d.style.top=rect.top+"px";d.style.width=rect.width+"px";d.style.height=rect.height+"px";
+    document.body.appendChild(d);_waveHi.push(d);
+  }
+}
+function replaceWaveSel(ch){
+  if(!waveLyricSel)return;
+  const {cs,ce}=waveLyricSel;
+  if(typeof pushUndo==="function")pushUndo();
+  const text=doc.innerText, next=text.slice(0,cs)+ch+text.slice(ce);
+  doc.textContent=next;
+  clearWaveSel();
+  if(rhymeOn&&typeof paintRhymes==="function")paintRhymes(); else if(typeof update==="function")update();
+  doc.focus(); if(typeof setCaret==="function")setCaret(cs+ch.length);
+  setActivePanel("editor");
+  if(typeof saveProjectState==="function")saveProjectState();
+}
+// the highlight is a fixed overlay — drop it if the lyric area scrolls (positions would go stale)
+$("doc").addEventListener("scroll",clearWaveSel);
+const _lyx=document.querySelector(".lyx"); if(_lyx)_lyx.addEventListener("scroll",clearWaveSel);
 
 /* ---- load a LOCAL audio file (no server). On load we AUTO-detect tempo (so the
    beat grid + metronome are synced without a click) and, only when the document has
@@ -1369,6 +1419,6 @@ window.addEventListener("keydown",e=>{if(e.key==="Escape"&&$("tourOvl").classLis
 window.addEventListener("resize",()=>{if($("tourOvl").classList.contains("on"))tourShow();});
 if(!localStorage.getItem("ams.tour.seen"))setTimeout(()=>{try{tourStart();}catch(e){}},800);   // first visit → auto-run
 </script>
-<script src="lyric-core.js?v=89"></script>
+<script src="lyric-core.js?v=90"></script>
 </body>
 </html>
