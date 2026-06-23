@@ -1333,7 +1333,7 @@ async function generateLyrics(){
 2. RHYME = matching VOWEL SOUNDS landing on the SAME position across bars. The END rhyme (final stressed vowel of the bar) is the HIGHEST-priority pair; strong internal pairs are a bonus.
 3. PAIRED BARS LOCK TOGETHER. Two rhyming bars MUST have the SAME number of syllables, and the rhyme vowel must sit the SAME number of syllables from the downbeat in both — so the rhyme lands on the SAME beat. The rhyme should fall on a STRONG position (beat 1, or a 1/2, 1/4, or 1/8 subdivision), never a weak off-beat. There are usually many word choices that satisfy this — find one.
 4. A syllable-count difference between paired bars is allowed ONLY when a SUSTAINED/held vowel on a strong beat, or a PICKUP syllable before the downbeat, absorbs it AND the rhyme still lands on the same spot. Otherwise keep the counts equal.
-4b. LEAD-INS (pickups): 1-3 short trailing syllables AFTER the rhyme word that flow INTO the next bar (e.g. "...knees, oh", or splitting a word across the barline: end one bar on "...the I-" and start the next on "magination..."). Lead-ins do NOT count toward the syllable target — they are FREE extra room to add words for meaning and flow, the release valve when a line needs more than the target allows. The rhyme still anchors on the word BEFORE the lead-in. If you use them, make it a CONSISTENT PATTERN — after EVERY bar, or EVERY OTHER bar — never randomly on one isolated bar.
+4b. LEAD-INS (pickups): 1-3 short trailing syllables AFTER the rhyme word that flow INTO the next bar (e.g. "...knees, oh", or splitting a word across the barline: end one bar on "...the I-" and start the next on "magination..."). Lead-ins do NOT count toward the syllable target — they are FREE extra room to add words for meaning and flow, the release valve when a line needs more than the target allows. The rhyme still anchors on the word BEFORE the lead-in. STRICTLY PROHIBITED: a lead-in is throwaway, UNSTRESSED, NON-RHYMING connective filler ONLY (e.g. "yeah", "oh", "hey", "and I", "to the") — it must NEVER be a stressed content word and must NEVER rhyme with another bar. NEVER bury the priority rhyme (or ANY word that rhymes across bars) inside a trailing comma-pickup, e.g. do NOT write "...tall, no cap" / "...crash, I laugh" where the real rhyme (cap/laugh) hides after the comma. When the rhyme lands on the final word, there is NO lead-in and NO trailing comma after it — the priority rhyme is ALWAYS the anchor word, never inside a pickup. If you use them, make it a CONSISTENT PATTERN — after EVERY bar, or EVERY OTHER bar — never randomly on one isolated bar.
 5. RHYME STRUCTURE — COUPLET (AABB, adjacent bars rhyme) or CROSS / ALTERNATING (ABAB, answered every other bar). ${schemeLine}
 6. VARY THE RHYME ACROSS THESE BARS: move through SEVERAL end-vowels — a new rhyme sound roughly every couplet (2 bars). Do NOT end more than 2 bars in a row on the same vowel unless deliberately building a list. ${n>=4?`So ${n} bars should use ~${Math.max(2,Math.round(n/2))} different end-vowels, not one.`:""} (A run of ≥8 bars on one vowel reads as monotonous — never do that.)
 7. ${rhythmDirective(rhythm)}
@@ -1361,6 +1361,23 @@ Output ONLY the ${n} lyric ${n>1?"bars":"bar"}, one per line. No section tags, n
   const matchOk=bars=>matchBad(bars).length===0;
   // VARIETY check — flag a run of >2 generated bars on the same end-vowel (monotonous mono-rhyme).
   const varyBad=bars=>{let run=1;for(let i=1;i<bars.length;i++){if(endVowelOf(bars[i])===endVowelOf(bars[i-1])){run++;if(run>2)return true;}else run=1;}return false;};
+  // LEAD-IN RHYME check (founder rule, strict) — the priority rhyme must NEVER hide in a lead-in.
+  // Flag when ≥2 bars end in a comma-pickup whose final word is a DISTINCT content word sharing a
+  // vowel (a rhyme chain leaked into the lead-in, e.g. "...no cap" / "...I laugh" / "...no slack").
+  // A repeated interjection ("oh","oh") or a function-word tail ("in a") is a legit lead-in, not a rhyme.
+  const LEADIN_OK=new Set(["oh","yeah","hey","whoa","woah","ooh","ah","uh","na","la","mm","hmm","yo","ay","eh","ya","yea","ohh","mmm","huh"]);
+  const leadInRhyme=bars=>{
+    const byV={};
+    for(const b of bars){
+      const ws=(b||"").trim().split(/\s+/).filter(Boolean);
+      if(rhymeAnchorIdx(ws)>=ws.length-1)continue;                 // no pickup tail → fine
+      const w=(ws[ws.length-1]||"").replace(/[.,;:!?]+$/g,"").toLowerCase();
+      if(!w||STOP.has(w)||LEADIN_OK.has(w))continue;               // throwaway tail = legit lead-in
+      const v=endVowelKey(w); if(!v)continue;
+      (byV[v]=byV[v]||new Set()).add(w);
+    }
+    return Object.values(byV).some(s=>s.size>=2);                  // distinct content words rhyming in the lead-in
+  };
   try{
     let bars=null;const maxTries=(forced.length||sylTargetEff)?3:1;   // a length target is always set → always allow retries
     for(let attempt=1;attempt<=maxTries;attempt++){
@@ -1370,17 +1387,18 @@ Output ONLY the ${n} lyric ${n>1?"bars":"bar"}, one per line. No section tags, n
         const bad=matchBad(bars);
         if(bad.length)fix+=`\n\nWRONG BAR LENGTH: ${bad.join("; ")}. EVERY bar must be about ${sylTargetEff} syllables to match this section${tol?` (±${tol})`:""}. Rewrite all ${n} bars to that length — keep them short, do NOT pack extra syllables.`;
         if(varyBad(bars))fix+=`\n\nTOO MONOTONOUS: too many bars end on the same vowel sound. Change the end-rhyme vowel every couplet (about ${Math.max(2,Math.round(n/2))} different rhyme sounds across the ${n} bars).`;
+        if(leadInRhyme(bars))fix+=`\n\nRHYME LEAKED INTO THE LEAD-IN (forbidden): your trailing pickup words after a comma rhyme with each other (the bars hide the real rhyme after the comma, e.g. "...tall, no cap" / "...crash, I laugh"). A lead-in must be throwaway, UNSTRESSED, NON-RHYMING filler. Put the priority rhyme as the LAST word of each bar — the anchor — with NO comma-and-word after it. Rewrite all ${n} bars.`;
       }
       const out=await callLLM({provider,model,system:sys,user:usr+fix,maxTokens:2000});
       if(!out)throw new Error("empty response");
       bars=out.split("\n").map(s=>s.trim()).filter(Boolean).slice(0,n);
-      if(endsOk(bars)&&matchOk(bars)&&!varyBad(bars))break;
+      if(endsOk(bars)&&matchOk(bars)&&!varyBad(bars)&&!leadInRhyme(bars))break;
       if(attempt<maxTries)note.textContent=`Tightening the rhythm (try ${attempt+1})…`;
     }
     if(_genSeq===myGen){                              // still our run (not cancelled by an undo mid-flight)
       genFillSlot(slot,bars);                         // swap the glowing placeholders for the real bars
-      const vDrift=!endsOk(bars), mDrift=!matchOk(bars);
-      note.style.color="";note.textContent=`Generated ${bars.length} bar(s).`+(vDrift?" Couldn't fully lock the forced vowel — tweak as needed.":mDrift?" A bar's length is still a little off — tweak as needed.":" Edit freely — they're in your document.");
+      const vDrift=!endsOk(bars), mDrift=!matchOk(bars), lDrift=leadInRhyme(bars);
+      note.style.color="";note.textContent=`Generated ${bars.length} bar(s).`+(vDrift?" Couldn't fully lock the forced vowel — tweak as needed.":lDrift?" A rhyme may still be sitting in a lead-in — move it to the bar's last word.":mDrift?" A bar's length is still a little off — tweak as needed.":" Edit freely — they're in your document.");
     }
   }catch(err){if(_genSeq===myGen){genCancelSlot(slot);note.className="muted";note.style.color="var(--danger)";note.textContent="Generation failed: "+err.message;}}
   if(_genSeq===myGen){genGlowHide();btn.disabled=false;}
