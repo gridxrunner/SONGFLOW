@@ -1406,6 +1406,11 @@ OUTPUT FORMAT (STRICT): output ONLY the ${n} new lyric ${n>1?"bars":"bar"}, one 
     }
     return Object.values(byV).some(s=>s.size>=2);                  // distinct content words rhyming in the lead-in
   };
+  // ECHO check — reject bars that reproduce a prior (context) bar verbatim; this passes every other
+  // validator, so deepseek sometimes parrots the input. Caught here.
+  const _norm=s=>(s||"").toLowerCase().replace(/[^a-z0-9 ]/g," ").replace(/\s+/g," ").trim();
+  const _priorSet=new Set(prior.map(_norm).filter(Boolean));
+  const echoBad=bars=>bars.some(b=>_priorSet.has(_norm(b)));
   try{
     let bars=null;const maxTries=(forced.length||sylTargetEff)?3:1;   // a length target is always set → always allow retries
     for(let attempt=1;attempt<=maxTries;attempt++){
@@ -1416,11 +1421,12 @@ OUTPUT FORMAT (STRICT): output ONLY the ${n} new lyric ${n>1?"bars":"bar"}, one 
         if(bad.length)fix+=`\n\nWRONG BAR LENGTH: ${bad.join("; ")}. EVERY bar must be about ${sylTargetEff} syllables to match this section${tol?` (±${tol})`:""}. Rewrite all ${n} bars to that length — keep them short, do NOT pack extra syllables.`;
         if(varyBad(bars))fix+=`\n\nTOO MONOTONOUS: your bars end on the vowels [${bars.map(endVowelOf).join(", ")}] — too much repetition. Change at least TWO end-words to clearly DIFFERENT vowel sounds (aim for ~${Math.max(2,Math.round(n/2))} distinct rhyme sounds across the ${n} bars). Do not ride one vowel.`;
         if(leadInRhyme(bars))fix+=`\n\nRHYME LEAKED INTO THE LEAD-IN (forbidden): your trailing pickup words after a comma rhyme with each other (the bars hide the real rhyme after the comma, e.g. "...tall, no cap" / "...crash, I laugh"). A lead-in must be throwaway, UNSTRESSED, NON-RHYMING filler. Put the priority rhyme as the LAST word of each bar — the anchor — with NO comma-and-word after it, and never repeat the same pickup word ("got a / got a"). Rewrite all ${n} bars.`;
+        if(echoBad(bars))fix+=`\n\nDO NOT REPEAT THE PRIOR BARS: one or more of your lines copies a bar you were given as context. Every one of the ${n} bars must be NEW words — fresh continuations, never an echo of the input.`;
       }
       const out=await callLLM({provider,model,system:sys,user:usr+fix,maxTokens:2000});
       if(!out)throw new Error("empty response");
       bars=out.split("\n").map(s=>s.trim()).filter(Boolean).slice(0,n);
-      if(endsOk(bars)&&matchOk(bars)&&!varyBad(bars)&&!leadInRhyme(bars))break;
+      if(endsOk(bars)&&matchOk(bars)&&!varyBad(bars)&&!leadInRhyme(bars)&&!echoBad(bars))break;
       if(attempt<maxTries)note.textContent=`Tightening the rhythm (try ${attempt+1})…`;
     }
     if(_genSeq===myGen){                              // still our run (not cancelled by an undo mid-flight)
