@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Songflow — Lyric Studio</title>
-<link rel="stylesheet" href="ams.css?v=92">
+<link rel="stylesheet" href="ams.css?v=93">
 <style>
   /* standalone shell: no rail/drawer; the page fills the window */
   body{display:block}
@@ -270,9 +270,13 @@
       <button class="tbtn" id="scratchBtn" title="open the Scratch pad (composite lane) — copy a waveform span, paste it here to chop, audition, or export. Closed by default." style="width:auto;padding:0 9px;font-size:11px">&#9638; Scratch</button>
       <button class="tbtn" id="linkBtn" title="Link cursor: clicking the timeline jumps the lyric cursor to that bar. Toggle off to click the timeline without moving your cursor." style="width:auto;padding:0 9px;font-size:11px">&#128279; Link cursor</button>
       <div class="trackchip">&#128196; <select class="mini" id="docSel"></select>
-        <button class="tbtn" id="docNew" title="new document">&#65291;</button>
+        <button class="tbtn" id="docNew" title="new project">&#65291;</button>
         <button class="tbtn" id="docRen" title="rename">&#9998;</button>
         <button class="tbtn" id="docDel" title="delete">&#128465;</button>
+        <span style="width:1px;height:16px;background:var(--line);margin:0 2px"></span>
+        <button class="tbtn" id="projSave" title="Save project to a .songflow file — bundles the audio, lyrics, arrangement tags and every setting so you can reopen it exactly as it is now (also works to move a project to another browser/device)">&#128190;</button>
+        <button class="tbtn" id="projOpen" title="Open a .songflow project file">&#128194;</button>
+        <input type="file" id="projFile" accept=".songflow,application/octet-stream" style="display:none">
       </div>
       <select class="mini" id="tagIns" title="insert an arrangement tag at the cursor">
         <option value="">&#65291; Section tag</option>
@@ -287,9 +291,6 @@
       <button class="tbtn" id="lRhyme" style="width:auto;padding:0 10px">&#127752; Rhyme colors</button>
       <button class="tbtn" id="lExport" title="export lyrics to a .txt file" style="width:auto;padding:0 10px">&#11015; Export .txt</button>
       <button class="tbtn" id="aExport" title="export the edited audio to a .wav file" style="width:auto;padding:0 10px">&#11015; Export audio</button>
-      <button class="tbtn" id="projSave" title="Save this project to a .songflow file — bundles the audio, lyrics, arrangement tags and every setting so you can reopen it exactly as it is now" style="width:auto;padding:0 10px">&#128190; Save project</button>
-      <button class="tbtn" id="projOpen" title="Open a .songflow project file" style="width:auto;padding:0 10px">&#128194; Open project</button>
-      <input type="file" id="projFile" accept=".songflow,application/octet-stream" style="display:none">
       <button class="tbtn" id="lClear" style="width:auto;padding:0 10px">Clear</button>
       <button class="tbtn" id="helpBtn" title="how Songflow works — the guide" style="width:auto;padding:0 10px">? Guide</button>
     </div>
@@ -562,11 +563,11 @@ $("helpClose").onclick=()=>showHelp(false);
 $("helpModal").addEventListener("click",e=>{if(e.target===$("helpModal"))showHelp(false);});
 document.addEventListener("keydown",e=>{if(e.key==="Escape")showHelp(false);});
 </script>
-<script src="ams-timeline.js?v=92"></script>
-<script src="ams-vowels.js?v=92"></script>
-<script src="ams-pron.js?v=92"></script>
-<script src="ams-bpm.js?v=92"></script>
-<script src="ams-sections.js?v=92"></script>
+<script src="ams-timeline.js?v=93"></script>
+<script src="ams-vowels.js?v=93"></script>
+<script src="ams-pron.js?v=93"></script>
+<script src="ams-bpm.js?v=93"></script>
+<script src="ams-sections.js?v=93"></script>
 <script>
 const doc=$("doc"),gut=$("gut");
 // keep the gutter (line #, syllables, rhyme vowel) locked to the lyric scroll — they share the
@@ -1484,6 +1485,6 @@ window.addEventListener("keydown",e=>{if(e.key==="Escape"&&$("tourOvl").classLis
 window.addEventListener("resize",()=>{if($("tourOvl").classList.contains("on"))tourShow();});
 if(!localStorage.getItem("ams.tour.seen"))setTimeout(()=>{try{tourStart();}catch(e){}},800);   // first visit → auto-run
 </script>
-<script src="lyric-core.js?v=92"></script>
+<script src="lyric-core.js?v=93"></script>
 </body>
 </html>
