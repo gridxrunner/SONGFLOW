@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Songflow — Lyric Studio</title>
-<link rel="stylesheet" href="ams.css?v=91">
+<link rel="stylesheet" href="ams.css?v=92">
 <style>
   /* standalone shell: no rail/drawer; the page fills the window */
   body{display:block}
@@ -287,6 +287,9 @@
       <button class="tbtn" id="lRhyme" style="width:auto;padding:0 10px">&#127752; Rhyme colors</button>
       <button class="tbtn" id="lExport" title="export lyrics to a .txt file" style="width:auto;padding:0 10px">&#11015; Export .txt</button>
       <button class="tbtn" id="aExport" title="export the edited audio to a .wav file" style="width:auto;padding:0 10px">&#11015; Export audio</button>
+      <button class="tbtn" id="projSave" title="Save this project to a .songflow file — bundles the audio, lyrics, arrangement tags and every setting so you can reopen it exactly as it is now" style="width:auto;padding:0 10px">&#128190; Save project</button>
+      <button class="tbtn" id="projOpen" title="Open a .songflow project file" style="width:auto;padding:0 10px">&#128194; Open project</button>
+      <input type="file" id="projFile" accept=".songflow,application/octet-stream" style="display:none">
       <button class="tbtn" id="lClear" style="width:auto;padding:0 10px">Clear</button>
       <button class="tbtn" id="helpBtn" title="how Songflow works — the guide" style="width:auto;padding:0 10px">? Guide</button>
     </div>
@@ -559,11 +562,11 @@ $("helpClose").onclick=()=>showHelp(false);
 $("helpModal").addEventListener("click",e=>{if(e.target===$("helpModal"))showHelp(false);});
 document.addEventListener("keydown",e=>{if(e.key==="Escape")showHelp(false);});
 </script>
-<script src="ams-timeline.js?v=91"></script>
-<script src="ams-vowels.js?v=91"></script>
-<script src="ams-pron.js?v=91"></script>
-<script src="ams-bpm.js?v=91"></script>
-<script src="ams-sections.js?v=91"></script>
+<script src="ams-timeline.js?v=92"></script>
+<script src="ams-vowels.js?v=92"></script>
+<script src="ams-pron.js?v=92"></script>
+<script src="ams-bpm.js?v=92"></script>
+<script src="ams-sections.js?v=92"></script>
 <script>
 const doc=$("doc"),gut=$("gut");
 // keep the gutter (line #, syllables, rhyme vowel) locked to the lyric scroll — they share the
@@ -1219,6 +1222,56 @@ async function restoreProjectState(){
   try{tagRegions();}catch(e){}
 }
 
+/* ================= project file (.songflow): save / open =================
+   A portable, self-contained file so a project is safe off the browser and movable between
+   machines. Binary container (no base64 bloat): [8-byte magic "SONGFLW1"][4-byte little-endian
+   JSON length][JSON metadata][raw audio bytes]. Bundles the audio, the lyric text (arrangement
+   tags live inside it), the bar layout and every grid/warp setting — opening restores it exactly. */
+const SF_MAGIC="SONGFLW1";
+async function saveProjectFile(){
+  try{
+    if(typeof saveProjectState==="function")saveProjectState();             // flush current text + grid into the doc
+    const d=docsState.docs[docsState.active]; if(!d){toast("No project to save.");return;}
+    const meta={format:"songflow",version:1,name:d.name||"project",
+      text:(typeof doc!=="undefined")?doc.innerText:(d.text||""),
+      manualBars:(typeof manualBars!=="undefined")?manualBars:(d.manualBars||null),
+      bpm:tl.bpm,anchor:gridAnchor,slip:gridSlip,warp:(warpMarkers||[]).slice(),warpShow:!!warpShow,
+      trackName:cur?cur.name:(d.trackName||null),savedAt:Date.now()};
+    let audio=new Uint8Array(0);
+    try{const id=activeDocId();const blob=id&&await idbGet(id);
+      if(blob){audio=new Uint8Array(await blob.arrayBuffer());meta.audioType=blob.type||"audio/wav";}}catch(e){}
+    const jsonBytes=new TextEncoder().encode(JSON.stringify(meta));
+    const head=new Uint8Array(12); head.set(new TextEncoder().encode(SF_MAGIC),0);
+    new DataView(head.buffer).setUint32(8,jsonBytes.length,true);
+    const out=new Blob([head,jsonBytes,audio],{type:"application/octet-stream"});
+    const a=document.createElement("a"); a.href=URL.createObjectURL(out);
+    a.download=(d.name||"project").replace(/[^\w\-]+/g,"_").slice(0,60)+".songflow"; a.click();
+    setTimeout(()=>URL.revokeObjectURL(a.href),2000);
+    toast("Project saved"+(audio.length?" — audio included.":" (no track loaded)."));
+  }catch(e){toast("Save failed: "+e.message);}
+}
+async function openProjectFile(file){
+  try{
+    const buf=await file.arrayBuffer();
+    if(buf.byteLength<12||new TextDecoder().decode(new Uint8Array(buf,0,8))!==SF_MAGIC)throw new Error("not a Songflow project file");
+    const jsonLen=new DataView(buf).getUint32(8,true);
+    const meta=JSON.parse(new TextDecoder().decode(new Uint8Array(buf,12,jsonLen)));
+    const audioStart=12+jsonLen;
+    const audio=buf.byteLength>audioStart?new Uint8Array(buf,audioStart):null;
+    const id=newId();                                                       // fresh id → opening twice never collides
+    docsState.docs.push({name:meta.name||"Opened project",text:meta.text||"",manualBars:meta.manualBars||null,
+      bpm:meta.bpm,anchor:meta.anchor,slip:meta.slip,warp:meta.warp||[],warpShow:!!meta.warpShow,
+      trackName:meta.trackName||null,updated:0,id});
+    if(audio&&audio.length){await idbPut(id,new Blob([audio],{type:meta.audioType||"audio/wav"}));}
+    saveDocs();
+    switchDoc(docsState.docs.length-1);                                     // switch → restores text + audio + grid
+    toast("Project opened: "+(meta.name||"untitled"));
+  }catch(e){toast("Couldn't open: "+e.message);}
+}
+if($("projSave"))$("projSave").onclick=saveProjectFile;
+if($("projOpen"))$("projOpen").onclick=()=>{const f=$("projFile");if(f)f.click();};
+if($("projFile"))$("projFile").onchange=e=>{const f=e.target.files&&e.target.files[0];if(f)openProjectFile(f);e.target.value="";};
+
 /* ================= inpaint panel ================= */
 let inpaintTarget=null;
 const INPAINT_MODELS=[
@@ -1431,6 +1484,6 @@ window.addEventListener("keydown",e=>{if(e.key==="Escape"&&$("tourOvl").classLis
 window.addEventListener("resize",()=>{if($("tourOvl").classList.contains("on"))tourShow();});
 if(!localStorage.getItem("ams.tour.seen"))setTimeout(()=>{try{tourStart();}catch(e){}},800);   // first visit → auto-run
 </script>
-<script src="lyric-core.js?v=91"></script>
+<script src="lyric-core.js?v=92"></script>
 </body>
 </html>
