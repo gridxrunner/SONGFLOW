@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Songflow — Lyric Studio</title>
-<link rel="stylesheet" href="ams.css?v=90">
+<link rel="stylesheet" href="ams.css?v=91">
 <style>
   /* standalone shell: no rail/drawer; the page fills the window */
   body{display:block}
@@ -559,11 +559,11 @@ $("helpClose").onclick=()=>showHelp(false);
 $("helpModal").addEventListener("click",e=>{if(e.target===$("helpModal"))showHelp(false);});
 document.addEventListener("keydown",e=>{if(e.key==="Escape")showHelp(false);});
 </script>
-<script src="ams-timeline.js?v=90"></script>
-<script src="ams-vowels.js?v=90"></script>
-<script src="ams-pron.js?v=90"></script>
-<script src="ams-bpm.js?v=90"></script>
-<script src="ams-sections.js?v=90"></script>
+<script src="ams-timeline.js?v=91"></script>
+<script src="ams-vowels.js?v=91"></script>
+<script src="ams-pron.js?v=91"></script>
+<script src="ams-bpm.js?v=91"></script>
+<script src="ams-sections.js?v=91"></script>
 <script>
 const doc=$("doc"),gut=$("gut");
 // keep the gutter (line #, syllables, rhyme vowel) locked to the lyric scroll — they share the
@@ -646,19 +646,31 @@ function _kbBuildMap(){
   const spb=(60/(tl.bpm||120))*tl.beatsPerBar, go=tl.gridOffset||0;
   const lines=doc.innerText.split("\n"), regs=tl.regions||[];
   const starts=(window._secStartBars&&window._secStartBars.length)?window._secStartBars:null;  // per-section start, in BARS, aligned to ALL headers
-  const map=[]; let off=0, si=-1, li=0;
+  const lens=(window._secLens&&window._secLens.length)?window._secLens:null;                   // per-section length, in BARS, aligned to ALL headers
+  // group lyric lines under their section header (blank lines don't split a section)
+  const groups=[]; let off=0, si=-1, cur=null;
   for(const l of lines){const t=l.trim();
-    if(/^\[.+\]$/.test(t)){si++;li=0;}
-    else if(t){
-      // section start in audio-seconds: prefer the unfiltered layout, fall back to the (filtered) region
-      let base=(starts&&si>=0&&si<starts.length)?starts[si]*spb:(regs[si]?regs[si].start:null);
-      if(base!=null){const t0=base+li*spb+go; map.push({ls:off,le:off+l.length,t0,t1:t0+spb});}
-      li++;
-    }
+    if(/^\[.+\]$/.test(t)){si++;cur=null;}
+    else if(t){ if(!cur){cur={si,lines:[]};groups.push(cur);} cur.lines.push({ls:off,le:off+l.length}); }
     off+=l.length+1;}
+  const map=[];
+  for(const g of groups){
+    const n=g.lines.length, si=g.si; if(!n)continue;
+    // section start in audio-seconds: prefer the unfiltered layout, fall back to the (filtered) region
+    let base=(starts&&si>=0&&si<starts.length)?starts[si]*spb:(regs[si]?regs[si].start:null);
+    if(base==null)continue;
+    base+=go;
+    // SPREAD the n lines across the section's ACTUAL bar length, so e.g. 4 lines in an 8-bar region
+    // play at half speed instead of rushing 4 bars then pausing. Falls back to 1 bar per line.
+    const secBars=(lens&&si>=0&&si<lens.length&&lens[si]>0)?lens[si]:n;
+    const slot=(secBars/n)*spb;
+    g.lines.forEach((ln,i)=>{const t0=base+i*slot; map.push({ls:ln.ls,le:ln.le,t0,t1:t0+slot});});
+  }
   return map;
 }
-function _kbMapCached(){const k=tl.bpm+"|"+(tl.gridOffset||0)+"|"+doc.innerText.length;if(k!==_kbKey){_kbMap=_kbBuildMap();_kbKey=k;}return _kbMap;}
+// cache key includes the section layout (lengths + starts) so a 4→8 bar resize — which leaves the
+// tag-text length unchanged — still rebuilds the map.
+function _kbMapCached(){const k=tl.bpm+"|"+(tl.gridOffset||0)+"|"+doc.innerText.length+"|"+((window._secLens||[]).join(","))+"|"+((window._secStartBars||[]).join(","));if(k!==_kbKey){_kbMap=_kbBuildMap();_kbKey=k;}return _kbMap;}
 function _kbRangeRect(ls,le){
   function pt(o){let n=0;const w=document.createTreeWalker(doc,NodeFilter.SHOW_TEXT);let nd;while(nd=w.nextNode()){const len=nd.nodeValue.length;if(n+len>=o)return{node:nd,o:o-n};n+=len;}return null;}
   const a=pt(ls),b=pt(le); if(!a||!b)return null;
@@ -1419,6 +1431,6 @@ window.addEventListener("keydown",e=>{if(e.key==="Escape"&&$("tourOvl").classLis
 window.addEventListener("resize",()=>{if($("tourOvl").classList.contains("on"))tourShow();});
 if(!localStorage.getItem("ams.tour.seen"))setTimeout(()=>{try{tourStart();}catch(e){}},800);   // first visit → auto-run
 </script>
-<script src="lyric-core.js?v=90"></script>
+<script src="lyric-core.js?v=91"></script>
 </body>
 </html>
