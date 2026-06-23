@@ -620,6 +620,19 @@ let feelY=(()=>{const v=parseInt(localStorage.getItem(FEELY));return isNaN(v)?30
 function feelXLabel(x){return x<=15?"Packed":x<=38?"Rhythmic":x<=62?"Balanced":x<=85?"Drawn-out":"Sparse";}
 function feelYLabel(y){return y<=33?"on-theme":y<=66?"blended":"rhythm-first";}
 function renderFeel(){const d=$("qdot");if(d){d.style.left=feelX+"%";d.style.top=feelY+"%";}if($("feelV"))$("feelV").textContent=feelXLabel(feelX)+" · "+feelYLabel(feelY);}
+/* GENRE PRESETS — jump the Lyrics pattern table to a genre's sweet spot.
+   X = packed(0) ↔ sustained(100) ; Y = on-theme(0) ↔ rhythm-first(100).
+   v1 STARTING positions from genre flow DNA (trap=triplet-dense/flow-forward, drill=half-time
+   off-beat, boom-bap=dense+meaning, cloud=sustained/hazy, emo=melodic/lyric-led, etc.) —
+   to be CALIBRATED with real generations. Triplet-grid genres (trap/drill) can't be fully
+   expressed until the grid-type axis is added; this gets the best CURRENT X/Y. */
+const GENRE_PRESETS={
+  trap:{x:20,y:58}, drill:{x:35,y:58}, boombap:{x:25,y:22}, cloud:{x:80,y:62},
+  emo:{x:58,y:25}, melodic:{x:72,y:28}, poprap:{x:48,y:22}
+};
+function applyGenrePreset(g){const p=GENRE_PRESETS[g];if(!p)return;
+  feelX=p.x;feelY=p.y;try{localStorage.setItem(FEELX,feelX);localStorage.setItem(FEELY,feelY);}catch(e){}renderFeel();}
+if($("genrePreset"))$("genrePreset").onchange=()=>applyGenrePreset($("genrePreset").value);
 function setFeelFrom(e){const p=$("qpad");if(!p)return;const r=p.getBoundingClientRect();
   feelX=Math.round(Math.min(100,Math.max(0,((e.clientX-r.left)/r.width)*100)));
   feelY=Math.round(Math.min(100,Math.max(0,((e.clientY-r.top)/r.height)*100)));
