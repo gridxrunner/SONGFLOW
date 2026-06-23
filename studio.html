@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Songflow — Lyric Studio</title>
-<link rel="stylesheet" href="ams.css?v=84">
+<link rel="stylesheet" href="ams.css?v=85">
 <style>
   /* standalone shell: no rail/drawer; the page fills the window */
   body{display:block}
@@ -255,6 +255,7 @@
       <button class="tbtn" id="metro" title="metronome — clicks on every beat at the project BPM (accent on the downbeat)" style="width:auto;padding:0 9px;font-size:11px">&#128276; Click</button>
       <span class="metrofine" title="Metronome fine-tune (timing is auto-synced — most won't need this). Click sounds a touch early? nudge › (later). A touch late? ‹ (earlier). Shift = bigger step · click the number to reset."><button id="metroEarly">&#8249;</button><span id="metroOff">0</span><button id="metroLate">&#8250;</button></span>
       <button class="tbtn" id="scratchBtn" title="open the Scratch pad (composite lane) — copy a waveform span, paste it here to chop, audition, or export. Closed by default." style="width:auto;padding:0 9px;font-size:11px">&#9638; Scratch</button>
+      <button class="tbtn" id="linkBtn" title="Link cursor: clicking the timeline jumps the lyric cursor to that bar. Toggle off to click the timeline without moving your cursor." style="width:auto;padding:0 9px;font-size:11px">&#128279; Link cursor</button>
       <div class="trackchip">&#128196; <select class="mini" id="docSel"></select>
         <button class="tbtn" id="docNew" title="new document">&#65291;</button>
         <button class="tbtn" id="docRen" title="rename">&#9998;</button>
@@ -544,11 +545,11 @@ $("helpClose").onclick=()=>showHelp(false);
 $("helpModal").addEventListener("click",e=>{if(e.target===$("helpModal"))showHelp(false);});
 document.addEventListener("keydown",e=>{if(e.key==="Escape")showHelp(false);});
 </script>
-<script src="ams-timeline.js?v=84"></script>
-<script src="ams-vowels.js?v=84"></script>
-<script src="ams-pron.js?v=84"></script>
-<script src="ams-bpm.js?v=84"></script>
-<script src="ams-sections.js?v=84"></script>
+<script src="ams-timeline.js?v=85"></script>
+<script src="ams-vowels.js?v=85"></script>
+<script src="ams-pron.js?v=85"></script>
+<script src="ams-bpm.js?v=85"></script>
+<script src="ams-sections.js?v=85"></script>
 <script>
 const doc=$("doc"),gut=$("gut");
 // keep the gutter (line #, syllables, rhyme vowel) locked to the lyric scroll — they share the
@@ -568,14 +569,23 @@ function transport(returnOnStop){
   if(_pl.paused){playAnchor=_pl.currentTime;tl.setCue(playAnchor);_pl.play();}   // leave the static cue at the start point
   else{_pl.pause();if(returnOnStop){_pl.currentTime=playAnchor;tl.setPlayhead(playAnchor);}}
 }
-/* ---- play-start CUE marker (static) + its link to the lyric cursor ---- */
+/* ---- play-start CUE marker (static) + its (optional) link to the lyric cursor ---- */
 let _markLink=false;
+let cursorLink=(localStorage.getItem("ams.cursorLink")!=="0");   // default ON; user-toggleable
+function syncLinkBtn(){const b=$("linkBtn");if(b)b.classList.toggle("on",cursorLink);}
+if($("linkBtn"))$("linkBtn").onclick=()=>{
+  cursorLink=!cursorLink;
+  try{localStorage.setItem("ams.cursorLink",cursorLink?"1":"0");}catch(e){}
+  syncLinkBtn();
+  if(typeof toast==="function")toast(cursorLink?"Cursor linked — timeline clicks move the lyric cursor":"Cursor link off — timeline clicks leave the cursor alone");
+};
+syncLinkBtn();
 function setCueAt(t,opts){
   opts=opts||{}; t=Math.max(0,t||0);
   tl.setCue(t); tl.setPlayhead(t);              // the static cue + the progress marker (coincide until you play)
   playAnchor=t;
   if(isCur()&&_pl.duration){try{_pl.currentTime=t;}catch(e){}}
-  if(opts.fromTimeline&&!_markLink){_markLink=true;try{_caretFromTime(t);}finally{_markLink=false;}}   // timeline click → move the lyric cursor to that bar
+  if(opts.fromTimeline&&cursorLink&&!_markLink){_markLink=true;try{_caretFromTime(t);}finally{_markLink=false;}}   // timeline click → move the lyric cursor to that bar (when linked)
 }
 function _caretFromTime(t){
   if(typeof _kbBuildMap!=="function"||typeof setCaret!=="function"||typeof doc==="undefined")return;
@@ -618,10 +628,16 @@ let _kbEl=null,_kbRAF=null,_kbMap=null,_kbKey="";
 function _kbBuildMap(){
   const spb=(60/(tl.bpm||120))*tl.beatsPerBar, go=tl.gridOffset||0;
   const lines=doc.innerText.split("\n"), regs=tl.regions||[];
-  const map=[]; let off=0, ri=-1, li=0;
+  const starts=(window._secStartBars&&window._secStartBars.length)?window._secStartBars:null;  // per-section start, in BARS, aligned to ALL headers
+  const map=[]; let off=0, si=-1, li=0;
   for(const l of lines){const t=l.trim();
-    if(/^\[.+\]$/.test(t)){ri++;li=0;}
-    else if(t){const reg=regs[ri]; if(reg){const t0=reg.start+li*spb+go; map.push({ls:off,le:off+l.length,t0,t1:t0+spb});} li++;}
+    if(/^\[.+\]$/.test(t)){si++;li=0;}
+    else if(t){
+      // section start in audio-seconds: prefer the unfiltered layout, fall back to the (filtered) region
+      let base=(starts&&si>=0&&si<starts.length)?starts[si]*spb:(regs[si]?regs[si].start:null);
+      if(base!=null){const t0=base+li*spb+go; map.push({ls:off,le:off+l.length,t0,t1:t0+spb});}
+      li++;
+    }
     off+=l.length+1;}
   return map;
 }
@@ -1231,6 +1247,10 @@ function tagRegions(){
     const s=(manualBars[k]!=null)?Math.max(minBar,manualBars[k]):cum;   // manual position may be NEGATIVE (before the anchor / bar 1), floored at the track start
     startBar.push(s); cum=Math.max(cum,s+secs[k].len);
   }
+  // expose the layout (in BARS), aligned 1:1 with EVERY section header (before tl.regions is
+  // filtered for zero-width). The resize ripple + the karaoke/cursor time-map read these so a
+  // clamped/empty region can never desync the indices. ----
+  window._secStartBars=startBar.slice(); window._secLens=secs.map(s=>s.len);
   const lastEnd=Math.max(...startBar.map((s,k)=>s+secs[k].len));
   // total span: the track if loaded; otherwise the arrangement + a few bars of room to drag into
   const span=curBuf?curBuf.duration:(lastEnd+4)*spb;
@@ -1300,6 +1320,6 @@ window.addEventListener("keydown",e=>{if(e.key==="Escape"&&$("tourOvl").classLis
 window.addEventListener("resize",()=>{if($("tourOvl").classList.contains("on"))tourShow();});
 if(!localStorage.getItem("ams.tour.seen"))setTimeout(()=>{try{tourStart();}catch(e){}},800);   // first visit → auto-run
 </script>
-<script src="lyric-core.js?v=84"></script>
+<script src="lyric-core.js?v=85"></script>
 </body>
 </html>

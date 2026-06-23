@@ -416,29 +416,37 @@ function renameSection(idx,label){
   if(typeof saveProjectState==="function")saveProjectState();
 }
 /* set section idx's bar length (timeline bars dropdown). Writes "- N bars" into the tag,
-   then anchors the FOLLOWING section to this one's new end and ripples the rest, so the
-   next section always butts up against the edited section (even across 4→16→8 edits). */
+   grows the edited section in place, and pushes LATER sections forward ONLY when the new
+   length would overlap them. Earlier sections (incl. the intro) never move, and existing
+   gaps are preserved — a later section is never pulled back to butt against the edited one. */
 function setRegionBars(idx,bars){
   bars=Math.max(1,Math.round(bars||1));
   pushUndo();
   const {pre,blocks}=sectionBlocks();
   if(!blocks[idx])return;
-  const spb=(60/tl.bpm)*tl.beatsPerBar;
-  const regs=tl.regions||[];
-  const startsB=regs.map(r=>Math.round(r.start/spb));             // pre-edit start positions, in bars
+  const N=blocks.length, spb=(60/tl.bpm)*tl.beatsPerBar;
+  // pre-edit start positions + lengths, in BARS, aligned 1:1 with EVERY section (from
+  // tagRegions' own unfiltered layout — never the filtered tl.regions, which can desync).
+  let starts=(window._secStartBars&&window._secStartBars.length===N)?window._secStartBars.slice():null;
+  const lens =(window._secLens&&window._secLens.length===N)?window._secLens.slice():null;
+  if(!starts){                                                    // last-resort fallback
+    starts=(tl.regions||[]).map(r=>r.start/spb);
+    while(starts.length<N)starts.push((starts[starts.length-1]||0)+1);
+  }
   // rewrite header idx to carry the new bar count (keep the name + any other text)
   const inside=(blocks[idx].lines[0]||"").trim().replace(/^\[|\]$/g,"");
   const pb=(typeof parseTagBars==="function")?parseTagBars(inside):{name:inside};
   blocks[idx].lines[0]=`[${pb.name} - ${bars} bars]`;
   _writeDoc(pre,blocks);
-  // materialise positions so the ripple is exact, then anchor the next section + shift the rest
-  if(!manualBars||manualBars.length!==blocks.length)manualBars=startsB.slice();
-  else manualBars=startsB.map((s,i)=>manualBars[i]!=null?manualBars[i]:s);
-  if(idx+1<blocks.length){
-    const shift=(startsB[idx]+bars)-startsB[idx+1];               // pull next to edited end
-    for(let j=idx+1;j<blocks.length;j++)manualBars[j]=Math.max(0,manualBars[j]+shift);
+  // materialise ALL positions so nothing auto-repacks (intro + gaps stay exactly put)
+  manualBars=starts.slice();
+  manualBars[idx]=starts[idx];                                    // edited section keeps its start, grows right
+  // push later sections forward only as far as needed to clear an overlap (cascade)
+  let prevEnd=starts[idx]+bars;
+  for(let j=idx+1;j<N;j++){
+    if(manualBars[j]<prevEnd)manualBars[j]=prevEnd;               // overlap → nudge forward; gap → leave it
+    prevEnd=manualBars[j]+(lens?lens[j]:1);
   }
-  manualBars[idx]=startsB[idx];                                   // edited section keeps its start (grows right)
   try{tagRegions();}catch{}
   if(typeof saveProjectState==="function")saveProjectState();
   if(typeof tl!=="undefined"){tl.selRegions=[idx];tl.selRegion=idx;tl.sel=tl.regions[idx]?{...tl.regions[idx]}:null;tl.render();}
