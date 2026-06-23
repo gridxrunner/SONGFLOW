@@ -356,7 +356,8 @@ class AMSTimeline {
     const idxs = [...a.set].sort((x, y) => x - y);
     const lo = idxs[0], hi = idxs[idxs.length - 1];
     const b0 = orig[lo].start, b1 = orig[hi].end, total = this.duration, blockLen = b1 - b0;
-    const nb0 = this._clamp(this._snapT(b0 + a.dt), 0, total - blockLen);
+    const floor = -this.gridOffset;                                    // track start (audio 0) in bar-space; pre-anchor OK, pre-track NO
+    const nb0 = this._clamp(this._snapT(b0 + a.dt), floor, total - blockLen);
     const dt = nb0 - b0, nbEnd = nb0 + blockLen;
     const pos = orig.map((r, k) => ({ i: k, s: r.start, len: r.end - r.start, block: a.set.has(k) }));
     pos.forEach(p => { if (p.block) p.s += dt; });
@@ -366,7 +367,7 @@ class AMSTimeline {
     edge = nbEnd;                                                       // pack right-side sections that now overlap
     pos.filter(p => !p.block && p.i > hi).sort((x, y) => x.s - y.s)
       .forEach(p => { if (p.s < edge) p.s = edge; edge = Math.max(edge, p.s + p.len); });
-    return pos.map(p => ({ i: p.i, startBar: Math.max(0, p.s) / spb })).sort((x, y) => x.startBar - y.startBar);
+    return pos.map(p => ({ i: p.i, startBar: Math.max(floor, p.s) / spb })).sort((x, y) => x.startBar - y.startBar);   // keep pre-anchor sections (e.g. the intro) put — never snap them to the anchor
   }
   _clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
   _onStripUp(e) {
