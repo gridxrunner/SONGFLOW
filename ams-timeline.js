@@ -126,9 +126,15 @@ class AMSTimeline {
     window.addEventListener("mousemove", e => this._onStripMove(e));
     window.addEventListener("mouseup", e => this._onStripUp(e));
     document.addEventListener("keydown", e => {
-      if (/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName) ||
-          document.activeElement.isContentEditable) return;
-      if (e.code === "Space") { e.preventDefault(); this.opts.onPlayPause && this.opts.onPlayPause(true); }    // play / STOP-and-return
+      const inField = /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName) || document.activeElement.isContentEditable;
+      // SPACE is routed by the app's active-panel when it provides one (so the cursor-link focusing
+      // the editor can't hijack it); other tabs without that opt fall back to plain focus.
+      if (e.code === "Space") {
+        const wantTL = this.opts.spaceWantsTimeline ? this.opts.spaceWantsTimeline() : !inField;
+        if (wantTL) { e.preventDefault(); this.opts.onPlayPause && this.opts.onPlayPause(true); }              // play / STOP-and-return
+        return;
+      }
+      if (inField) return;                                                                                      // all other shortcuts stay off while typing
       if (e.key === "Enter") { e.preventDefault(); this.opts.onPlayPause && this.opts.onPlayPause(false); }    // play / pause-in-place
       if (e.key === "Escape") { this.sel = null; this.selRegion = -1; this.selRegions = []; this.loop = false; this.render(); }
       if ((e.key === "Delete" || e.key === "Backspace") && this.reorderable && this.selRegions.length) {

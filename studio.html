@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Songflow — Lyric Studio</title>
-<link rel="stylesheet" href="ams.css?v=88">
+<link rel="stylesheet" href="ams.css?v=89">
 <style>
   /* standalone shell: no rail/drawer; the page fills the window */
   body{display:block}
@@ -39,6 +39,17 @@
   .barselHi{position:fixed;height:28px;background:rgba(124,92,255,.18);border-left:3px solid var(--accent);box-sizing:border-box;pointer-events:none;z-index:55;border-radius:0 4px 4px 0}
   /* karaoke playback highlight — covers the UNSUNG (right) part of the current bar; left edge = the now-cursor */
   .kbwipe{position:fixed;background:rgba(25,211,197,.17);border-left:2px solid var(--accent2);border-radius:0 3px 3px 0;pointer-events:none;z-index:5;display:none}
+  /* active-panel indicator (spacebar target) + which panel is live */
+  .apind{display:inline-flex;align-items:center;gap:6px;font-size:11px;padding:2px 9px;border-radius:12px;border:1px solid var(--line);background:var(--panel2);cursor:pointer;user-select:none;white-space:nowrap}
+  .apind .apdot{width:7px;height:7px;border-radius:50%;background:var(--mut)}
+  .apind b{font-weight:700}
+  .apind .apkey{opacity:.5;font-size:10px;margin-left:2px}
+  .apind.ap-ed{border-color:var(--accent2)}
+  .apind.ap-ed .apdot{background:var(--accent2)} .apind.ap-ed b{color:var(--accent2)}
+  .apind.ap-tl{border-color:var(--accent)}
+  .apind.ap-tl .apdot{background:var(--accent)} .apind.ap-tl b{color:var(--accent)}
+  body.ap-editor .lyx{outline:2px solid var(--accent2);outline-offset:2px;border-radius:5px}
+  body.ap-timeline #tl{outline:2px solid var(--accent);outline-offset:1px;border-radius:5px}
   /* grouped beat-grid control cluster: BPM stepper · ×2/÷2 · Anchor · Slip */
   .gridctl{display:flex;align-items:center;gap:7px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:3px 7px}
   .gctk{display:flex;align-items:center;gap:3px}
@@ -282,6 +293,7 @@
         <div id="tl"></div>
         <div class="tlresize" id="tlResize" title="drag to resize the timeline / waveform height"></div>
         <div style="display:flex;gap:6px;align-items:center;padding:4px 2px;flex-wrap:wrap">
+          <span id="apInd" class="apind ap-ed" title="Spacebar target. Tab switches it (or click here). Type a letter to jump to the editor."><span class="apdot"></span><b id="apIndT">Editor</b> · Space <span id="apHint">types</span><span class="apkey">Tab&nbsp;⇄</span></span>
           <span class="meta">Audio edit</span>
           <button class="tbtn" id="aCopy" title="copy the selected waveform span or section (Ctrl+C)" style="width:auto;padding:0 9px;font-size:11px">&#10697; Copy</button>
           <button class="tbtn" id="aCut" title="cut the selected span (Ctrl+X)" style="width:auto;padding:0 9px;font-size:11px">&#9986; Cut</button>
@@ -545,11 +557,11 @@ $("helpClose").onclick=()=>showHelp(false);
 $("helpModal").addEventListener("click",e=>{if(e.target===$("helpModal"))showHelp(false);});
 document.addEventListener("keydown",e=>{if(e.key==="Escape")showHelp(false);});
 </script>
-<script src="ams-timeline.js?v=88"></script>
-<script src="ams-vowels.js?v=88"></script>
-<script src="ams-pron.js?v=88"></script>
-<script src="ams-bpm.js?v=88"></script>
-<script src="ams-sections.js?v=88"></script>
+<script src="ams-timeline.js?v=89"></script>
+<script src="ams-vowels.js?v=89"></script>
+<script src="ams-pron.js?v=89"></script>
+<script src="ams-bpm.js?v=89"></script>
+<script src="ams-sections.js?v=89"></script>
 <script>
 const doc=$("doc"),gut=$("gut");
 // keep the gutter (line #, syllables, rhyme vowel) locked to the lyric scroll — they share the
@@ -571,6 +583,7 @@ function transport(returnOnStop){
 }
 /* ---- play-start CUE marker (static) + its (optional) link to the lyric cursor ---- */
 let _markLink=false;
+let activePanel="editor";   // which panel Space targets: "editor" (types) or "timeline" (plays). See the active-panel block below.
 let cursorLink=(localStorage.getItem("ams.cursorLink")!=="0");   // default ON; user-toggleable
 function syncLinkBtn(){const b=$("linkBtn");if(b)b.classList.toggle("on",cursorLink);}
 if($("linkBtn"))$("linkBtn").onclick=()=>{
@@ -596,6 +609,7 @@ function _caretFromTime(t){
 }
 const tl=new AMSTimeline($("tl"),{
   onPlayPause:(returnOnStop)=>transport(!!returnOnStop),
+  spaceWantsTimeline:()=>activePanel==="timeline",   // Space plays only when the timeline is the active panel (editor active → Space types)
   onSeek:t=>setCueAt(t,{fromTimeline:true}),   // a timeline click places the static cue + moves the lyric cursor to that bar
   onAnchor:t=>{gridAnchor=Math.max(0,t);gridSlip=0;applyGrid();},   // (legacy click-to-anchor path)
   onSlipDrag:eff=>{gridSlip=eff-gridAnchor;updateSlipReadout();if(typeof saveProjectState==="function")saveProjectState();}, // ruler drag → adjust slip
@@ -665,6 +679,41 @@ _pl.addEventListener("play",_kbStart);
 _pl.addEventListener("pause",_kbHide);
 _pl.addEventListener("seeked",()=>{ if(isCur()&&!_pl.paused)_kbStart(); });
 tl.setTempo(detectedBpm);
+
+/* ===== ACTIVE PANEL — resolves the Space-bar conflict between the timeline and the lyric editor.
+   The cursor-link focuses the editor on a timeline click, so raw focus can't decide who owns Space.
+   We track an explicit active panel instead: editor → Space TYPES; timeline → Space PLAYS. Set by
+   user intent (clicks/keys), never by the link's programmatic focus. Tab flips it; typing a letter
+   while the timeline is active jumps back to the editor. A pill + a panel outline show the state. */
+function setActivePanel(p){
+  if(p!=="editor"&&p!=="timeline")return;
+  activePanel=p;
+  document.body.classList.toggle("ap-editor",p==="editor");
+  document.body.classList.toggle("ap-timeline",p==="timeline");
+  const ind=$("apInd");if(ind){ind.classList.toggle("ap-ed",p==="editor");ind.classList.toggle("ap-tl",p==="timeline");}
+  const t=$("apIndT");if(t)t.textContent=(p==="editor")?"Editor":"Timeline";
+  const h=$("apHint");if(h)h.textContent=(p==="editor")?"types":"plays";
+}
+function toggleActivePanel(){
+  if(activePanel==="editor"){setActivePanel("timeline");try{doc.blur();}catch(e){}}
+  else{setActivePanel("editor");try{doc.focus();}catch(e){}}
+}
+// USER intent sets the active panel (the cursor-link's programmatic doc.focus() does NOT fire mousedown)
+$("tl").addEventListener("mousedown",()=>setActivePanel("timeline"),true);   // capture → fires before the timeline's own handlers stopPropagation
+$("doc").addEventListener("mousedown",()=>setActivePanel("editor"),true);
+if($("apInd"))$("apInd").onclick=()=>toggleActivePanel();
+// global routing (capture phase, so we beat the timeline's document keydown for Tab / letter-jump)
+document.addEventListener("keydown",e=>{
+  const ae=document.activeElement, inField=ae&&/INPUT|TEXTAREA|SELECT/.test(ae.tagName);
+  if(e.key==="Tab"&&!e.ctrlKey&&!e.metaKey&&!e.altKey&&!inField){ e.preventDefault();e.stopPropagation();toggleActivePanel();return; }
+  // type a letter/number/punct while the TIMELINE is active → jump to the editor and let it type
+  // (but never when a real form field — BPM box, theme select, dialog input — has focus)
+  if(activePanel==="timeline"&&!inField&&e.key&&e.key.length===1&&e.key!==" "&&!e.ctrlKey&&!e.metaKey&&!e.altKey){
+    setActivePanel("editor");
+    if(document.activeElement!==doc){try{doc.focus();}catch(e2){}}   // caret returns to its last spot; the char then types in
+  }
+},true);
+setActivePanel("editor");
 
 /* ---- load a LOCAL audio file (no server). On load we AUTO-detect tempo (so the
    beat grid + metronome are synced without a click) and, only when the document has
@@ -1320,6 +1369,6 @@ window.addEventListener("keydown",e=>{if(e.key==="Escape"&&$("tourOvl").classLis
 window.addEventListener("resize",()=>{if($("tourOvl").classList.contains("on"))tourShow();});
 if(!localStorage.getItem("ams.tour.seen"))setTimeout(()=>{try{tourStart();}catch(e){}},800);   // first visit → auto-run
 </script>
-<script src="lyric-core.js?v=88"></script>
+<script src="lyric-core.js?v=89"></script>
 </body>
 </html>
