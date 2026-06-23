@@ -337,11 +337,18 @@ class AMSTimeline {
     const spb = this._secPerBar(), orig = a.orig, di = a.i, eps = 1e-6;
     const floor = -this.gridOffset;                          // track start (audio 0) in bar-space; sections can't go past it
     const dropStart = Math.max(floor, (a.dropStart != null) ? a.dropStart : (orig[di].start + (a.dt || 0)));   // before the anchor OK, before the track NO
+    // every OTHER section keeps its EXACT position; only the dragged one moves to the drop point
     const list = orig.map((r, k) => ({ i: k, start: k === di ? dropStart : r.start, len: r.end - r.start }));
+    // order left→right; the dragged section wins ties so it inserts BEFORE a section at the same start
     list.sort((x, y) => Math.abs(x.start - y.start) > eps ? x.start - y.start : (x.i === di ? -1 : y.i === di ? 1 : 0));
-    let cur = list.length ? Math.max(floor, list[0].start) : 0;   // start packing at the leftmost section, but no earlier than the track start
-    for (const o of list) { if (o.start < cur - eps) o.start = cur; cur = o.start + o.len; }
-    return list.map(o => ({ i: o.i, startBar: o.start / spb }));   // already left→right
+    const di2 = list.findIndex(o => o.i === di);
+    // if the drop overlaps the section to its LEFT, slide the DRAGGED section right to sit just after
+    // it (snap to that section's end) — never move the left neighbour, never pull anything back.
+    if (di2 > 0) { const lEnd = list[di2 - 1].start + list[di2 - 1].len; if (list[di2].start < lEnd - eps) list[di2].start = lEnd; }
+    // ripple RIGHT from the dragged section only: push each following section that now overlaps its
+    // predecessor, STOP at the first gap. Sections before the drop — and the intro — never move.
+    for (let k = di2 + 1; k < list.length; k++) { const pEnd = list[k - 1].start + list[k - 1].len; if (list[k].start < pEnd - eps) list[k].start = pEnd; else break; }
+    return list.map(o => ({ i: o.i, startBar: Math.max(floor, o.start) / spb }));   // left→right; pre-anchor kept, never snapped to the anchor
   }
   _showDropIndicator(x) {
     const strip = this.scrollEl.querySelector(".regionstrip"); if (!strip) return;
