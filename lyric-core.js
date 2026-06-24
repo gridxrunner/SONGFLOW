@@ -642,7 +642,7 @@ let gridMode=localStorage.getItem(GRIDK)||"straight";
 function gridDirective(){
   return gridMode==="triplet"
     ? "GRID = TRIPLET FEEL (trap / drill): ride a 3-syllables-per-beat triplet pulse — clustered, rolling, forward-driving, ~12 syllable slots per bar (denser than straight). Accent the FIRST syllable of each triplet group (\"TRIP-a-let\"). Land the end-rhyme on a beat's downbeat (the first slot of a triplet). You may fire triplets across the WHOLE bar or in short 3-syllable BURSTS — keep it consistent."
-    : "GRID = STRAIGHT FEEL (duple): even 8th/16th-note subdivisions, square and on-the-grid.";
+    : "FLOW: default to a straight, even feel — but you MAY slip into triplet flow (3 evenly-spaced syllables per beat) in spots where the genre or feel clearly calls for it (trap, drill); use your judgment, don't force it.";
 }
 function renderGrid(){const b=$("gridTog");if(b){b.textContent=gridMode==="triplet"?"Triplet":"Straight";b.classList.toggle("on",gridMode==="triplet");}}
 if($("gridTog"))$("gridTog").onclick=()=>{gridMode=gridMode==="triplet"?"straight":"triplet";try{localStorage.setItem(GRIDK,gridMode);}catch(e){}renderGrid();};
@@ -1346,6 +1346,7 @@ async function generateLyrics(){
   const ctxY=(typeof feelY!=="undefined")?feelY:30;       // Y axis: on-theme ↔ rhythm-first
   const tol=sylTolerance(ctxY);                           // how much paired-bar mismatch we tolerate
   const {sec,prior}=priorContext();
+  const secEff=(($("genType")&&$("genType").value)||"").trim()||sec;   // user's "Write a…" choice overrides the auto-detected section type
   // bar LENGTH is anchored: a forced override, else this section's established length, else a
   // rough count from the X axis. The packed/sustained feel must NOT change this count.
   const priorSyls=prior.map(sylOfBar).filter(x=>x>0);
@@ -1377,22 +1378,23 @@ async function generateLyrics(){
       const A=forced[0]||sh.find(v=>v!==priorDom)||sh[0];
       const B=forced[1]||sh.find(v=>v!==A&&v!==priorDom)||sh.find(v=>v!==A)||A;
       const cliche=new Set(CLICHE.toLowerCase().split(/[,\s]+/).filter(Boolean));
-      const seq=[],chosen=[],usedNow=new Set();
+      const seq=[];
       for(let i=0;i<n;i++)seq.push((scheme.type==="ABAB")?(i%2?B:A):(Math.floor(i/2)%2?B:A));
-      for(const v of seq){
-        const list=[...(NEAR[v]||[]),...(SLANT[v]||[])].filter(w=>w&&!usedW.has(w.toLowerCase())&&!usedNow.has(w.toLowerCase())&&!cliche.has(w.toLowerCase()));
-        const w=list.length?list[Math.floor(Math.random()*Math.min(list.length,12))]:null;
-        if(w)usedNow.add(w.toLowerCase());chosen.push(w);
-      }
-      if(chosen.filter(Boolean).length>=Math.ceil(n/2))endPlan=chosen;
+      // lock the VOWEL per bar (kills monotony + scheme drift); offer real word OPTIONS so the model
+      // picks one that makes SENSE rather than jamming a forced word (e.g. "casts a different bright").
+      const plan=seq.map(v=>{
+        const opts=[...(NEAR[v]||[]),...(SLANT[v]||[])].filter(w=>w&&!usedW.has(w.toLowerCase())&&!cliche.has(w.toLowerCase()));
+        return {v,opts:opts.sort(()=>Math.random()-0.5).slice(0,5)};
+      });
+      if(plan.filter(b=>b.opts.length).length>=Math.ceil(n/2))endPlan=plan;
     }
   }
-  const planLine=endPlan?`END-WORD PLAN (Layer 1 — follow EXACTLY): ${endPlan.map((w,i)=>w?`bar ${i+1} ends on "${w}"`:`bar ${i+1} ends on a fresh rhyme`).join("; ")}. Each bar's FINAL word is EXACTLY that word — no comma or words after it. Build each bar to land naturally on its word and still make sense.`:"";
+  const planLine=endPlan?`END-RHYME PLAN (Layer 1 — lock the END VOWEL per bar, then pick the word that makes the bar make SENSE): ${endPlan.map((b,i)=>`bar ${i+1} → the "${b.v}" vowel sound${b.opts.length?` (e.g. ${b.opts.slice(0,4).join(", ")})`:""}`).join("; ")}. Each bar's FINAL word MUST carry its assigned vowel sound, with NO comma+word after it — use one of the examples OR any other real word with that vowel that fits. NEVER force an awkward or nonsensical word just to land the rhyme; if no example fits, choose a different real word with the same vowel.`:"";
   const sys=`You are a master lyricist writing to a strict rhythmic + rhyme methodology. RULES, in priority order:
 1. RHYTHM FIRST. Build a complementary rhythmic pattern and make the words ride it; echo the rhythmic pattern of the prior bars.
 2. RHYME = matching VOWEL SOUNDS landing on the SAME position across bars. The END rhyme (final stressed vowel of the bar) is the HIGHEST-priority pair; strong internal pairs are a bonus.
 3. PAIRED BARS LOCK TOGETHER. Two rhyming bars MUST have the SAME number of syllables, and the rhyme vowel must sit the SAME number of syllables from the downbeat in both — so the rhyme lands on the SAME beat. The rhyme should fall on a STRONG position (beat 1, or a 1/2, 1/4, or 1/8 subdivision), never a weak off-beat. There are usually many word choices that satisfy this — find one.
-4. A syllable-count difference between paired bars is allowed ONLY when a SUSTAINED/held vowel on a strong beat, or a PICKUP syllable before the downbeat, absorbs it AND the rhyme still lands on the same spot. Otherwise keep the counts equal.
+4. A syllable-count difference between paired bars is allowed ONLY when a SUSTAINED/held vowel on a strong beat, or a PICKUP syllable before the downbeat, absorbs it AND the rhyme still lands on the same spot. Otherwise keep the counts equal. TIP: when two paired bars differ by ~1 syllable and the LONGER bar starts with a small movable word ("a", "the", "they", "and", "but", "so", "we"), move that word to the END of the PREVIOUS bar as a pickup — it balances the counts and flows into the next line.
 4b. LEAD-INS (pickups): 1-3 short trailing syllables AFTER the rhyme word that flow INTO the next bar (e.g. "...knees, oh", or splitting a word across the barline: end one bar on "...the I-" and start the next on "magination..."). Lead-ins do NOT count toward the syllable target — they are FREE extra room to add words for meaning and flow, the release valve when a line needs more than the target allows. The rhyme still anchors on the word BEFORE the lead-in. STRICTLY PROHIBITED: a lead-in is throwaway, UNSTRESSED, NON-RHYMING connective filler ONLY (e.g. "yeah", "oh", "hey", "and I", "to the") — it must NEVER be a stressed content word and must NEVER rhyme with another bar. NEVER bury the priority rhyme (or ANY word that rhymes across bars) inside a trailing comma-pickup, e.g. do NOT write "...tall, no cap" / "...crash, I laugh" where the real rhyme (cap/laugh) hides after the comma. When the rhyme lands on the final word, there is NO lead-in and NO trailing comma after it — the priority rhyme is ALWAYS the anchor word, never inside a pickup. Pickups are OPTIONAL, not a default — do NOT tack a comma-pickup onto the end of every bar as a tic; many bars should simply END on the rhyme with no trailing comma. If you do use them, make it a CONSISTENT PATTERN — after EVERY bar, or EVERY OTHER bar — never randomly on one isolated bar, and never the SAME filler word ("got a / got a") repeated.
 5. RHYME STRUCTURE — COUPLET (AABB, adjacent bars rhyme) or CROSS / ALTERNATING (ABAB, answered every other bar). ${schemeLine}
 6. VARY THE RHYME ACROSS THESE BARS: move through SEVERAL end-vowels — a new rhyme sound roughly every couplet (2 bars). Do NOT end more than 2 bars in a row on the same vowel unless deliberately building a list. ${n>=4?`So ${n} bars should use ~${Math.max(2,Math.round(n/2))} different end-vowels, not one.`:""} Switch to a NEW end-vowel sound by the 3rd bar at the latest, and do NOT simply inherit the prior bars' end-vowel for every new bar — introduce at least one fresh sound. The lazy defaults are long-I/"AY" (time/night/sky) and short-A/"AE" (stack/trap/map/back); never ride either across all the bars. (A run of ≥8 bars on one vowel reads as monotonous — never do that.)
@@ -1401,11 +1403,11 @@ async function generateLyrics(){
 8. ${contextDirective(ctxY)}
 9. LENGTH: each bar's CORE (start → rhyme word, NOT counting any lead-in) ≈ ${sylTargetEff} syllables (1 line = 1 bar)${sectionSyl&&!targetSyl?` — this section's bars are ${sectionSyl}; MATCH that core length. Rule 7 sets the FEEL, never the length; lead-ins (4b) add words WITHOUT changing this count.`:"."}
 10. ${forced.length?`HARD OVERRIDE (intentional rule-break for effect): the END word of EVERY bar MUST carry one of these vowel sounds (ARPABET): ${forced.join(", ")}. Examples: ${forced.flatMap(v=>(NEAR[v]||[]).slice(0,3)).join(", ")}. This overrides rule 5 — obey it even if it fights the natural scheme.`:"Choose end-rhyme vowels that extend the prior bars' scheme per rule 5."}
-11. FRESHNESS — avoid generic AI-lyric clichés and pet imagery (e.g. ${CLICHE}). Reach for concrete, specific, surprising nouns and images over abstract emotion words; don't reuse end-words the prior bars already used.
-${seedLine?`12. PREFERRED RHYMES — for a scheme vowel's end-word, lean on these real options from the writer's palette over your usual go-to rhymes (not mandatory, but prefer them to stay fresh and on-vowel): ${seedLine}.\n`:""}${directionClauses(sec)}
+11. FRESHNESS — avoid generic AI-lyric clichés and pet imagery (e.g. ${CLICHE}). Reach for concrete, specific, surprising nouns and images over abstract emotion words; don't reuse end-words the prior bars already used. Every bar must MAKE SENSE as plain English — no word salad to force a rhyme or a beat. Prefer clear, singable full forms over awkward contractions: write "power is" rather than "power's" when the apostrophe-s reads as an ambiguous possessive.
+${seedLine?`12. PREFERRED RHYMES — for a scheme vowel's end-word, lean on these real options from the writer's palette over your usual go-to rhymes (not mandatory, but prefer them to stay fresh and on-vowel): ${seedLine}.\n`:""}${directionClauses(secEff)}
 OUTPUT FORMAT (STRICT): output ONLY the ${n} new lyric ${n>1?"bars":"bar"}, one per line, and NOTHING else. NO numbering, NO quotes, NO section tags, NO commentary/notes/explanations, NO blank lines, and do NOT repeat or echo any of the prior bars — every line must be brand new.`;
   const usr=conformText
-    ? `Section: [${sec}]\n`
+    ? `Section: [${secEff}]\n`
       +(prior.length?`Existing bars in this section (match their rhythm & rhyme feel):\n${prior.join("\n")}\n\n`:"")
       +(planLine?planLine+"\n\n":"")
       +`CONFORM THE USER'S FREE TEXT INTO LYRICS. The text below is raw and unstructured (notes, prose, a rant, a verse — any format). Do this:\n`
@@ -1413,9 +1415,9 @@ OUTPUT FORMAT (STRICT): output ONLY the ${n} new lyric ${n>1?"bars":"bar"}, one 
       +`2. NOTE the context and any AUDIENCE-AWARE buzzwords, slang, names, or in-group vocabulary — these signal the voice and who it is for. PRESERVE the user's distinctive words/slang where they land naturally; do not sand them off.\n`
       +`3. Then write ${n} bar${n>1?"s":""} of vivid, masterfully-crafted lyrics that deliver THAT message in THAT voice, following EVERY rule above (rhythm, rhyme, end-word plan, length). Turn flat statements into concrete images and motion; keep it the user's truth, elevated — do NOT just copy their sentences back.\n\n`
       +`USER'S FREE TEXT:\n"""\n${conformText}\n"""\n\nWrite the ${n} bar${n>1?"s":""} now.`
-    : (prior.length?`Section: [${sec}]\nPrior bars to extend (match their rhythm & rhyme scheme):\n${prior.join("\n")}\n\n`:`Section: [${sec}]\n\n`)
+    : (prior.length?`Section: [${secEff}]\nPrior bars to extend (match their rhythm & rhyme scheme):\n${prior.join("\n")}\n\n`:`Section: [${secEff}]\n\n`)
       +(planLine?planLine+"\n\n":"")
-      +`Write ${n} new bar${n>1?"s":""} that continue this section.`;
+      +`Write ${n} new bar${n>1?"s":""} that continue this section${(($("genType")&&$("genType").value)||"")?` as a ${$("genType").value}`:""}.`;
   const note=$("ideaNote"),btn=$("ideaGo");
   note.className="muted";note.style.color="";note.textContent="Generating…";btn.disabled=true;
   const myGen=++_genSeq;                              // cancellation token — undo bumps _genSeq to abort this run

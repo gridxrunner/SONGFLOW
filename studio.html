@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Songflow — Lyric Studio</title>
-<link rel="stylesheet" href="ams.css?v=99">
+<link rel="stylesheet" href="ams.css?v=100">
 <style>
   /* standalone shell: no rail/drawer; the page fills the window */
   body{display:block}
@@ -330,6 +330,16 @@
 
         <!-- ============ GENERATE ============ -->
         <div class="pdiv"></div><div class="psection">Generate <span class="qdot" data-help>?</span></div>
+        <div class="lab">Write a…</div>
+        <select class="inp" id="genType" style="width:100%;margin-bottom:8px" title="What kind of part to write. Shapes the style — a hook is catchy and repeatable, a verse tells the story.">
+          <option value="">Auto (match current section)</option>
+          <option value="Verse">Verse</option>
+          <option value="Chorus">Hook / Chorus</option>
+          <option value="Pre-Chorus">Pre-Chorus</option>
+          <option value="Bridge">Bridge</option>
+          <option value="Intro">Intro</option>
+          <option value="Outro">Outro</option>
+        </select>
         <div class="lab">Generate how many bars?</div>
         <select class="inp" id="ideaN" style="width:100%" title="number of lyric bars to generate (1 line = 1 bar)"></select>
         <div class="lab" style="margin-top:8px;display:flex;align-items:center;gap:6px"><span style="flex:1">Rhyme planner</span><button id="planTog" class="miniToggle" title="Two-layer: picks varied end-rhyme words from your palette up front, then writes bars to them — beats vowel monotony and rhymes hiding in pickups. Turn off to let the model pick its own rhymes.">Plan rhymes: on</button></div>
@@ -345,8 +355,7 @@
             <option value="poprap">Pop-rap</option>
           </select>
         </div>
-        <div class="lab" style="margin-top:6px;display:flex;align-items:center;gap:6px"><span style="flex:1">Grid</span><button id="gridTog" class="miniToggle" title="Straight = even 8th/16th feel. Triplet = trap/drill: 3 syllables per beat, denser and rolling — the density the pattern table can't express on its own.">Straight</button></div>
-        <div class="lab" style="margin-top:8px;display:flex;align-items:center;gap:6px"><span style="flex:1">Generation feel</span><span class="rangeval" id="feelV">Balanced · on-theme</span></div>
+        <div class="lab" style="margin-top:10px;display:flex;align-items:center;gap:6px"><span style="flex:1">Lyrics Pattern Table</span><span class="rangeval" id="feelV">Balanced · on-theme</span></div>
         <div class="qpadwrap">
           <div class="qaxis qtop">on-theme · coherent</div>
           <div class="qrow">
@@ -380,11 +389,14 @@
           <input class="inp" id="dirAvoid" placeholder="Avoid…" style="flex:1;min-width:0" title="words to avoid (on top of the built-in cliché list)">
         </div>
         <label class="muted" style="display:flex;align-items:center;gap:6px;margin-top:7px;font-size:10.5px;cursor:pointer"><input type="checkbox" id="dirSection" checked style="cursor:pointer"> Adapt to section type (verse = narrative · chorus = hook · bridge = lift)</label>
+        <!-- Overrides section hidden per founder (force rhymes other ways); kept in DOM so the generator's reads stay valid + inert -->
+        <div style="display:none">
         <div class="lab" style="margin-top:10px">Overrides <span class="meta" style="opacity:.7;text-transform:none;letter-spacing:0">— optional, off by default</span></div>
         <div class="muted" style="font-size:10.5px;margin-bottom:5px">Force a specific vowel or syllable count, even against the natural scheme.</div>
         <div id="forceRows"><span class="muted" style="font-size:10.5px">Click a line with a rhyme vowel to load it here.</span></div>
         <div class="muted" id="forceNote" style="margin-top:4px"></div>
         <div class="frow" style="margin-top:8px"><button class="toggle" id="sylForceTog" title="Off = match the prior bars (default). On = force this many syllables per generated bar (also flags overs in orange while you write)."><span class="k"></span></button><span class="muted" style="flex:1">Force syllables / bar <span style="opacity:.6">(else match)</span></span><input id="sylTarget" class="numv" type="number" min="1" max="32" placeholder="—" disabled></div>
+        </div>
         <div class="lab" style="margin-top:9px">Engine</div>
         <div style="display:flex;gap:7px;align-items:center">
           <select class="inp" id="aiProvider" style="flex:1" title="Which AI writes the lyrics. Free uses a hosted open model; the others use YOUR own API key (stored only in this browser, you pay your provider).">
@@ -401,16 +413,11 @@
           <input class="inp numv" id="aiModel" list="aiModelList" style="flex:1;width:auto;text-align:left" placeholder="model id" title="model id — pick a suggestion or type any model your key can use">
           <datalist id="aiModelList"></datalist>
         </div>
-        <button class="go" id="ideaGo" style="margin-top:8px">&#10024; Generate matching lyrics</button>
+        <button class="go" id="ideaGo" style="margin-top:8px;width:100%;padding:12px 14px;border:none;border-radius:9px;background:var(--accent2);color:#0c0d12;font-weight:800;font-size:13px;letter-spacing:.2px;cursor:pointer">&#10024; Generate lyrics</button>
         <div class="muted" id="ideaNote" style="margin-top:4px">Pick an engine. <b>Free</b> needs no key; <b>Anthropic / OpenAI / Google</b> use your own API key (stored only in this browser — you pay your provider).</div>
-        <div class="cleanbtn" id="conformBtn" title="Paste raw text — notes, a poem, a rant, anything — and Songflow discerns your message + voice, then crafts it into lyrics that follow your rhythm & rhyme rules (uses the bars/feel/grid/genre/planner set above)." style="cursor:pointer">&#8627; Conform free text to the rules</div>
-        <div id="conformPanel" style="display:none;margin-top:6px">
-          <textarea id="conformText" class="inp" rows="5" style="width:100%;resize:vertical" placeholder="Paste your raw words here — notes, a poem, a rant, prose, anything. Songflow will discern your message and your voice, then craft it into lyrics that follow the rules set above."></textarea>
-          <div style="display:flex;gap:6px;margin-top:6px">
-            <button class="go" id="conformGo" style="flex:1">&#10024; Conform to lyrics</button>
-            <button class="tbtn" id="conformCancel" style="width:auto;padding:0 10px">Cancel</button>
-          </div>
-        </div>
+        <div class="lab" style="margin-top:12px">Conform <span class="meta" style="opacity:.7;text-transform:none;letter-spacing:0">— raw text → crafted lyrics</span></div>
+        <textarea class="inp" id="conformText" rows="3" style="width:100%;resize:vertical;font-family:inherit;line-height:1.4" placeholder="Paste any raw text — notes, a poem, a rant. Songflow finds your message + voice and crafts it into lyrics on these rules, then hit Conform."></textarea>
+        <button class="tbtn" id="conformGo" style="width:100%;margin-top:6px;padding:10px;font-weight:700;justify-content:center" title="Discern your message + audience-aware voice from the text above, then write lyrics that deliver it on the rhythm & rhyme rules (uses the bars / pattern table / genre / planner set above).">&#8627; Conform</button>
 
         <!-- ============ LEGEND + STATS ============ -->
         <div class="pdiv"></div>
@@ -504,7 +511,7 @@
         <ul>
           <li><b>Force rhyming vowel(s) (in Generate):</b> an <em>optional override</em>, off by default. Flip a switch to make the generator land every new bar on a specific vowel — even when it breaks the natural scheme. For deliberate effects/special cases; leave off to let the scheme lead.</li>
           <li><b>Generation feel (the pad):</b> drag the dot. Left↔right sets phrasing density (packed ↔ sustained); up↔down sets how strictly it stays on-theme vs. lets sound lead the meter. Lower = looser meaning buys a tighter rhythm; the app then enforces matching syllables on paired bars and re-asks the AI if a pair drifts.</li>
-          <li><b>Generate matching lyrics:</b> writes new bars that extend your scheme. Pick an <b>Engine</b>: a free hosted open model, or bring your own <b>Anthropic / OpenAI / Google</b> key (stored only in this browser — you pay that provider). Set the key with the &#128273; Key button and choose a model.</li>
+          <li><b>Generate lyrics:</b> writes new bars that extend your scheme. Pick an <b>Engine</b>: a free hosted open model, or bring your own <b>Anthropic / OpenAI / Google</b> key (stored only in this browser — you pay that provider). Set the key with the &#128273; Key button and choose a model.</li>
           <li><b>Export .txt:</b> save the document with its title, BPM and key.</li>
         </ul>
 
@@ -584,11 +591,11 @@ $("helpClose").onclick=()=>showHelp(false);
 $("helpModal").addEventListener("click",e=>{if(e.target===$("helpModal"))showHelp(false);});
 document.addEventListener("keydown",e=>{if(e.key==="Escape")showHelp(false);});
 </script>
-<script src="ams-timeline.js?v=99"></script>
-<script src="ams-vowels.js?v=99"></script>
-<script src="ams-pron.js?v=99"></script>
-<script src="ams-bpm.js?v=99"></script>
-<script src="ams-sections.js?v=99"></script>
+<script src="ams-timeline.js?v=100"></script>
+<script src="ams-vowels.js?v=100"></script>
+<script src="ams-pron.js?v=100"></script>
+<script src="ams-bpm.js?v=100"></script>
+<script src="ams-sections.js?v=100"></script>
 <script>
 const doc=$("doc"),gut=$("gut");
 // keep the gutter (line #, syllables, rhyme vowel) locked to the lyric scroll — they share the
@@ -1506,6 +1513,6 @@ window.addEventListener("keydown",e=>{if(e.key==="Escape"&&$("tourOvl").classLis
 window.addEventListener("resize",()=>{if($("tourOvl").classList.contains("on"))tourShow();});
 if(!localStorage.getItem("ams.tour.seen"))setTimeout(()=>{try{tourStart();}catch(e){}},800);   // first visit → auto-run
 </script>
-<script src="lyric-core.js?v=99"></script>
+<script src="lyric-core.js?v=100"></script>
 </body>
 </html>
