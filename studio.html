@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Songflow — Lyric Studio</title>
-<link rel="stylesheet" href="ams.css?v=100">
+<link rel="stylesheet" href="ams.css?v=101">
 <style>
   /* standalone shell: no rail/drawer; the page fills the window */
   body{display:block}
@@ -39,6 +39,21 @@
   .barselHi{position:fixed;height:28px;background:rgba(124,92,255,.18);border-left:3px solid var(--accent);box-sizing:border-box;pointer-events:none;z-index:55;border-radius:0 4px 4px 0}
   /* karaoke playback highlight — covers the UNSUNG (right) part of the current bar; left edge = the now-cursor */
   .kbwipe{position:fixed;background:rgba(25,211,197,.17);border-left:2px solid var(--accent2);border-radius:0 3px 3px 0;pointer-events:none;z-index:5;display:none}
+  /* primary generate button — polished gradient with depth + hover */
+  .genbtn{width:100%;margin-top:9px;padding:12px 16px;border:none;border-radius:11px;background:var(--grad);color:#fff;font-weight:700;font-size:13.5px;letter-spacing:.3px;cursor:pointer;box-shadow:0 6px 18px rgba(124,92,255,.30),inset 0 1px 0 rgba(255,255,255,.18);transition:transform .09s ease,box-shadow .2s ease,filter .2s ease}
+  .genbtn:hover{transform:translateY(-1px);box-shadow:0 9px 24px rgba(124,92,255,.42),inset 0 1px 0 rgba(255,255,255,.22);filter:brightness(1.06)}
+  .genbtn:active{transform:translateY(0);box-shadow:0 3px 10px rgba(124,92,255,.30),inset 0 1px 0 rgba(255,255,255,.12)}
+  /* bug reporter (testing phase) — floating, always on */
+  #bugFab{position:fixed;right:16px;bottom:16px;z-index:10000;background:var(--danger);color:#fff;border:none;border-radius:22px;padding:10px 15px;font-weight:700;font-size:12px;cursor:pointer;box-shadow:0 6px 18px rgba(0,0,0,.45);transition:transform .09s ease,filter .2s ease}
+  #bugFab:hover{transform:translateY(-1px);filter:brightness(1.08)}
+  #bugPanel{position:fixed;right:16px;bottom:62px;z-index:10000;width:320px;max-width:88vw;background:var(--panel2);border:1px solid var(--line);border-radius:14px;padding:13px;display:none;box-shadow:0 16px 40px rgba(0,0,0,.55)}
+  #bugPanel.on{display:block}
+  #bugPanel .bughd{display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:13px}
+  #bugPanel .bughd b{flex:1}
+  #bugPanel textarea{width:100%;height:120px;resize:vertical;background:var(--bg);border:1px solid var(--line);border-radius:9px;color:#e7e9f2;padding:9px;font:inherit;font-size:12.5px;line-height:1.4}
+  #bugPanel .bugrow{display:flex;align-items:center;gap:8px;margin-top:9px}
+  #bugSend{background:var(--accent2);color:#0c0d12;border:none;border-radius:9px;padding:8px 16px;font-weight:700;font-size:12.5px;cursor:pointer}
+  #bugX{background:none;border:none;color:var(--mut);font-size:15px;cursor:pointer;padding:2px 6px}
   /* active-panel indicator (spacebar target) + which panel is live */
   .apind{display:inline-flex;align-items:center;gap:6px;font-size:11px;padding:2px 9px;border-radius:12px;border:1px solid var(--line);background:var(--panel2);cursor:pointer;user-select:none;white-space:nowrap}
   .apind .apdot{width:7px;height:7px;border-radius:50%;background:var(--mut)}
@@ -413,10 +428,10 @@
           <input class="inp numv" id="aiModel" list="aiModelList" style="flex:1;width:auto;text-align:left" placeholder="model id" title="model id — pick a suggestion or type any model your key can use">
           <datalist id="aiModelList"></datalist>
         </div>
-        <button class="go" id="ideaGo" style="margin-top:8px;width:100%;padding:12px 14px;border:none;border-radius:9px;background:var(--accent2);color:#0c0d12;font-weight:800;font-size:13px;letter-spacing:.2px;cursor:pointer">&#10024; Generate lyrics</button>
+        <button class="genbtn" id="ideaGo">&#10024; Generate lyrics</button>
         <div class="muted" id="ideaNote" style="margin-top:4px">Pick an engine. <b>Free</b> needs no key; <b>Anthropic / OpenAI / Google</b> use your own API key (stored only in this browser — you pay your provider).</div>
         <div class="lab" style="margin-top:12px">Conform <span class="meta" style="opacity:.7;text-transform:none;letter-spacing:0">— raw text → crafted lyrics</span></div>
-        <textarea class="inp" id="conformText" rows="3" style="width:100%;resize:vertical;font-family:inherit;line-height:1.4" placeholder="Paste any raw text — notes, a poem, a rant. Songflow finds your message + voice and crafts it into lyrics on these rules, then hit Conform."></textarea>
+        <textarea class="inp" id="conformText" rows="6" style="width:100%;min-height:130px;resize:vertical;font-family:inherit;line-height:1.45" placeholder="Paste any raw text — notes, a poem, a rant, a paragraph. Songflow finds your message + voice and crafts it into lyrics on these rules, then hit Conform."></textarea>
         <button class="tbtn" id="conformGo" style="width:100%;margin-top:6px;padding:10px;font-weight:700;justify-content:center" title="Discern your message + audience-aware voice from the text above, then write lyrics that deliver it on the rhythm & rhyme rules (uses the bars / pattern table / genre / planner set above).">&#8627; Conform</button>
 
         <!-- ============ LEGEND + STATS ============ -->
@@ -591,11 +606,11 @@ $("helpClose").onclick=()=>showHelp(false);
 $("helpModal").addEventListener("click",e=>{if(e.target===$("helpModal"))showHelp(false);});
 document.addEventListener("keydown",e=>{if(e.key==="Escape")showHelp(false);});
 </script>
-<script src="ams-timeline.js?v=100"></script>
-<script src="ams-vowels.js?v=100"></script>
-<script src="ams-pron.js?v=100"></script>
-<script src="ams-bpm.js?v=100"></script>
-<script src="ams-sections.js?v=100"></script>
+<script src="ams-timeline.js?v=101"></script>
+<script src="ams-vowels.js?v=101"></script>
+<script src="ams-pron.js?v=101"></script>
+<script src="ams-bpm.js?v=101"></script>
+<script src="ams-sections.js?v=101"></script>
 <script>
 const doc=$("doc"),gut=$("gut");
 // keep the gutter (line #, syllables, rhyme vowel) locked to the lyric scroll — they share the
@@ -1513,6 +1528,34 @@ window.addEventListener("keydown",e=>{if(e.key==="Escape"&&$("tourOvl").classLis
 window.addEventListener("resize",()=>{if($("tourOvl").classList.contains("on"))tourShow();});
 if(!localStorage.getItem("ams.tour.seen"))setTimeout(()=>{try{tourStart();}catch(e){}},800);   // first visit → auto-run
 </script>
-<script src="lyric-core.js?v=100"></script>
+<script src="lyric-core.js?v=101"></script>
+<!-- ===== BUG REPORTER (testing phase — always on) ===== -->
+<button id="bugFab" title="Found a bug or have feedback? Tell us">&#128030; Report bug</button>
+<div id="bugPanel">
+  <div class="bughd"><b>Report a bug</b><button id="bugX" title="close">&#10005;</button></div>
+  <textarea id="bugText" placeholder="What happened? What did you expect to happen? Steps to reproduce, if you can."></textarea>
+  <div class="bugrow"><span class="muted" style="flex:1;font-size:10.5px">Opens your email + copies the report (with page + version).</span><button id="bugSend">Send</button></div>
+</div>
+<script>
+(function(){
+  var fab=document.getElementById('bugFab'),panel=document.getElementById('bugPanel'),
+      x=document.getElementById('bugX'),send=document.getElementById('bugSend'),ta=document.getElementById('bugText');
+  if(!fab)return;
+  var ver=((document.querySelector('script[src*="lyric-core"]')||{}).src||'').split('?v=')[1]||'';
+  function projName(){try{var d=JSON.parse(localStorage.getItem('ams.lyrics.docs')||'null');return d&&d.docs?((d.docs[d.active]||{}).name||''):''}catch(e){return''}}
+  fab.onclick=function(){panel.classList.toggle('on');if(panel.classList.contains('on'))setTimeout(function(){ta.focus();},30);};
+  x.onclick=function(){panel.classList.remove('on');};
+  send.onclick=function(){
+    var t=(ta.value||'').trim();if(!t){ta.focus();return;}
+    var ctx='URL: '+location.href+'\nVersion: v'+ver+'\nProject: '+projName()+'\nBrowser: '+navigator.userAgent+'\nTime: '+new Date().toISOString();
+    var full=t+'\n\n--- context ---\n'+ctx;
+    try{var all=JSON.parse(localStorage.getItem('ams.bugreports')||'[]');all.push({text:t,ctx:ctx,at:new Date().toISOString()});localStorage.setItem('ams.bugreports',JSON.stringify(all.slice(-100)));}catch(e){}
+    try{if(navigator.clipboard)navigator.clipboard.writeText(full);}catch(e){}
+    window.open('mailto:louisvalenciamedia@gmail.com?subject='+encodeURIComponent('Songflow bug report')+'&body='+encodeURIComponent(full),'_blank');
+    ta.value='';panel.classList.remove('on');
+    if(typeof toast==='function')toast('Thanks! Report copied + your email opened. If no email app opened, just paste it to us.');
+  };
+})();
+</script>
 </body>
 </html>
