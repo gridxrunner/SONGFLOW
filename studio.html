@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Songflow — Lyric Studio</title>
-<link rel="stylesheet" href="ams.css?v=102">
+<link rel="stylesheet" href="ams.css?v=103">
 <style>
   /* standalone shell: no rail/drawer; the page fills the window */
   body{display:block}
@@ -308,6 +308,7 @@
       <button class="tbtn" id="aExport" title="export the edited audio to a .wav file" style="width:auto;padding:0 10px">&#11015; Export audio</button>
       <button class="tbtn" id="lClear" style="width:auto;padding:0 10px">Clear</button>
       <button class="tbtn" id="helpBtn" title="how Songflow works — the guide" style="width:auto;padding:0 10px">? Guide</button>
+      <button class="tbtn" id="authBtn" style="width:auto;padding:0 11px;background:var(--accent2);color:#0c0d12;border-color:var(--accent2);font-weight:700" title="Sign in to save your projects to the cloud">Sign in</button>
     </div>
     <div class="split">
       <div class="stage">
@@ -613,11 +614,11 @@ $("helpClose").onclick=()=>showHelp(false);
 $("helpModal").addEventListener("click",e=>{if(e.target===$("helpModal"))showHelp(false);});
 document.addEventListener("keydown",e=>{if(e.key==="Escape")showHelp(false);});
 </script>
-<script src="ams-timeline.js?v=102"></script>
-<script src="ams-vowels.js?v=102"></script>
-<script src="ams-pron.js?v=102"></script>
-<script src="ams-bpm.js?v=102"></script>
-<script src="ams-sections.js?v=102"></script>
+<script src="ams-timeline.js?v=103"></script>
+<script src="ams-vowels.js?v=103"></script>
+<script src="ams-pron.js?v=103"></script>
+<script src="ams-bpm.js?v=103"></script>
+<script src="ams-sections.js?v=103"></script>
 <script>
 const doc=$("doc"),gut=$("gut");
 // keep the gutter (line #, syllables, rhyme vowel) locked to the lyric scroll — they share the
@@ -1535,7 +1536,19 @@ window.addEventListener("keydown",e=>{if(e.key==="Escape"&&$("tourOvl").classLis
 window.addEventListener("resize",()=>{if($("tourOvl").classList.contains("on"))tourShow();});
 if(!localStorage.getItem("ams.tour.seen"))setTimeout(()=>{try{tourStart();}catch(e){}},800);   // first visit → auto-run
 </script>
-<script src="lyric-core.js?v=102"></script>
+<script src="lyric-core.js?v=103"></script>
+<!-- Cloud sign-in (magic link) -->
+<div id="authPanel" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10000;align-items:center;justify-content:center">
+  <div style="background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px;width:350px;max-width:92vw;box-shadow:0 14px 44px rgba(0,0,0,.55)">
+    <div style="display:flex;align-items:center;margin-bottom:8px"><b style="flex:1">Sign in to Songflow</b><button class="tbtn" id="authClose" style="width:auto;padding:0 8px">&#10005;</button></div>
+    <div class="muted" style="font-size:11.5px;margin-bottom:9px;line-height:1.45">Enter your email and we'll send a one-tap sign-in link — no password. Signing in saves your projects to the cloud so they follow you across devices.</div>
+    <input class="inp" id="authEmail" type="email" placeholder="you@email.com" style="width:100%" autocomplete="email">
+    <button class="go" id="authSend" style="width:100%;margin-top:8px;padding:11px;border:none;border-radius:8px;background:var(--accent2);color:#0c0d12;font-weight:700;cursor:pointer">Send sign-in link</button>
+    <div class="muted" id="authNote" style="margin-top:8px;min-height:14px;font-size:11.5px"></div>
+  </div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="songflow-cloud.js?v=103"></script>
 <!-- BUG REPORTER markup lives inside .lyx (the lyric processor); this just wires it. -->
 <script>
 (function(){
