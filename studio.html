@@ -3,12 +3,12 @@
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Songflow — Lyric Studio</title>
-<link rel="stylesheet" href="ams.css?v=101">
+<link rel="stylesheet" href="ams.css?v=102">
 <style>
   /* standalone shell: no rail/drawer; the page fills the window */
   body{display:block}
   .main{height:100dvh}
-  .lyx{display:flex;gap:0;flex:1;min-height:0;background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+  .lyx{display:flex;gap:0;flex:1;min-height:0;background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden;position:relative}
   .gut{width:70px;background:#101119;border-right:1px solid var(--line);padding:18px 6px;text-align:right;font-size:10px;color:#5c6076;line-height:28px;font-variant-numeric:tabular-nums;overflow:hidden;white-space:pre}
   #doc{flex:1;outline:none;padding:18px;font-size:14px;line-height:28px;overflow-y:auto;white-space:pre-wrap}
   .r0{color:#ff8a8a}.r1{color:#19d3c5}.r2{color:#ffd43b}.r3{color:#b78aff}.r4{color:#7ce38b}.r5{color:#ff9ed2}
@@ -44,9 +44,9 @@
   .genbtn:hover{transform:translateY(-1px);box-shadow:0 9px 24px rgba(124,92,255,.42),inset 0 1px 0 rgba(255,255,255,.22);filter:brightness(1.06)}
   .genbtn:active{transform:translateY(0);box-shadow:0 3px 10px rgba(124,92,255,.30),inset 0 1px 0 rgba(255,255,255,.12)}
   /* bug reporter (testing phase) — floating, always on */
-  #bugFab{position:fixed;right:16px;bottom:16px;z-index:10000;background:var(--danger);color:#fff;border:none;border-radius:22px;padding:10px 15px;font-weight:700;font-size:12px;cursor:pointer;box-shadow:0 6px 18px rgba(0,0,0,.45);transition:transform .09s ease,filter .2s ease}
+  #bugFab{position:absolute;right:14px;bottom:14px;z-index:50;background:var(--danger);color:#fff;border:none;border-radius:22px;padding:9px 14px;font-weight:700;font-size:12px;cursor:pointer;box-shadow:0 6px 18px rgba(0,0,0,.45);transition:transform .09s ease,filter .2s ease}
   #bugFab:hover{transform:translateY(-1px);filter:brightness(1.08)}
-  #bugPanel{position:fixed;right:16px;bottom:62px;z-index:10000;width:320px;max-width:88vw;background:var(--panel2);border:1px solid var(--line);border-radius:14px;padding:13px;display:none;box-shadow:0 16px 40px rgba(0,0,0,.55)}
+  #bugPanel{position:absolute;right:14px;bottom:56px;z-index:51;width:320px;max-width:calc(100% - 28px);background:var(--panel2);border:1px solid var(--line);border-radius:14px;padding:13px;display:none;box-shadow:0 16px 40px rgba(0,0,0,.55)}
   #bugPanel.on{display:block}
   #bugPanel .bughd{display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:13px}
   #bugPanel .bughd b{flex:1}
@@ -326,6 +326,13 @@
         <div class="lyx">
           <div class="gut" id="gut"></div>
           <div id="doc" contenteditable="true" spellcheck="false"></div>
+          <!-- BUG REPORTER (testing phase) — anchored to the lyric processor's bottom-right -->
+          <button id="bugFab" title="Found a bug or have feedback? Tell us">&#128030; Report bug</button>
+          <div id="bugPanel">
+            <div class="bughd"><b>Report a bug</b><button id="bugX" title="close">&#10005;</button></div>
+            <textarea id="bugText" placeholder="What happened? What did you expect to happen? Steps to reproduce, if you can."></textarea>
+            <div class="bugrow"><span class="muted" style="flex:1;font-size:10.5px">Opens your email + copies the report (with page + version).</span><button id="bugSend">Send</button></div>
+          </div>
         </div>
       </div>
       <div class="panel">
@@ -606,11 +613,11 @@ $("helpClose").onclick=()=>showHelp(false);
 $("helpModal").addEventListener("click",e=>{if(e.target===$("helpModal"))showHelp(false);});
 document.addEventListener("keydown",e=>{if(e.key==="Escape")showHelp(false);});
 </script>
-<script src="ams-timeline.js?v=101"></script>
-<script src="ams-vowels.js?v=101"></script>
-<script src="ams-pron.js?v=101"></script>
-<script src="ams-bpm.js?v=101"></script>
-<script src="ams-sections.js?v=101"></script>
+<script src="ams-timeline.js?v=102"></script>
+<script src="ams-vowels.js?v=102"></script>
+<script src="ams-pron.js?v=102"></script>
+<script src="ams-bpm.js?v=102"></script>
+<script src="ams-sections.js?v=102"></script>
 <script>
 const doc=$("doc"),gut=$("gut");
 // keep the gutter (line #, syllables, rhyme vowel) locked to the lyric scroll — they share the
@@ -1528,14 +1535,8 @@ window.addEventListener("keydown",e=>{if(e.key==="Escape"&&$("tourOvl").classLis
 window.addEventListener("resize",()=>{if($("tourOvl").classList.contains("on"))tourShow();});
 if(!localStorage.getItem("ams.tour.seen"))setTimeout(()=>{try{tourStart();}catch(e){}},800);   // first visit → auto-run
 </script>
-<script src="lyric-core.js?v=101"></script>
-<!-- ===== BUG REPORTER (testing phase — always on) ===== -->
-<button id="bugFab" title="Found a bug or have feedback? Tell us">&#128030; Report bug</button>
-<div id="bugPanel">
-  <div class="bughd"><b>Report a bug</b><button id="bugX" title="close">&#10005;</button></div>
-  <textarea id="bugText" placeholder="What happened? What did you expect to happen? Steps to reproduce, if you can."></textarea>
-  <div class="bugrow"><span class="muted" style="flex:1;font-size:10.5px">Opens your email + copies the report (with page + version).</span><button id="bugSend">Send</button></div>
-</div>
+<script src="lyric-core.js?v=102"></script>
+<!-- BUG REPORTER markup lives inside .lyx (the lyric processor); this just wires it. -->
 <script>
 (function(){
   var fab=document.getElementById('bugFab'),panel=document.getElementById('bugPanel'),
