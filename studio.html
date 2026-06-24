@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Songflow — Lyric Studio</title>
-<link rel="stylesheet" href="ams.css?v=98">
+<link rel="stylesheet" href="ams.css?v=99">
 <style>
   /* standalone shell: no rail/drawer; the page fills the window */
   body{display:block}
@@ -403,7 +403,14 @@
         </div>
         <button class="go" id="ideaGo" style="margin-top:8px">&#10024; Generate matching lyrics</button>
         <div class="muted" id="ideaNote" style="margin-top:4px">Pick an engine. <b>Free</b> needs no key; <b>Anthropic / OpenAI / Google</b> use your own API key (stored only in this browser — you pay your provider).</div>
-        <div class="cleanbtn" id="conformBtn" title="coming with the rewrite engine" style="opacity:.55;cursor:default">&#8627; Conform free text to the rules <span class="tag">soon</span></div>
+        <div class="cleanbtn" id="conformBtn" title="Paste raw text — notes, a poem, a rant, anything — and Songflow discerns your message + voice, then crafts it into lyrics that follow your rhythm & rhyme rules (uses the bars/feel/grid/genre/planner set above)." style="cursor:pointer">&#8627; Conform free text to the rules</div>
+        <div id="conformPanel" style="display:none;margin-top:6px">
+          <textarea id="conformText" class="inp" rows="5" style="width:100%;resize:vertical" placeholder="Paste your raw words here — notes, a poem, a rant, prose, anything. Songflow will discern your message and your voice, then craft it into lyrics that follow the rules set above."></textarea>
+          <div style="display:flex;gap:6px;margin-top:6px">
+            <button class="go" id="conformGo" style="flex:1">&#10024; Conform to lyrics</button>
+            <button class="tbtn" id="conformCancel" style="width:auto;padding:0 10px">Cancel</button>
+          </div>
+        </div>
 
         <!-- ============ LEGEND + STATS ============ -->
         <div class="pdiv"></div>
@@ -577,11 +584,11 @@ $("helpClose").onclick=()=>showHelp(false);
 $("helpModal").addEventListener("click",e=>{if(e.target===$("helpModal"))showHelp(false);});
 document.addEventListener("keydown",e=>{if(e.key==="Escape")showHelp(false);});
 </script>
-<script src="ams-timeline.js?v=98"></script>
-<script src="ams-vowels.js?v=98"></script>
-<script src="ams-pron.js?v=98"></script>
-<script src="ams-bpm.js?v=98"></script>
-<script src="ams-sections.js?v=98"></script>
+<script src="ams-timeline.js?v=99"></script>
+<script src="ams-vowels.js?v=99"></script>
+<script src="ams-pron.js?v=99"></script>
+<script src="ams-bpm.js?v=99"></script>
+<script src="ams-sections.js?v=99"></script>
 <script>
 const doc=$("doc"),gut=$("gut");
 // keep the gutter (line #, syllables, rhyme vowel) locked to the lyric scroll — they share the
@@ -1499,6 +1506,6 @@ window.addEventListener("keydown",e=>{if(e.key==="Escape"&&$("tourOvl").classLis
 window.addEventListener("resize",()=>{if($("tourOvl").classList.contains("on"))tourShow();});
 if(!localStorage.getItem("ams.tour.seen"))setTimeout(()=>{try{tourStart();}catch(e){}},800);   // first visit → auto-run
 </script>
-<script src="lyric-core.js?v=98"></script>
+<script src="lyric-core.js?v=99"></script>
 </body>
 </html>

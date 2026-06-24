@@ -1337,6 +1337,9 @@ async function generateLyrics(){
     if($("aiKey"))$("aiKey").click();return;
   }
   const n=+NSEL.value||4;
+  // CONFORM FREE TEXT: when called as generateLyrics({conform:"...raw text..."}), the bars are crafted
+  // FROM the user's free text (discern message + audience buzzwords) instead of continuing prior bars.
+  const conformText=(arguments[0]&&typeof arguments[0]==="object"&&typeof arguments[0].conform==="string"&&arguments[0].conform.trim())?arguments[0].conform.trim():null;
   // syllable target: only when the Force-syllables override is on; otherwise match prior bars
   const targetSyl=(sylForceOn()&&+($("sylTarget").value||0)>0)?+$("sylTarget").value:null;
   const rhythm=(typeof feelX!=="undefined")?feelX:50;     // X axis: packed ↔ sustained
@@ -1401,9 +1404,18 @@ async function generateLyrics(){
 11. FRESHNESS — avoid generic AI-lyric clichés and pet imagery (e.g. ${CLICHE}). Reach for concrete, specific, surprising nouns and images over abstract emotion words; don't reuse end-words the prior bars already used.
 ${seedLine?`12. PREFERRED RHYMES — for a scheme vowel's end-word, lean on these real options from the writer's palette over your usual go-to rhymes (not mandatory, but prefer them to stay fresh and on-vowel): ${seedLine}.\n`:""}${directionClauses(sec)}
 OUTPUT FORMAT (STRICT): output ONLY the ${n} new lyric ${n>1?"bars":"bar"}, one per line, and NOTHING else. NO numbering, NO quotes, NO section tags, NO commentary/notes/explanations, NO blank lines, and do NOT repeat or echo any of the prior bars — every line must be brand new.`;
-  const usr=(prior.length?`Section: [${sec}]\nPrior bars to extend (match their rhythm & rhyme scheme):\n${prior.join("\n")}\n\n`:`Section: [${sec}]\n\n`)+
-    (planLine?planLine+"\n\n":"")+
-    `Write ${n} new bar${n>1?"s":""} that continue this section.`;
+  const usr=conformText
+    ? `Section: [${sec}]\n`
+      +(prior.length?`Existing bars in this section (match their rhythm & rhyme feel):\n${prior.join("\n")}\n\n`:"")
+      +(planLine?planLine+"\n\n":"")
+      +`CONFORM THE USER'S FREE TEXT INTO LYRICS. The text below is raw and unstructured (notes, prose, a rant, a verse — any format). Do this:\n`
+      +`1. DISCERN the intended MESSAGE — what they are really trying to say: the core feeling, story, and point.\n`
+      +`2. NOTE the context and any AUDIENCE-AWARE buzzwords, slang, names, or in-group vocabulary — these signal the voice and who it is for. PRESERVE the user's distinctive words/slang where they land naturally; do not sand them off.\n`
+      +`3. Then write ${n} bar${n>1?"s":""} of vivid, masterfully-crafted lyrics that deliver THAT message in THAT voice, following EVERY rule above (rhythm, rhyme, end-word plan, length). Turn flat statements into concrete images and motion; keep it the user's truth, elevated — do NOT just copy their sentences back.\n\n`
+      +`USER'S FREE TEXT:\n"""\n${conformText}\n"""\n\nWrite the ${n} bar${n>1?"s":""} now.`
+    : (prior.length?`Section: [${sec}]\nPrior bars to extend (match their rhythm & rhyme scheme):\n${prior.join("\n")}\n\n`:`Section: [${sec}]\n\n`)
+      +(planLine?planLine+"\n\n":"")
+      +`Write ${n} new bar${n>1?"s":""} that continue this section.`;
   const note=$("ideaNote"),btn=$("ideaGo");
   note.className="muted";note.style.color="";note.textContent="Generating…";btn.disabled=true;
   const myGen=++_genSeq;                              // cancellation token — undo bumps _genSeq to abort this run
@@ -1482,6 +1494,15 @@ function insertBarsAtCaret(bars){
   if(typeof setCaret==="function")setCaret((before+ins).length);
 }
 $("ideaGo").onclick=generateLyrics;
+// CONFORM FREE TEXT — paste raw words → craft them into rule-following lyrics (reuses the whole engine).
+if($("conformBtn"))$("conformBtn").onclick=()=>{const p=$("conformPanel");if(!p)return;const open=p.style.display!=="none";p.style.display=open?"none":"block";if(!open&&$("conformText"))setTimeout(()=>$("conformText").focus(),30);};
+if($("conformCancel"))$("conformCancel").onclick=()=>{if($("conformPanel"))$("conformPanel").style.display="none";};
+if($("conformGo"))$("conformGo").onclick=()=>{
+  const t=($("conformText")&&$("conformText").value||"").trim();
+  if(!t){const note=$("ideaNote");if(note){note.style.color="var(--danger)";note.textContent="Paste some words to conform first.";}if($("conformText"))$("conformText").focus();return;}
+  if($("conformPanel"))$("conformPanel").style.display="none";
+  generateLyrics({conform:t});
+};
 
 /* ================= highlight → Replace / Add-after =================
    Select bars in the editor → a popover offers Replace (rewrite to the selection's rhythm/rhyme
