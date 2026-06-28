@@ -233,7 +233,7 @@ $("tagIns").onchange=()=>{
   if(typeof manualBars!=="undefined"&&typeof tl!=="undefined"){
     const spb=(60/tl.bpm)*tl.beatsPerBar, go=tl.gridOffset||0;
     const phBar=Math.max(-go/spb, Math.round(((tl.playhead!=null?tl.playhead:0)-go)/spb));   // the play marker, in bars
-    if(!manualBars||!manualBars.length)manualBars=(tl.regions||[]).map(r=>Math.round(r.start/spb*1000)/1000);
+    if(!manualBars||!manualBars.length)manualBars=(tl.regions||[]).map(r=>Math.round(r.start/spb));   // whole-bar snap
     manualBars.splice((before.match(/^\s*\[.+\]\s*$/gm)||[]).length,0,phBar);
   }
   doc.textContent=next;
@@ -430,7 +430,7 @@ function setRegionBars(idx,bars){
   let starts=(window._secStartBars&&window._secStartBars.length===N)?window._secStartBars.slice():null;
   const lens =(window._secLens&&window._secLens.length===N)?window._secLens.slice():null;
   if(!starts){                                                    // last-resort fallback
-    starts=(tl.regions||[]).map(r=>r.start/spb);
+    starts=(tl.regions||[]).map(r=>Math.round(r.start/spb));   // whole-bar snap
     while(starts.length<N)starts.push((starts[starts.length-1]||0)+1);
   }
   // rewrite header idx to carry the new bar count (keep the name + any other text)

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Songflow — Lyric Studio</title>
-<link rel="stylesheet" href="ams.css?v=103">
+<link rel="stylesheet" href="ams.css?v=104">
 <style>
   /* standalone shell: no rail/drawer; the page fills the window */
   body{display:block}
@@ -293,8 +293,8 @@
         <button class="tbtn" id="projOpen" title="Open a .songflow project file">&#128194;</button>
         <input type="file" id="projFile" accept=".songflow,application/octet-stream" style="display:none">
       </div>
-      <select class="mini" id="tagIns" title="insert an arrangement tag at the cursor">
-        <option value="">&#65291; Section tag</option>
+      <select class="mini" id="tagIns" title="add an arrangement region at the play marker">
+        <option value="">&#65291; Add region</option>
         <option>Intro</option><option>Verse</option><option>Pre-Chorus</option><option>Chorus</option>
         <option>Post-Chorus</option><option>Hook</option><option>Bridge</option><option>Build-Up</option>
         <option>Drop</option><option>Breakdown</option><option>Instrumental Break</option>
@@ -614,11 +614,11 @@ $("helpClose").onclick=()=>showHelp(false);
 $("helpModal").addEventListener("click",e=>{if(e.target===$("helpModal"))showHelp(false);});
 document.addEventListener("keydown",e=>{if(e.key==="Escape")showHelp(false);});
 </script>
-<script src="ams-timeline.js?v=103"></script>
-<script src="ams-vowels.js?v=103"></script>
-<script src="ams-pron.js?v=103"></script>
-<script src="ams-bpm.js?v=103"></script>
-<script src="ams-sections.js?v=103"></script>
+<script src="ams-timeline.js?v=104"></script>
+<script src="ams-vowels.js?v=104"></script>
+<script src="ams-pron.js?v=104"></script>
+<script src="ams-bpm.js?v=104"></script>
+<script src="ams-sections.js?v=104"></script>
 <script>
 const doc=$("doc"),gut=$("gut");
 // keep the gutter (line #, syllables, rhyme vowel) locked to the lyric scroll — they share the
@@ -1457,10 +1457,12 @@ function tagRegions(){
   // manual overrides only stay valid while the section COUNT is unchanged
   if(!manualBars||manualBars.length!==secs.length)manualBars=secs.map(()=>null);
   // start bar per section: manual position wins, else packed right after the previous one
-  const minBar=-(tl.gridOffset||0)/spb;                      // track start (audio 0) in bars — a section may sit before the anchor but not before the track
+  const minBar=Math.round(-(tl.gridOffset||0)/spb);          // track start (audio 0) in WHOLE bars — a section may sit before the anchor but not before the track
   const startBar=[];let cum=0;
   for(let k=0;k<secs.length;k++){
-    const s=(manualBars[k]!=null)?Math.max(minBar,manualBars[k]):cum;   // manual position may be NEGATIVE (before the anchor / bar 1), floored at the track start
+    // snap every region start to a WHOLE bar (whole-note snap) — a fractional start makes an
+    // N-bar region visually span N-1 ruler bars, which read as regions "jumping" / shrinking.
+    const s=(manualBars[k]!=null)?Math.max(minBar,Math.round(manualBars[k])):cum;
     startBar.push(s); cum=Math.max(cum,s+secs[k].len);
   }
   // expose the layout (in BARS), aligned 1:1 with EVERY section header (before tl.regions is
@@ -1536,7 +1538,7 @@ window.addEventListener("keydown",e=>{if(e.key==="Escape"&&$("tourOvl").classLis
 window.addEventListener("resize",()=>{if($("tourOvl").classList.contains("on"))tourShow();});
 if(!localStorage.getItem("ams.tour.seen"))setTimeout(()=>{try{tourStart();}catch(e){}},800);   // first visit → auto-run
 </script>
-<script src="lyric-core.js?v=103"></script>
+<script src="lyric-core.js?v=104"></script>
 <!-- Cloud sign-in (magic link) -->
 <div id="authPanel" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10000;align-items:center;justify-content:center">
   <div style="background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px;width:350px;max-width:92vw;box-shadow:0 14px 44px rgba(0,0,0,.55)">
@@ -1548,7 +1550,7 @@ if(!localStorage.getItem("ams.tour.seen"))setTimeout(()=>{try{tourStart();}catch
   </div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script src="songflow-cloud.js?v=103"></script>
+<script src="songflow-cloud.js?v=104"></script>
 <!-- BUG REPORTER markup lives inside .lyx (the lyric processor); this just wires it. -->
 <script>
 (function(){
