@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Songflow — Lyric Studio</title>
-<link rel="stylesheet" href="ams.css?v=104">
+<link rel="stylesheet" href="ams.css?v=105">
 <style>
   /* standalone shell: no rail/drawer; the page fills the window */
   body{display:block}
@@ -39,6 +39,13 @@
   .barselHi{position:fixed;height:28px;background:rgba(124,92,255,.18);border-left:3px solid var(--accent);box-sizing:border-box;pointer-events:none;z-index:55;border-radius:0 4px 4px 0}
   /* karaoke playback highlight — covers the UNSUNG (right) part of the current bar; left edge = the now-cursor */
   .kbwipe{position:fixed;background:rgba(25,211,197,.17);border-left:2px solid var(--accent2);border-radius:0 3px 3px 0;pointer-events:none;z-index:5;display:none}
+  .splitrow{padding:7px 10px;margin:5px 0;border:1px solid var(--line);border-radius:6px;font-size:13px;line-height:1.8}
+  .splitrow.held{opacity:.5}
+  .splittag{font-size:9px;opacity:.7;border:1px solid var(--line);border-radius:3px;padding:1px 5px;margin-left:6px;text-transform:uppercase;letter-spacing:.03em}
+  .splitgap{display:inline-block;width:11px;height:16px;vertical-align:-3px;cursor:pointer;position:relative}
+  .splitgap::before{content:"";position:absolute;left:4px;top:1px;bottom:1px;width:2px;background:var(--line);border-radius:2px;opacity:.35}
+  .splitgap:hover::before{opacity:.8;background:var(--accent2)}
+  .splitgap.on::before{opacity:1;background:var(--accent2);width:3px;left:4px}
   /* primary generate button — polished gradient with depth + hover */
   .genbtn{width:100%;margin-top:9px;padding:12px 16px;border:none;border-radius:11px;background:var(--grad);color:#fff;font-weight:700;font-size:13.5px;letter-spacing:.3px;cursor:pointer;box-shadow:0 6px 18px rgba(124,92,255,.30),inset 0 1px 0 rgba(255,255,255,.18);transition:transform .09s ease,box-shadow .2s ease,filter .2s ease}
   .genbtn:hover{transform:translateY(-1px);box-shadow:0 9px 24px rgba(124,92,255,.42),inset 0 1px 0 rgba(255,255,255,.22);filter:brightness(1.06)}
@@ -512,6 +519,28 @@
     </div>
   </div>
 
+  <!-- fill-the-bars (split) modal -->
+  <div id="splitModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:90;align-items:center;justify-content:center">
+    <div style="background:var(--panel2,#16171d);border:1px solid var(--line);border-radius:12px;max-width:560px;width:92%;max-height:84vh;overflow:auto;box-shadow:0 12px 40px rgba(0,0,0,.5)">
+      <div style="display:flex;align-items:center;gap:8px;padding:12px 14px;border-bottom:1px solid var(--line)"><b>Fill the bars</b><span style="flex:1"></span><button class="tbtn" id="splitClose" style="width:auto;padding:0 9px">&#10005;</button></div>
+      <div style="padding:14px">
+        <div id="splitIntro" class="muted" style="margin-bottom:12px;line-height:1.5"></div>
+        <div id="splitChoice" style="display:flex;gap:8px">
+          <button class="tbtn" id="splitHold" style="flex:1;padding:11px;justify-content:center">Leave the extra bars held / blank</button>
+          <button id="splitDo" style="flex:1;padding:11px;border:none;border-radius:8px;background:var(--accent2);color:#0c0d12;font-weight:700;cursor:pointer">Split lines to fill the bars</button>
+        </div>
+        <div id="splitEditor" style="display:none">
+          <div class="muted" style="margin-bottom:8px;font-size:11px">Click a gap to move where each line breaks in two. Each break turns one line into two bars.</div>
+          <div id="splitRows"></div>
+          <div style="display:flex;gap:8px;margin-top:14px;justify-content:flex-end">
+            <button class="tbtn" id="splitCancel" style="width:auto;padding:0 12px">Back</button>
+            <button id="splitApply" style="padding:9px 16px;border:none;border-radius:8px;background:var(--accent2);color:#0c0d12;font-weight:700;cursor:pointer">Apply split</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- guide -->
   <div id="helpModal" class="hmodal" style="display:none">
     <div class="hbox">
@@ -614,11 +643,11 @@ $("helpClose").onclick=()=>showHelp(false);
 $("helpModal").addEventListener("click",e=>{if(e.target===$("helpModal"))showHelp(false);});
 document.addEventListener("keydown",e=>{if(e.key==="Escape")showHelp(false);});
 </script>
-<script src="ams-timeline.js?v=104"></script>
-<script src="ams-vowels.js?v=104"></script>
-<script src="ams-pron.js?v=104"></script>
-<script src="ams-bpm.js?v=104"></script>
-<script src="ams-sections.js?v=104"></script>
+<script src="ams-timeline.js?v=105"></script>
+<script src="ams-vowels.js?v=105"></script>
+<script src="ams-pron.js?v=105"></script>
+<script src="ams-bpm.js?v=105"></script>
+<script src="ams-sections.js?v=105"></script>
 <script>
 const doc=$("doc"),gut=$("gut");
 // keep the gutter (line #, syllables, rhyme vowel) locked to the lyric scroll — they share the
@@ -1538,7 +1567,7 @@ window.addEventListener("keydown",e=>{if(e.key==="Escape"&&$("tourOvl").classLis
 window.addEventListener("resize",()=>{if($("tourOvl").classList.contains("on"))tourShow();});
 if(!localStorage.getItem("ams.tour.seen"))setTimeout(()=>{try{tourStart();}catch(e){}},800);   // first visit → auto-run
 </script>
-<script src="lyric-core.js?v=104"></script>
+<script src="lyric-core.js?v=105"></script>
 <!-- Cloud sign-in (magic link) -->
 <div id="authPanel" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10000;align-items:center;justify-content:center">
   <div style="background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px;width:350px;max-width:92vw;box-shadow:0 14px 44px rgba(0,0,0,.55)">
@@ -1550,7 +1579,7 @@ if(!localStorage.getItem("ams.tour.seen"))setTimeout(()=>{try{tourStart();}catch
   </div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script src="songflow-cloud.js?v=104"></script>
+<script src="songflow-cloud.js?v=105"></script>
 <!-- BUG REPORTER markup lives inside .lyx (the lyric processor); this just wires it. -->
 <script>
 (function(){

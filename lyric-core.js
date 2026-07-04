@@ -450,7 +450,66 @@ function setRegionBars(idx,bars){
   try{tagRegions();}catch{}
   if(typeof saveProjectState==="function")saveProjectState();
   if(typeof tl!=="undefined"){tl.selRegions=[idx];tl.selRegion=idx;tl.sel=tl.regions[idx]?{...tl.regions[idx]}:null;tl.render();}
+  try{if(typeof offerBarSplit==="function")offerBarSplit(idx,bars);}catch(e){}   // bars > lines → offer to hold or split
 }
+/* ===== FILL THE BARS — when a section is extended to MORE bars than it has lyric lines, ask the
+   writer whether the added bars stay held/blank, or whether to SPLIT each line in two (they pick
+   where each breaks) so the lyric sheet matches the timeline. Founder: vital for lines sung across
+   multiple bars (a 4-line prechorus sung over 8 bars). ===== */
+let _splitState=null;
+function _lyricLinesOf(block){return block?block.lines.slice(1).filter(l=>l.trim()&&!isTag(l.trim())):[];}
+function _suggestGap(words){
+  if(words.length<2)return 1;
+  const syl=words.map(w=>syllables(w)),total=syl.reduce((a,b)=>a+b,0);
+  let cum=0,best=1,bestd=Infinity;
+  for(let g=1;g<words.length;g++){cum+=syl[g-1];const d=Math.abs(cum-total/2);if(d<bestd){bestd=d;best=g;}}
+  return best;
+}
+function offerBarSplit(idx,bars){
+  const {blocks}=sectionBlocks(); const block=blocks[idx]; if(!block)return;
+  const ll=_lyricLinesOf(block); if(!ll.length||bars<=ll.length)return;        // only when bars > lines
+  const name=(block.lines[0]||"").trim().replace(/^\[|\]$/g,"").replace(/\s*-\s*\d+\s*bars?\s*$/i,"").trim();
+  const lines=ll.map(l=>({words:l.trim().split(/\s+/),gap:null}));
+  const need=Math.min(bars-ll.length, ll.length);                              // one break per line, longest first
+  const order=lines.map((L,i)=>({i,syl:L.words.reduce((a,w)=>a+syllables(w),0)})).filter(o=>lines[o.i].words.length>=2).sort((a,b)=>b.syl-a.syl);
+  for(let k=0;k<need&&k<order.length;k++)lines[order[k].i].gap=_suggestGap(lines[order[k].i].words);
+  _splitState={idx,target:bars,name,lines};
+  if($("splitIntro"))$("splitIntro").innerHTML=`<b>${name||"This section"}</b> is now <b>${bars} bars</b> but has <b>${ll.length} line${ll.length>1?"s":""}</b>. How should the extra bars be filled?`;
+  if($("splitEditor"))$("splitEditor").style.display="none";
+  if($("splitChoice"))$("splitChoice").style.display="flex";
+  if($("splitModal"))$("splitModal").style.display="flex";
+}
+function _renderSplitRows(){
+  const host=$("splitRows"); if(!host||!_splitState)return;
+  host.innerHTML=_splitState.lines.map((L,li)=>{
+    if(L.gap==null)return `<div class="splitrow held">${L.words.join(" ")} <span class="splittag">held</span></div>`;
+    const parts=[];
+    L.words.forEach((w,wi)=>{ if(wi>0)parts.push(`<span class="splitgap${wi===L.gap?" on":""}" data-li="${li}" data-gi="${wi}"></span>`); parts.push(`<span class="splitw">${w}</span>`); });
+    return `<div class="splitrow">${parts.join("")}</div>`;
+  }).join("");
+  host.querySelectorAll(".splitgap").forEach(g=>g.onclick=()=>{_splitState.lines[+g.dataset.li].gap=+g.dataset.gi;_renderSplitRows();});
+}
+function _applyBarSplit(){
+  if(!_splitState)return;
+  const {pre,blocks}=sectionBlocks(); const block=blocks[_splitState.idx]; if(!block){_closeSplit();return;}
+  if(typeof pushUndo==="function")pushUndo();
+  const newContent=[];
+  _splitState.lines.forEach(L=>{
+    if(L.gap!=null&&L.gap>0&&L.gap<L.words.length){newContent.push(L.words.slice(0,L.gap).join(" "));newContent.push(L.words.slice(L.gap).join(" "));}
+    else newContent.push(L.words.join(" "));
+  });
+  block.lines=[block.lines[0],...newContent];
+  _writeDoc(pre,blocks);
+  try{tagRegions();}catch(e){}
+  if(typeof saveProjectState==="function")saveProjectState();
+  _closeSplit();
+}
+function _closeSplit(){_splitState=null;if($("splitModal"))$("splitModal").style.display="none";}
+if($("splitDo"))$("splitDo").onclick=()=>{if($("splitChoice"))$("splitChoice").style.display="none";if($("splitEditor"))$("splitEditor").style.display="block";_renderSplitRows();};
+if($("splitHold"))$("splitHold").onclick=_closeSplit;
+if($("splitClose"))$("splitClose").onclick=_closeSplit;
+if($("splitCancel"))$("splitCancel").onclick=()=>{if($("splitEditor"))$("splitEditor").style.display="none";if($("splitChoice"))$("splitChoice").style.display="flex";};
+if($("splitApply"))$("splitApply").onclick=_applyBarSplit;
 /* delete the given section indices (and their lyric blocks). */
 function deleteSections(idxs){
   const {pre,blocks}=sectionBlocks();
