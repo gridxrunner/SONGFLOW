@@ -121,6 +121,25 @@
     r.onupgradeneeded=()=>{const db=r.result;if(!db.objectStoreNames.contains("audio"))db.createObjectStore("audio");};
     r.onsuccess=()=>{const t=r.result.transaction("audio","readwrite");t.objectStore("audio").put(v,k);t.oncomplete=()=>res();t.onerror=()=>rej(t.error);};
     r.onerror=()=>rej(r.error);});}
+  function idbDel(k){return new Promise(res=>{try{const r=indexedDB.open("songflow",1);
+    r.onsuccess=()=>{try{const t=r.result.transaction("audio","readwrite");t.objectStore("audio").delete(k);t.oncomplete=()=>res();t.onerror=()=>res();}catch(e){res();}};
+    r.onerror=()=>res();}catch(e){res();}});}
+  /* one-time cleanup: rapid clicks on the demo card (pre-lock builds) could import several copies.
+     Collapse duplicate demo docs to ONE — keep the copy with the most text (the user's edits live
+     there), drop the rest and their stored audio. User-named projects are never touched. */
+  function dedupeDemo(){
+    const d=load();
+    const idxs=d.docs.map((x,i)=>x.name===DEMO_NAME?i:-1).filter(i=>i>=0);
+    if(idxs.length<2)return d;
+    let keep=idxs[0];for(const i of idxs)if(((d.docs[i]||{}).text||"").length>=((d.docs[keep]||{}).text||"").length)keep=i;
+    const activeId=(d.docs[d.active]||{}).id;
+    const drop=idxs.filter(i=>i!==keep);
+    drop.forEach(i=>{const id=(d.docs[i]||{}).id;if(id)idbDel(id);});
+    d.docs=d.docs.filter((_,i)=>!drop.includes(i));
+    const ai=d.docs.findIndex(x=>x.id===activeId);
+    d.active=ai>=0?ai:Math.min(Math.max(0,d.active),d.docs.length-1);
+    save(d);return d;
+  }
   async function importSongflow(buf,nameOverride){
     if(buf.byteLength<12||new TextDecoder().decode(new Uint8Array(buf,0,8))!=="SONGFLW1")throw new Error("not a Songflow project file");
     const jsonLen=new DataView(buf).getUint32(8,true);
@@ -138,7 +157,7 @@
   }
 
   /* ---- project list ---- */
-  const st=load();
+  const st=dedupeDemo();
   const list=document.getElementById("projList");
   if(st.docs.length){
     list.innerHTML=st.docs.map((d,i)=>`<div class="proj" data-i="${i}"><span class="nm"></span><span class="meta"></span></div>`).join("");
@@ -151,26 +170,34 @@
     });
   } else list.innerHTML='<div class="none">No projects yet — create one, open the demo, or open a .songflow file.</div>';
 
-  /* ---- demo card: already imported → open it; else fetch + import a fresh copy ---- */
-  document.getElementById("demoCard").onclick=async()=>{
+  /* ---- demo card: already imported → open it; else fetch + import ONE copy (in-flight lock:
+     the 5 MB fetch takes seconds, and extra clicks used to start extra imports = duplicates) ---- */
+  let importing=false;
+  const demoCard=document.getElementById("demoCard");
+  demoCard.onclick=async()=>{
+    if(importing)return;
     try{
       const d=load();
       const have=d.docs.findIndex(x=>x.name===DEMO_NAME);
       if(have>=0){d.active=have;save(d);go(d);return;}
+      importing=true;demoCard.style.opacity=".55";demoCard.style.pointerEvents="none";
       busy(true,"Loading the demo (one-time, ~5 MB)…");
       const r=await fetch("demo.songflow");
       if(!r.ok)throw new Error("demo file not found ("+r.status+")");
       const nd=await importSongflow(await r.arrayBuffer(),DEMO_NAME);
       go(nd);
-    }catch(e){busy(true,"Couldn't load the demo: "+e.message);setTimeout(()=>busy(false),4000);}
+    }catch(e){
+      importing=false;demoCard.style.opacity="";demoCard.style.pointerEvents="";
+      busy(true,"Couldn't load the demo: "+e.message);setTimeout(()=>busy(false),4000);
+    }
   };
 
-  /* ---- upload a .songflow ---- */
-  document.getElementById("upBtn").onclick=()=>document.getElementById("upFile").click();
+  /* ---- upload a .songflow (same in-flight lock) ---- */
+  document.getElementById("upBtn").onclick=()=>{if(!importing)document.getElementById("upFile").click();};
   document.getElementById("upFile").onchange=async e=>{
-    const f=e.target.files&&e.target.files[0]; e.target.value=""; if(!f)return;
-    try{busy(true,"Opening "+f.name+"…");const d=await importSongflow(await f.arrayBuffer());go(d);}
-    catch(err){busy(true,"Couldn't open: "+err.message);setTimeout(()=>busy(false),4000);}
+    const f=e.target.files&&e.target.files[0]; e.target.value=""; if(!f||importing)return;
+    try{importing=true;busy(true,"Opening "+f.name+"…");const d=await importSongflow(await f.arrayBuffer());go(d);}
+    catch(err){importing=false;busy(true,"Couldn't open: "+err.message);setTimeout(()=>busy(false),4000);}
   };
 
   /* ---- new project ---- */
