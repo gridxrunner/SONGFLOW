@@ -66,6 +66,61 @@ $("docDel").onclick=()=>{
 };
 doc.textContent=docsState.docs[docsState.active].text;
 
+/* ---- docText(): the ONE way to read the editor's lines. doc.innerText DOUBLES a typed empty
+   line (Enter makes <div><br></div>, which innerText reads as "\n\n") — a phantom blank line per
+   real one. Those phantoms desynced the gutter numbering, drifted the karaoke wipe after blank
+   lines, and got BAKED into the text as real doubled blanks on repaint. Reading the DOM's block
+   structure instead (each div/p = exactly one line) matches what the writer actually sees. ---- */
+function docText(){
+  const lines=[];let cur=null;                            // cur = an open, not-yet-emitted line
+  const emit=s=>lines.push(s);
+  const closeCur=()=>{if(cur!=null){emit(cur);cur=null;}};
+  const inline=n=>{                                       // flatten inline content; <br> = "\n"
+    if(n.nodeType===3)return n.nodeValue;
+    if(n.nodeType!==1)return "";
+    if(n.nodeName==="BR")return "\n";
+    let s="";n.childNodes.forEach(c=>s+=inline(c));return s;
+  };
+  doc.childNodes.forEach(n=>{
+    if(n.nodeType===1&&/^(DIV|P)$/.test(n.nodeName)){
+      closeCur();                                         // a block always starts its own line
+      const parts=inline(n).split("\n");
+      if(parts.length>1&&parts[parts.length-1]==="")parts.pop();   // <div>x<br></div> = "x"; <div><br></div> = one "" line
+      if(!parts.length)parts.push("");
+      parts.forEach(emit);
+    }else{                                                // top-level text / inline span — accumulate
+      const parts=inline(n).split("\n");
+      parts.forEach((p,i)=>{if(i>0)closeCur();cur=(cur==null?"":cur)+p;});
+    }
+  });
+  closeCur();
+  return lines.join("\n");
+}
+/* normalizeDoc(): if the editor holds block structure (a text drag-drop, an extension edit, a
+   browser quirk), FLATTEN it to plain newline text — caret preserved via a sentinel — so every
+   innerText reader (gutter, karaoke, timeline, save) sees exactly the lines the writer sees.
+   No-ops (cheap) on a clean doc; self-heals the moment structure appears. */
+function normalizeDoc(){
+  if(!doc.firstChild)return false;
+  let hasBlock=false;
+  for(const n of doc.childNodes){if(n.nodeType===1&&/^(DIV|P)$/.test(n.nodeName)){hasBlock=true;break;}}
+  if(!hasBlock)return false;
+  const sel=document.getSelection();let mark=null;
+  try{
+    if(sel&&sel.rangeCount&&doc.contains(sel.anchorNode)){
+      mark=document.createTextNode("");
+      const r=sel.getRangeAt(0).cloneRange();r.collapse(true);r.insertNode(mark);
+    }
+  }catch(e){}
+  const withMark=docText();
+  if(mark&&mark.parentNode)mark.parentNode.removeChild(mark);
+  const i=withMark.indexOf("");
+  const clean=(i>=0)?withMark.slice(0,i)+withMark.slice(i+1):withMark;
+  doc.textContent=clean;
+  if(i>=0){try{setCaret(Math.min(i,clean.length));}catch(e){}}
+  return true;
+}
+
 /* ---- syllables / vowels ---- */
 function syllables(word){
   let w=word.toLowerCase().replace(/[^a-z']/g,"");
@@ -133,6 +188,7 @@ function schemeLetters(lines){
 
 let tagTimer=null;
 function update(){
+  try{normalizeDoc();}catch(e){}                          // flatten any block structure BEFORE reading lines
   const lines=doc.innerText.split("\n");
   const target=+(localStorage.getItem(TKEY)||0);let bar=0;
   gut.innerHTML=lines.map((l)=>{const t=l.trim();if(!t||isTag(t))return "";bar++;
@@ -147,6 +203,7 @@ function update(){
   clearTimeout(tagTimer);tagTimer=setTimeout(()=>{try{tagRegions();}catch{}},600);
 }
 function paintRhymes(){
+  try{normalizeDoc();}catch(e){}                          // flatten BEFORE reading, so phantoms never get baked into the repaint
   const lines=doc.innerText.split("\n");const {fams,cnt}=rhymeFams(lines);
   const html=lines.map(l=>{const tt=l.trim();
     if(!tt)return esc(l);
@@ -164,7 +221,7 @@ function paintRhymes(){
   doc.innerHTML=html;update();
 }
 function esc(s){return s.replace(/&/g,"&amp;").replace(/</g,"&lt;");}
-function unpaint(){doc.textContent=doc.innerText;update();}
+function unpaint(){doc.textContent=docText();update();}
 doc.addEventListener("input",update);
 /* ---- caret <-> flat-text offset (robust across painted spans) ---- */
 function caretOffset(){
@@ -209,6 +266,18 @@ doc.addEventListener("keydown",e=>{
     const next=text.slice(0,start)+text.slice(end);
     doc.textContent=next;paintRhymes();setCaret(start);  // repaint keeps colors, caret restored
   }
+});
+/* text DRAG-DROP was the unguarded way for HTML block structure (divs) to enter the editor —
+   force it to plain text at the drop point, same as paste */
+doc.addEventListener("drop",e=>{
+  e.preventDefault();
+  const t=(e.dataTransfer&&e.dataTransfer.getData("text"))||"";if(!t)return;
+  try{
+    const r=document.caretRangeFromPoint?document.caretRangeFromPoint(e.clientX,e.clientY):null;
+    if(r){const sel=document.getSelection();sel.removeAllRanges();sel.addRange(r);}
+    document.execCommand("insertText",false,t);
+    if(rhymeOn)paintRhymes();else update();
+  }catch(err){}
 });
 doc.addEventListener("paste",e=>{e.preventDefault();const t=(e.clipboardData||window.clipboardData).getData("text");document.execCommand("insertText",false,t);
   // repaint so pasted lines get correct rhyme colors immediately (don't inherit the caret span's color)
