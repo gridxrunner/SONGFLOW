@@ -191,7 +191,28 @@ function update(){
   try{normalizeDoc();}catch(e){}                          // flatten any block structure BEFORE reading lines
   const lines=doc.innerText.split("\n");
   const target=+(localStorage.getItem(TKEY)||0);let bar=0;
-  gut.innerHTML=lines.map((l)=>{const t=l.trim();if(!t||isTag(t))return "";bar++;
+  // BAR-SLOT numbering: in a region with an explicit "- N bars" count, EVERY line below the tag
+  // is a positional bar slot — blank lines are EMPTY BARS and get numbered too (trailing blanks
+  // trimmed). In a region without a count, blanks stay unnumbered visual separators.
+  const isBar=new Array(lines.length).fill(false);
+  {let secStart=0,secN=null;                               // the pre-tag stretch counts as an auto region
+   const close=(end)=>{
+     if(secN!=null){                                       // explicit region: number every slot up to N
+       let last=end-1;while(last>=secStart&&!lines[last].trim())last--;   // last content line
+       const upTo=Math.min(end-1,Math.max(last,secStart+secN-1));         // trailing EMPTY BARS within N count too
+       for(let i=secStart;i<=upTo;i++)isBar[i]=true;
+     }else{for(let i=secStart;i<end;i++)if(lines[i].trim())isBar[i]=true;}};
+   lines.forEach((l,i)=>{const t=l.trim();
+     if(isTag(t)){close(i);secStart=i+1;
+       const inside=t.replace(/^\[|\]$/g,"");
+       secN=(typeof parseTagBars==="function")?parseTagBars(inside).bars:(()=>{const m=inside.match(/-\s*(\d+)\s*bars?\s*$/i);return m?+m[1]:null;})();}
+   });
+   close(lines.length);
+  }
+  gut.innerHTML=lines.map((l,i)=>{const t=l.trim();
+    if(isTag(t)||!isBar[i])return "";
+    bar++;
+    if(!t)return `${bar} │ <span class="sch">·</span>`;     // an EMPTY bar (rest / instrumental slot)
     const syl=sylOfBar(t);                                  // CORE count — a trailing lead-in/pickup doesn't add to it
     const s=target&&syl>target?`<span class="over">${syl}</span>`:String(syl);
     const vc=vowelClass(rhymeAnchorWord(t));
@@ -200,7 +221,38 @@ function update(){
   const d=docsState.docs[docsState.active];d.text=doc.innerText;saveDocs();
   renderStats();renderSchemeMap();refreshLinePanels();
   try{updateFlowHud();}catch{}
-  clearTimeout(tagTimer);tagTimer=setTimeout(()=>{try{tagRegions();}catch{}},600);
+  clearTimeout(tagTimer);tagTimer=setTimeout(()=>{try{syncTagCounts();}catch{}try{tagRegions();}catch{}},600);
+}
+/* GROW-ONLY tag-count sync (founder rule): typing more bars directly below a "- N bars" tag
+   auto-updates the tag's count (and so the timeline region). Never shrinks — deleting lines
+   doesn't silently shorten a region; the bars dropdown stays the explicit way down. */
+function syncTagCounts(){
+  const lines=doc.innerText.split("\n");
+  const caret=(typeof caretOffset==="function")?caretOffset():null;
+  let caretLine=-1;
+  if(caret!=null){let n=0;for(let i=0;i<lines.length;i++){if(caret<=n+lines[i].length){caretLine=i;break;}n+=lines[i].length+1;}}
+  const secs=[];let cur=-1,curN=null,curName=null,start=-1;
+  lines.forEach((l,i)=>{const t=l.trim();
+    if(isTag(t)){if(cur>=0)secs.push({i:cur,N:curN,name:curName,start,end:i});
+      cur=i;start=i+1;
+      const pb=(typeof parseTagBars==="function")?parseTagBars(t.replace(/^\[|\]$/g,"")):{bars:null,name:t};
+      curN=pb.bars;curName=pb.name;}});
+  if(cur>=0)secs.push({i:cur,N:curN,name:curName,start,end:lines.length});
+  let changed=false,caretAdj=caret;
+  for(const s of secs){
+    if(s.N==null)continue;
+    let last=s.end-1;while(last>=s.start&&!lines[last].trim())last--;
+    const slots=last-s.start+1;
+    if(slots>s.N&&s.i!==caretLine){                                   // grow-only; skip while the caret edits that header
+      const nl=`[${s.name} - ${slots} bars]`;
+      if(caret!=null&&caretLine>s.i)caretAdj+=nl.length-lines[s.i].length;
+      lines[s.i]=nl;changed=true;
+    }
+  }
+  if(!changed)return;
+  doc.textContent=lines.join("\n");
+  if(rhymeOn)paintRhymes();else update();
+  if(caretAdj!=null){try{setCaret(Math.min(caretAdj,doc.innerText.length));}catch(e){}}
 }
 function paintRhymes(){
   try{normalizeDoc();}catch(e){}                          // flatten BEFORE reading, so phantoms never get baked into the repaint
@@ -451,7 +503,15 @@ if($("redoBtn"))$("redoBtn").onclick=()=>doRedo();
 _syncUndoBtns();
 function _writeDoc(pre,orderedBlocks){
   const parts=[];const preT=_trimTrail(pre);if(preT.length)parts.push(preT.join("\n"));
-  orderedBlocks.forEach(b=>parts.push(_trimTrail(b.lines).join("\n")));
+  orderedBlocks.forEach(b=>{
+    let ls=_trimTrail(b.lines);
+    // BAR-SLOT MODEL: an explicit "- N bars" region always materializes to N slot lines
+    // (blank = empty bar), so the writer can click bar 6 of 8 and type — no Enter-pushing.
+    const inside=(ls[0]||"").trim().replace(/^\[|\]$/g,"");
+    const N=(typeof parseTagBars==="function")?(parseTagBars(inside).bars):null;
+    if(N!=null){const slots=ls.length-1;if(slots<N)ls=ls.concat(Array(N-slots).fill(""));}
+    parts.push(ls.join("\n"));
+  });
   doc.textContent=parts.join("\n\n");           // one blank line between sections
   if(rhymeOn)paintRhymes();else update();
 }
@@ -506,7 +566,7 @@ function setRegionBars(idx,bars){
   const inside=(blocks[idx].lines[0]||"").trim().replace(/^\[|\]$/g,"");
   const pb=(typeof parseTagBars==="function")?parseTagBars(inside):{name:inside};
   blocks[idx].lines[0]=`[${pb.name} - ${bars} bars]`;
-  _writeDoc(pre,blocks);
+  _writeDoc(pre,blocks);                          // _writeDoc materializes the region to N slot lines
   // materialise ALL positions so nothing auto-repacks (intro + gaps stay exactly put)
   manualBars=starts.slice();
   manualBars[idx]=starts[idx];                                    // edited section keeps its start, grows right
