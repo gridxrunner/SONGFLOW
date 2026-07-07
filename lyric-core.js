@@ -209,14 +209,16 @@ function update(){
    });
    close(lines.length);
   }
-  gut.innerHTML=lines.map((l,i)=>{const t=l.trim();
+  const gutRows=lines.map((l,i)=>{const t=l.trim();
     if(isTag(t)||!isBar[i])return "";
     bar++;
     if(!t)return `${bar} │ <span class="sch">·</span>`;     // an EMPTY bar (rest / instrumental slot)
     const syl=sylOfBar(t);                                  // CORE count — a trailing lead-in/pickup doesn't add to it
     const s=target&&syl>target?`<span class="over">${syl}</span>`:String(syl);
     const vc=vowelClass(rhymeAnchorWord(t));
-    return `${bar} │ ${s}${vc?` <span class="sch">${vc}</span>`:""}`;}).join("\n");
+    return `${bar} │ ${s}${vc?` <span class="sch">${vc}</span>`:""}`;});
+  // mirror the text's region folds so gutter rows stay aligned with the visible lines
+  gut.innerHTML=(rhymeOn&&typeof _applyFolds==="function")?_applyFolds(gutRows,lines):gutRows.join("\n");
   localStorage.setItem("ams.lyrics",doc.innerText);
   const d=docsState.docs[docsState.active];d.text=doc.innerText;saveDocs();
   renderStats();renderSchemeMap();refreshLinePanels();
@@ -254,10 +256,35 @@ function syncTagCounts(){
   if(rhymeOn)paintRhymes();else update();
   if(caretAdj!=null){try{setCaret(Math.min(caretAdj,doc.innerText.length));}catch(e){}}
 }
+/* ---- region fold state (right-click a tag to minimize its lines; stored per project) ---- */
+function foldsGet(){const d=docsState.docs[docsState.active];return new Set((d&&d.folds)||[]);}
+function foldsSave(set){const d=docsState.docs[docsState.active];if(d){d.folds=[...set];saveDocs();}}
+/* wrap each folded section's body (INCLUDING its leading newline) in a .foldbody span — a 0×0
+   clipped box that stays in innerText, so saves/timeline/karaoke still see every line. */
+function _applyFolds(parts,lines){
+  const folds=foldsGet();if(!folds.size)return parts.join("\n");
+  const out=[];let si=-1;
+  for(let i=0;i<lines.length;i++){
+    const t=lines[i].trim();
+    if(isTag(t)){
+      si++;
+      let j=i+1;while(j<lines.length&&!isTag(lines[j].trim()))j++;   // body = lines until the next tag
+      if(folds.has(si)&&j>i+1){
+        let lastC=j-1;while(lastC>i&&!lines[lastC].trim())lastC--;   // badge counts bar slots, not the trailing separator
+        const shown=Math.max(1,lastC-i);
+        out.push(parts[i].replace('class="sect"',`class="sect foldhead" data-fold="${shown} bar${shown===1?"":"s"} — right-click to expand"`)
+          +`<span class="foldbody">${"\n"+parts.slice(i+1,j).join("\n")}</span>`);
+        i=j-1;continue;
+      }
+    }
+    out.push(parts[i]);
+  }
+  return out.join("\n");
+}
 function paintRhymes(){
   try{normalizeDoc();}catch(e){}                          // flatten BEFORE reading, so phantoms never get baked into the repaint
   const lines=doc.innerText.split("\n");const {fams,cnt}=rhymeFams(lines);
-  const html=lines.map(l=>{const tt=l.trim();
+  const parts=lines.map(l=>{const tt=l.trim();
     if(!tt)return esc(l);
     if(isTag(tt))return esc(l).replace(/\[[^\]]*\]/,m=>`<span class="sect">${m}</span>`);
     const toks=l.split(/(\s+)/);
@@ -269,9 +296,21 @@ function paintRhymes(){
       const clean=w.toLowerCase().replace(/[^a-z]/g,"");
       if(key&&(key in fams)&&cnt[key]>=2&&clean.length>=3&&!STOP.has(clean))return `<span class="r${fams[key]%6} in">${esc(w)}</span>`;
       return esc(w);}).join("");
-  }).join("\n");
-  doc.innerHTML=html;update();
+  });
+  doc.innerHTML=_applyFolds(parts,lines);update();
 }
+/* right-click a region tag → fold / unfold its lines (founder: no new visual element) */
+doc.addEventListener("contextmenu",e=>{
+  const s=e.target&&e.target.closest?e.target.closest(".sect"):null;
+  if(!s)return;                                           // anywhere else keeps the normal menu
+  e.preventDefault();
+  const heads=[...doc.querySelectorAll(".sect")];
+  const si=heads.indexOf(s);if(si<0)return;
+  const f=foldsGet();
+  if(f.has(si))f.delete(si);else f.add(si);
+  foldsSave(f);
+  paintRhymes();
+});
 function esc(s){return s.replace(/&/g,"&amp;").replace(/</g,"&lt;");}
 function unpaint(){doc.textContent=docText();update();}
 doc.addEventListener("input",update);

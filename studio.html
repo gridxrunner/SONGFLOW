@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Songflow — Lyric Studio</title>
-<link rel="stylesheet" href="ams.css?v=109">
+<link rel="stylesheet" href="ams.css?v=110">
 <style>
   /* standalone shell: no rail/drawer; the page fills the window */
   body{display:block}
@@ -15,6 +15,10 @@
   #doc .in{text-decoration:underline dotted 1px;text-underline-offset:3px;opacity:.85}
   #doc .sect{color:var(--accent2);background:rgba(25,211,197,.08);border:1px solid #1d3b3a;border-radius:6px;padding:0 6px;font-weight:700;cursor:pointer}
   #doc .sect:hover{background:rgba(25,211,197,.18);border-color:var(--accent2)}
+  /* region fold (right-click a tag): the body stays in the text model (innerText keeps it) but
+     renders inside a 0×0 clipped box — display:none/visibility would DROP it from innerText. */
+  .foldbody{display:inline-block;width:0;height:0;overflow:hidden;vertical-align:top}
+  .sect.foldhead::after{content:" ▸ " attr(data-fold);opacity:.6;font-weight:400;font-size:10px;letter-spacing:.03em}
   .gut .over{color:var(--warn);font-weight:700}
   .gut .sch{color:#9b86ff;font-weight:700}
   .rhyhead{font-size:12.5px;font-weight:700}
@@ -643,11 +647,11 @@ $("helpClose").onclick=()=>showHelp(false);
 $("helpModal").addEventListener("click",e=>{if(e.target===$("helpModal"))showHelp(false);});
 document.addEventListener("keydown",e=>{if(e.key==="Escape")showHelp(false);});
 </script>
-<script src="ams-timeline.js?v=109"></script>
-<script src="ams-vowels.js?v=109"></script>
-<script src="ams-pron.js?v=109"></script>
-<script src="ams-bpm.js?v=109"></script>
-<script src="ams-sections.js?v=109"></script>
+<script src="ams-timeline.js?v=110"></script>
+<script src="ams-vowels.js?v=110"></script>
+<script src="ams-pron.js?v=110"></script>
+<script src="ams-bpm.js?v=110"></script>
+<script src="ams-sections.js?v=110"></script>
 <script>
 const doc=$("doc"),gut=$("gut");
 // keep the gutter (line #, syllables, rhyme vowel) locked to the lyric scroll — they share the
@@ -1587,7 +1591,7 @@ window.addEventListener("keydown",e=>{if(e.key==="Escape"&&$("tourOvl").classLis
 window.addEventListener("resize",()=>{if($("tourOvl").classList.contains("on"))tourShow();});
 if(!localStorage.getItem("ams.tour.seen"))setTimeout(()=>{try{tourStart();}catch(e){}},800);   // first visit → auto-run
 </script>
-<script src="lyric-core.js?v=109"></script>
+<script src="lyric-core.js?v=110"></script>
 <!-- Cloud sign-in (magic link) -->
 <div id="authPanel" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10000;align-items:center;justify-content:center">
   <div style="background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px;width:350px;max-width:92vw;box-shadow:0 14px 44px rgba(0,0,0,.55)">
@@ -1599,7 +1603,7 @@ if(!localStorage.getItem("ams.tour.seen"))setTimeout(()=>{try{tourStart();}catch
   </div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script src="songflow-cloud.js?v=109"></script>
+<script src="songflow-cloud.js?v=110"></script>
 <!-- BUG REPORTER markup lives inside .lyx (the lyric processor); this just wires it. -->
 <script>
 (function(){
