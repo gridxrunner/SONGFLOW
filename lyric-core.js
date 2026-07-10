@@ -270,8 +270,12 @@ function _applyFolds(parts,lines){
       si++;
       let j=i+1;while(j<lines.length&&!isTag(lines[j].trim()))j++;   // body = lines until the next tag
       if(folds.has(si)&&j>i+1){
-        let lastC=j-1;while(lastC>i&&!lines[lastC].trim())lastC--;   // badge counts bar slots, not the trailing separator
-        const shown=Math.max(1,lastC-i);
+        // badge = the region's real bar count: the tag's declared "- N bars" wins (an all-blank
+        // 16-bar intro is 16 bars, not 1); otherwise the typed lines (trailing blanks trimmed)
+        const inside=t.replace(/^\[|\]$/g,"");
+        const N=(typeof parseTagBars==="function")?parseTagBars(inside).bars:null;
+        let lastC=j-1;while(lastC>i&&!lines[lastC].trim())lastC--;
+        const shown=(N!=null)?Math.max(N,lastC-i):Math.max(1,lastC-i);
         out.push(parts[i].replace('class="sect"',`class="sect foldhead" data-fold="${shown} bar${shown===1?"":"s"} — right-click to expand"`)
           +`<span class="foldbody">${"\n"+parts.slice(i+1,j).join("\n")}</span>`);
         i=j-1;continue;

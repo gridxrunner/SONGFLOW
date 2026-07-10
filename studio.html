@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Songflow — Lyric Studio</title>
-<link rel="stylesheet" href="ams.css?v=110">
+<link rel="stylesheet" href="ams.css?v=111">
 <style>
   /* standalone shell: no rail/drawer; the page fills the window */
   body{display:block}
@@ -331,7 +331,7 @@
           <button class="tbtn" id="aCopy" title="copy the selected waveform span or section (Ctrl+C)" style="width:auto;padding:0 9px;font-size:11px">&#10697; Copy</button>
           <button class="tbtn" id="aCut" title="cut the selected span (Ctrl+X)" style="width:auto;padding:0 9px;font-size:11px">&#9986; Cut</button>
           <button class="tbtn" id="aPaste" title="paste at the playhead (ripples right), or into a highlighted span to replace it (Ctrl+V)" style="width:auto;padding:0 9px;font-size:11px">&#128203; Paste</button>
-          <button class="tbtn" id="aDelete" title="delete the selected waveform span (closes the gap)" style="width:auto;padding:0 9px;font-size:11px">&#128465; Delete span</button>
+          <button class="tbtn" id="aDelete" title="delete the selected waveform selection (closes the gap)" style="width:auto;padding:0 9px;font-size:11px">&#128465; Delete selection</button>
           <span class="muted" style="font-size:10.5px">drag on the waveform to select a span</span>
         </div>
         <div class="muted" style="padding:0 2px;font-size:10.5px">Your <b>arrangement region tags</b> appear here, mirroring the lyric editor. <b>Drag</b> to reorder &middot; <b>double-click</b> to rename &middot; <b>Alt+Click</b> for the tag menu (bars / rename / delete). New here? Open <b>? Guide → ▶ Take the tour</b>.</div>
@@ -647,11 +647,11 @@ $("helpClose").onclick=()=>showHelp(false);
 $("helpModal").addEventListener("click",e=>{if(e.target===$("helpModal"))showHelp(false);});
 document.addEventListener("keydown",e=>{if(e.key==="Escape")showHelp(false);});
 </script>
-<script src="ams-timeline.js?v=110"></script>
-<script src="ams-vowels.js?v=110"></script>
-<script src="ams-pron.js?v=110"></script>
-<script src="ams-bpm.js?v=110"></script>
-<script src="ams-sections.js?v=110"></script>
+<script src="ams-timeline.js?v=111"></script>
+<script src="ams-vowels.js?v=111"></script>
+<script src="ams-pron.js?v=111"></script>
+<script src="ams-bpm.js?v=111"></script>
+<script src="ams-sections.js?v=111"></script>
 <script>
 const doc=$("doc"),gut=$("gut");
 // keep the gutter (line #, syllables, rhyme vowel) locked to the lyric scroll — they share the
@@ -920,7 +920,7 @@ function renderBpmReadout(){const b=detectedBpm||120,i=Math.floor(b+1e-6),dec=Ma
   if($("bpmInput"))$("bpmInput").value=fmtBpm(b);}
 function liveBpm(b){detectedBpm=clampBpm(b);renderBpmReadout();tl.setTempo(detectedBpm);try{tagRegions();}catch(e){}}  // no save — while dragging
 function setBpm(b){detectedBpm=clampBpm(b);renderBpmReadout();tl.setTempo(detectedBpm);try{tagRegions();}catch(e){}if(typeof saveProjectState==="function")saveProjectState();return fmtBpm(detectedBpm);}
-$("bpmInput").oninput=()=>{const b=+$("bpmInput").value;if(b>=30&&b<=320){detectedBpm=clampBpm(b);tl.setTempo(detectedBpm);try{tagRegions();}catch(e){}if(typeof saveProjectState==="function")saveProjectState();}};
+$("bpmInput").oninput=()=>{const b=+$("bpmInput").value;if(b>=30&&b<=320){bpmUndoMark();detectedBpm=clampBpm(b);tl.setTempo(detectedBpm);try{tagRegions();}catch(e){}if(typeof saveProjectState==="function")saveProjectState();}};   // mark BEFORE applying — the snapshot must hold the OLD bpm
 async function detectAndSetBpm(silent){   // runs automatically on load
   if(!curBuf){if(!silent)toast("Load a track first.");return null;}
   let b=null;
@@ -948,7 +948,7 @@ bpmDragHandle($("bpmDec"),0.01);   // fine .01
 // double-click either number → type an exact value
 function bpmStartEdit(){const wrap=document.querySelector(".bpmctl"),inp=$("bpmInput");if(!wrap)return;
   wrap.classList.add("editing");inp.value=fmtBpm(detectedBpm);inp.focus();inp.select();
-  const fin=commit=>{if(commit){const v=+inp.value;if(v>=30&&v<=320){bpmUndoMark();setBpm(v);}}wrap.classList.remove("editing");renderBpmReadout();
+  const fin=commit=>{if(commit){const v=+inp.value;if(v>=30&&v<=320){setBpm(v);}}wrap.classList.remove("editing");renderBpmReadout();   // undo mark happens in oninput, BEFORE the value changes — marking here would snapshot the NEW bpm and make undo a no-op
     inp.removeEventListener("blur",onBlur);inp.removeEventListener("keydown",onKey);};
   const onBlur=()=>fin(true),onKey=e=>{if(e.key==="Enter"){e.preventDefault();fin(true);}else if(e.key==="Escape"){e.preventDefault();fin(false);}};
   inp.addEventListener("blur",onBlur);inp.addEventListener("keydown",onKey);}
@@ -1591,7 +1591,7 @@ window.addEventListener("keydown",e=>{if(e.key==="Escape"&&$("tourOvl").classLis
 window.addEventListener("resize",()=>{if($("tourOvl").classList.contains("on"))tourShow();});
 if(!localStorage.getItem("ams.tour.seen"))setTimeout(()=>{try{tourStart();}catch(e){}},800);   // first visit → auto-run
 </script>
-<script src="lyric-core.js?v=110"></script>
+<script src="lyric-core.js?v=111"></script>
 <!-- Cloud sign-in (magic link) -->
 <div id="authPanel" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10000;align-items:center;justify-content:center">
   <div style="background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px;width:350px;max-width:92vw;box-shadow:0 14px 44px rgba(0,0,0,.55)">
@@ -1603,7 +1603,7 @@ if(!localStorage.getItem("ams.tour.seen"))setTimeout(()=>{try{tourStart();}catch
   </div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script src="songflow-cloud.js?v=110"></script>
+<script src="songflow-cloud.js?v=111"></script>
 <!-- BUG REPORTER markup lives inside .lyx (the lyric processor); this just wires it. -->
 <script>
 (function(){
