@@ -1345,7 +1345,7 @@ document.querySelectorAll("[data-help]").forEach(d=>d.onclick=()=>{if(typeof sho
 const AI={providers:{
   free:    {label:"Free open model", keyLS:null, models:[]},
   groq:    {label:"Groq (fast · free tier)", keyLS:"ams.ai.key.groq", models:["llama-3.3-70b-versatile","llama-3.1-8b-instant","gemma2-9b-it"]},
-  openrouter:{label:"OpenRouter (any model)", keyLS:"ams.ai.key.openrouter", models:["deepseek/deepseek-chat","openai/gpt-5.5","anthropic/claude-opus-4.8","meta-llama/llama-3.3-70b-instruct","google/gemini-2.0-flash-001"]},   // default = deepseek: cheap, fast, non-reasoning, excellent for lyrics
+  openrouter:{label:"OpenRouter (any model)", keyLS:"ams.ai.key.openrouter", models:["deepseek/deepseek-v4-flash","deepseek/deepseek-chat","openai/gpt-5.5","anthropic/claude-opus-4.8","meta-llama/llama-3.3-70b-instruct","google/gemini-2.0-flash-001"]},   // default = DeepSeek V4 Flash: cheaper than V3 chat AND #1-ranked for creative writing (2026-07); non-reasoning, fast
   anthropic:{label:"Anthropic", keyLS:"ams.ai.key.anthropic", models:["claude-sonnet-4-6","claude-opus-4-8","claude-haiku-4-5-20251001"]},
   openai:  {label:"OpenAI", keyLS:"ams.ai.key.openai", models:["gpt-4o","gpt-4o-mini","gpt-4.1","gpt-4.1-mini"]},
   google:  {label:"Google Gemini", keyLS:"ams.ai.key.google", models:["gemini-2.5-flash","gemini-2.5-pro","gemini-2.0-flash"]}
@@ -1354,6 +1354,10 @@ const AI_PROV_LS="ams.ai.provider", AI_MODEL_LS="ams.ai.model.";
 // migrate the old single Anthropic key into the new per-provider slot
 if(!localStorage.getItem("ams.ai.key.anthropic")&&localStorage.getItem("ams.anthropic.key"))
   localStorage.setItem("ams.ai.key.anthropic",localStorage.getItem("ams.anthropic.key"));
+// default-model upgrade (v111): deepseek-chat was the OLD default — browsers that saved it get
+// moved to V4 Flash (cheaper + better creative ranking). It stays in the list to re-pick deliberately.
+if(localStorage.getItem(AI_MODEL_LS+"openrouter")==="deepseek/deepseek-chat")
+  localStorage.setItem(AI_MODEL_LS+"openrouter","deepseek/deepseek-v4-flash");
 function aiKeyOf(p){const prov=AI.providers[p];return prov&&prov.keyLS?localStorage.getItem(prov.keyLS):null;}
 function aiModelOf(p){return localStorage.getItem(AI_MODEL_LS+p)||(AI.providers[p]&&AI.providers[p].models[0])||"";}
 async function aiErr(res,p){let t="";try{t=await res.text();}catch(e){}
@@ -1386,7 +1390,7 @@ async function callLLM({provider,model,system,user,maxTokens=600}){
       if(res.ok){
         const d=await res.json();
         const ch=(d.choices&&d.choices[0])||{}; const txt=((ch.message&&ch.message.content)||"").trim();
-        if(!txt){const fr=ch.finish_reason||"none";throw new Error(`the model returned no text (finish_reason: ${fr}${fr==="length"?" — it hit the token limit, likely a reasoning model; raise the limit or pick a faster model like deepseek/deepseek-chat":""})`);}
+        if(!txt){const fr=ch.finish_reason||"none";throw new Error(`the model returned no text (finish_reason: ${fr}${fr==="length"?" — it hit the token limit, likely a reasoning model; raise the limit or pick a faster model like deepseek/deepseek-v4-flash":""})`);}
         return txt;
       }
       let bt=""; try{bt=await res.text();}catch(e){}
@@ -1394,7 +1398,7 @@ async function callLLM({provider,model,system,user,maxTokens=600}){
       // with "can only afford N". Retry ONCE within that budget — a few short bars need only ~150 tokens.
       if(res.status===402&&attempt===0){const m=bt.match(/afford\s+(\d+)/i);if(m){budget=Math.max(64,parseInt(m[1],10)-16);continue;}}
       if(res.status===401||res.status===403){const ks=AI.providers[provider]&&AI.providers[provider].keyLS;if(ks)localStorage.removeItem(ks);throw new Error(`${lbl} key rejected (${res.status}) — set it again with the Key button.`);}
-      if(res.status===402)throw new Error(`${lbl}: not enough balance for this request. Add credits, or switch to a cheaper model like deepseek/deepseek-chat (paste it in the model box).`);
+      if(res.status===402)throw new Error(`${lbl}: not enough balance for this request. Add credits, or switch to a cheaper model like deepseek/deepseek-v4-flash (paste it in the model box).`);
       throw new Error(`${lbl} error ${res.status}: ${(bt||"").slice(0,160)}`);
     }
   }
