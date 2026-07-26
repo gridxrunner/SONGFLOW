@@ -1343,7 +1343,7 @@ document.querySelectorAll("[data-help]").forEach(d=>d.onclick=()=>{if(typeof sho
    own Anthropic / OpenAI / Google key — stored ONLY in this browser, sent only to that
    provider. Each provider has a tiny request/response adapter. ---- */
 const AI={providers:{
-  free:    {label:"Free open model", keyLS:null, models:[]},
+  free:    {label:"Songflow — included credits", keyLS:null, models:[]},   // routed through /api/generate (server-held key + per-user metering)
   groq:    {label:"Groq (fast · free tier)", keyLS:"ams.ai.key.groq", models:["llama-3.3-70b-versatile","llama-3.1-8b-instant","gemma2-9b-it"]},
   openrouter:{label:"OpenRouter (any model)", keyLS:"ams.ai.key.openrouter", models:["deepseek/deepseek-v4-flash","deepseek/deepseek-chat","openai/gpt-5.5","anthropic/claude-opus-4.8","meta-llama/llama-3.3-70b-instruct","google/gemini-2.0-flash-001"]},   // default = DeepSeek V4 Flash: cheaper than V3 chat AND #1-ranked for creative writing (2026-07); non-reasoning, fast
   anthropic:{label:"Anthropic", keyLS:"ams.ai.key.anthropic", models:["claude-sonnet-4-6","claude-opus-4-8","claude-haiku-4-5-20251001"]},
@@ -1410,9 +1410,47 @@ async function callLLM({provider,model,system,user,maxTokens=600}){
     const d=await res.json();const cand=(d.candidates&&d.candidates[0])||{};
     return ((cand.content&&cand.content.parts)||[]).map(p=>p.text||"").join("").trim();
   }
-  if(provider==="free")throw new Error("The free open-model engine isn't connected yet — pick Anthropic, OpenAI, or Google and add your key for now.");
+  // INCLUDED CREDITS: routed through our own server (/api/generate), which holds the API key and
+  // meters the signed-in user's balance. No key ever reaches the browser; sign-in identifies who to meter.
+  if(provider==="free"){
+    let tok=null;
+    try{ if(window.SBClient){const {data}=await window.SBClient.auth.getSession(); tok=data&&data.session&&data.session.access_token;} }catch(e){}
+    if(!tok)throw new Error("Sign in (top-right) to use your included credits — or add your own key with a different engine.");
+    const res=await fetch("/api/generate",{method:"POST",
+      headers:{"content-type":"application/json",Authorization:"Bearer "+tok},
+      body:JSON.stringify({system,user,maxTokens})});
+    let d={};try{d=await res.json();}catch(e){}
+    if(!res.ok)throw new Error(d.error||`Generation failed (${res.status}).`);
+    if(d.balance!=null&&typeof renderCredits==="function")renderCredits(d.balance);
+    return (d.text||"").trim();
+  }
   throw new Error("Unknown engine.");
 }
+/* credit meter — reads the user's own row (RLS lets them see only their balance) */
+let _credBal=null;
+function renderCredits(bal){
+  if(bal!=null)_credBal=Number(bal);
+  const el=$("credMeter");if(!el)return;
+  const isFree=(($("aiProvider")&&$("aiProvider").value)||"free")==="free";
+  if(!isFree||_credBal==null){el.style.display="none";return;}
+  el.style.display="";
+  const low=_credBal<=0.5;
+  el.innerHTML=`<span style="opacity:.7">Credits</span> <b style="color:${_credBal<=0?"var(--danger)":low?"#ffd43b":"var(--accent2)"}">$${_credBal.toFixed(2)}</b>`;
+  el.title=_credBal<=0?"Out of credits — add your own key with another engine to keep going."
+    :"Your included Songflow credits. Generations draw from this.";
+}
+async function refreshCredits(){
+  try{
+    if(!window.SBClient)return;
+    const {data}=await window.SBClient.auth.getSession();
+    const uid=data&&data.session&&data.session.user&&data.session.user.id;
+    if(!uid){_credBal=null;renderCredits();return;}
+    const {data:rows}=await window.SBClient.from("credits").select("balance").eq("user_id",uid).limit(1);
+    renderCredits(rows&&rows.length?Number(rows[0].balance):0);
+  }catch(e){}
+}
+window.addEventListener("sf-auth",()=>{setTimeout(refreshCredits,300);});   // login/logout → re-read
+setTimeout(refreshCredits,1200);                                            // initial load
 /* engine selector UI wiring */
 function aiSyncUI(){
   const sel=$("aiProvider");if(!sel)return;const p=sel.value,prov=AI.providers[p];
@@ -1423,12 +1461,13 @@ function aiSyncUI(){
   if(!free&&$("aiModel"))$("aiModel").value=aiModelOf(p);
   const note=$("ideaNote");
   if(note){
-    if(free)note.innerHTML="<b>Free</b> open-model engine — no key needed. <i>(Hosting is being wired up. For now pick <b>Groq</b> below — it has a free tier and is fast — and add your own key.)</i>";
+    if(free)note.innerHTML="<b>Included credits</b> — no key needed. Just <b>sign in</b> (top-right) and generate; each project draws from your balance.";
     else note.innerHTML=aiKeyOf(p)?`Using your <b>${prov.label}</b> key (stored only in this browser).`:`Add your <b>${prov.label}</b> API key with the &#128273; Key button — stored only in this browser, you pay ${prov.label} directly.`;
   }
+  if(typeof renderCredits==="function")renderCredits();
 }
 if($("aiProvider")){
-  $("aiProvider").value=localStorage.getItem(AI_PROV_LS)||"groq";   // a working keyed provider by default, not the not-yet-wired "free"
+  $("aiProvider").value=localStorage.getItem(AI_PROV_LS)||"free";   // included credits are the default experience now that the proxy is live
   $("aiProvider").onchange=()=>{localStorage.setItem(AI_PROV_LS,$("aiProvider").value);aiSyncUI();};
   if($("aiModel"))$("aiModel").onchange=()=>{const p=$("aiProvider").value;if(p!=="free")localStorage.setItem(AI_MODEL_LS+p,$("aiModel").value.trim());};
   if($("aiKey"))$("aiKey").onclick=async()=>{

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Songflow — Lyric Studio</title>
-<link rel="stylesheet" href="ams.css?v=112">
+<link rel="stylesheet" href="ams.css?v=113">
 <style>
   /* standalone shell: no rail/drawer; the page fills the window */
   body{display:block}
@@ -431,10 +431,10 @@
         <div class="muted" id="forceNote" style="margin-top:4px"></div>
         <div class="frow" style="margin-top:8px"><button class="toggle" id="sylForceTog" title="Off = match the prior bars (default). On = force this many syllables per generated bar (also flags overs in orange while you write)."><span class="k"></span></button><span class="muted" style="flex:1">Force syllables / bar <span style="opacity:.6">(else match)</span></span><input id="sylTarget" class="numv" type="number" min="1" max="32" placeholder="—" disabled></div>
         </div>
-        <div class="lab" style="margin-top:9px">Engine</div>
+        <div class="lab" style="margin-top:9px;display:flex;align-items:center;gap:6px"><span style="flex:1">Engine</span><span id="credMeter" class="rangeval" style="display:none"></span></div>
         <div style="display:flex;gap:7px;align-items:center">
           <select class="inp" id="aiProvider" style="flex:1" title="Which AI writes the lyrics. Free uses a hosted open model; the others use YOUR own API key (stored only in this browser, you pay your provider).">
-            <option value="free">Free — open model</option>
+            <option value="free">Songflow — included credits</option>
             <option value="groq">Groq — your key (free tier · fast)</option>
             <option value="openrouter">OpenRouter — your key (any model)</option>
             <option value="anthropic">Anthropic — your key</option>
@@ -647,11 +647,11 @@ $("helpClose").onclick=()=>showHelp(false);
 $("helpModal").addEventListener("click",e=>{if(e.target===$("helpModal"))showHelp(false);});
 document.addEventListener("keydown",e=>{if(e.key==="Escape")showHelp(false);});
 </script>
-<script src="ams-timeline.js?v=112"></script>
-<script src="ams-vowels.js?v=112"></script>
-<script src="ams-pron.js?v=112"></script>
-<script src="ams-bpm.js?v=112"></script>
-<script src="ams-sections.js?v=112"></script>
+<script src="ams-timeline.js?v=113"></script>
+<script src="ams-vowels.js?v=113"></script>
+<script src="ams-pron.js?v=113"></script>
+<script src="ams-bpm.js?v=113"></script>
+<script src="ams-sections.js?v=113"></script>
 <script>
 const doc=$("doc"),gut=$("gut");
 // keep the gutter (line #, syllables, rhyme vowel) locked to the lyric scroll — they share the
@@ -1591,7 +1591,7 @@ window.addEventListener("keydown",e=>{if(e.key==="Escape"&&$("tourOvl").classLis
 window.addEventListener("resize",()=>{if($("tourOvl").classList.contains("on"))tourShow();});
 if(!localStorage.getItem("ams.tour.seen"))setTimeout(()=>{try{tourStart();}catch(e){}},800);   // first visit → auto-run
 </script>
-<script src="lyric-core.js?v=112"></script>
+<script src="lyric-core.js?v=113"></script>
 <!-- Cloud sign-in (magic link) -->
 <div id="authPanel" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10000;align-items:center;justify-content:center">
   <div style="background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px;width:350px;max-width:92vw;box-shadow:0 14px 44px rgba(0,0,0,.55)">
@@ -1603,7 +1603,7 @@ if(!localStorage.getItem("ams.tour.seen"))setTimeout(()=>{try{tourStart();}catch
   </div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script src="songflow-cloud.js?v=112"></script>
+<script src="songflow-cloud.js?v=113"></script>
 <!-- BUG REPORTER markup lives inside .lyx (the lyric processor); this just wires it. -->
 <script>
 (function(){
