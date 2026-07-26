@@ -1445,8 +1445,13 @@ async function refreshCredits(){
     const {data}=await window.SBClient.auth.getSession();
     const uid=data&&data.session&&data.session.user&&data.session.user.id;
     if(!uid){_credBal=null;renderCredits();return;}
-    const {data:rows}=await window.SBClient.from("credits").select("balance").eq("user_id",uid).limit(1);
-    renderCredits(rows&&rows.length?Number(rows[0].balance):0);
+    // read OUR OWN row (RLS guarantees only ours): allowance = cap - spent.
+    // The shared-pool ceiling is enforced server-side; the proxy returns the authoritative
+    // figure after each generation, so the meter self-corrects if the pool runs low.
+    const {data:rows}=await window.SBClient.from("credits").select("cap,spent,allowed").eq("user_id",uid).limit(1);
+    if(!rows||!rows.length){renderCredits(0);return;}
+    const r=rows[0];
+    renderCredits(r.allowed===false?0:Math.max(0,(Number(r.cap)||0)-(Number(r.spent)||0)));
   }catch(e){}
 }
 window.addEventListener("sf-auth",()=>{setTimeout(refreshCredits,300);});   // login/logout → re-read

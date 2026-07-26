@@ -60,21 +60,22 @@ export async function onRequestPost({ request, env }) {
     "content-type": "application/json"
   };
 
-  // ---- balance check BEFORE spending the founder's money ----
+  // ---- allowance check BEFORE spending the founder's money ----
+  // remaining = min(this user's cap - what they've spent, the shared pool balance).
+  // The pool is the hard ceiling: total spend can never exceed what was funded,
+  // no matter how many accounts sign up.
   let balance = 0;
   try {
-    const r = await fetch(`${env.SUPABASE_URL}/rest/v1/credits?user_id=eq.${userId}&select=balance`, { headers: sbHeaders });
-    const rows = r.ok ? await r.json() : [];
-    if (rows.length) balance = Number(rows[0].balance) || 0;
-    else {
-      // first request from a user whose row wasn't created by the signup trigger — grant the default
-      const ins = await fetch(`${env.SUPABASE_URL}/rest/v1/credits`, {
-        method: "POST", headers: { ...sbHeaders, Prefer: "return=representation" },
-        body: JSON.stringify({ user_id: userId, email })
-      });
-      const made = ins.ok ? await ins.json() : [];
-      balance = made.length ? Number(made[0].balance) || 0 : 0;
-    }
+    // make sure the user has a row (in case the signup trigger didn't fire)
+    await fetch(`${env.SUPABASE_URL}/rest/v1/credits`, {
+      method: "POST", headers: { ...sbHeaders, Prefer: "resolution=ignore-duplicates" },
+      body: JSON.stringify({ user_id: userId, email })
+    });
+    const r = await fetch(`${env.SUPABASE_URL}/rest/v1/rpc/credit_remaining`, {
+      method: "POST", headers: sbHeaders, body: JSON.stringify({ p_user: userId })
+    });
+    if (!r.ok) return json({ error: "Couldn't read your credit balance. Try again." }, 503);
+    balance = Number(await r.json()) || 0;
   } catch (e) {
     return json({ error: "Couldn't read your credit balance. Try again." }, 503);
   }
