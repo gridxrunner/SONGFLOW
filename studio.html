@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Songflow — Lyric Studio</title>
-<link rel="stylesheet" href="ams.css?v=114">
+<link rel="stylesheet" href="ams.css?v=115">
 <style>
   /* standalone shell: no rail/drawer; the page fills the window */
   body{display:block}
@@ -552,48 +552,67 @@
       <div class="hbody">
         <h4>The idea</h4>
         <p>Every bar is built from two things: <b>rhyming vowels</b> (the <em>anchors</em>) and the <b>consonants</b> between them (the <em>rhythm</em>). Rhyme = the same vowel sound landing on the same spot across bars. The whole tool is here to help you place those anchors and fill the rhythm between them.</p>
+        <p class="muted">This page covers <b>writing, arranging and playback</b>. The <b>Generate</b> panel has its own section at the bottom.</p>
 
-        <h4>Writing flow</h4>
+        <h4>Getting started</h4>
         <ul>
-          <li><b>Gutter (left numbers):</b> each line shows <code>bar № │ syllables  VOWEL</code> — the vowel is that line's ending rhyme sound.</li>
-          <li><b>Bar guidance (right panel):</b> on <b>even</b> bars it tells you to <em>complete the couplet</em> — match the anchor vowel and syllable count of the bar above. On <b>odd</b> bars it offers <em>fresh, contrasting</em> vowels to open a new scheme. It warns once a scheme runs past 8 bars.</li>
-          <li><b>Cross-rhyme (ABAB):</b> a rhyme doesn't have to answer the very next bar. When you set vowel <em>A</em> on bar 1, a different vowel <em>B</em> on bar 2, then answer <em>A</em> on bar 3 and <em>B</em> on bar 4, you get an <em>alternating</em> (cross) rhyme — the pair lands every other bar. Because the pattern repeats, even a loose / <em>family</em> rhyme (e.g. <b>shoes</b>→<b>clothes</b>→…→<b>phone</b>) reads as deliberate and satisfying. Once the tool sees an A-B-A run it prompts the <b>B</b> answer, and the scheme map rings the every-other-bar pair in white.</li>
-          <li><b>Rhyme countdown:</b> as you type, a small chip follows your cursor showing how many syllables until your next rhyme should land, and which vowel to hit. It counts down and disappears when you reach it.</li>
-          <li><b>🌈 Rhyme colors:</b> end-words that rhyme share a color; dotted underlines mark internal echoes.</li>
-          <li><b>Word chips:</b> Near/Slant rhymes and the guidance chips — click to copy a word.</li>
+          <li><b>Projects.</b> The start screen lists your projects, a <b>Real Crews demo</b> (a finished song made with this exact workflow &mdash; open it to see how a project is put together), and <b>&#65291; New project</b>. Everything autosaves in this browser as you work.</li>
+          <li><b>&#128190; Save project / &#128194; Open project.</b> Saves one <code>.songflow</code> file holding the audio, lyrics, arrangement and every setting &mdash; a real backup you can move between computers or send to someone.</li>
+          <li><b>Sign in</b> (top right) is optional. One-tap email link, no password. It syncs your projects to the cloud so they follow you across devices, and it carries your <b>included AI credits</b>.</li>
+          <li><b>&#128030; Report bug</b> (bottom right of the editor) &mdash; hit it the moment something breaks or confuses you. It opens your email with the page and version already filled in.</li>
         </ul>
 
-        <h4>Shaping & generating</h4>
+        <h4>Writing</h4>
         <ul>
-          <li><b>Force rhyming vowel(s) (in Generate):</b> an <em>optional override</em>, off by default. Flip a switch to make the generator land every new bar on a specific vowel — even when it breaks the natural scheme. For deliberate effects/special cases; leave off to let the scheme lead.</li>
-          <li><b>Generation feel (the pad):</b> drag the dot. Left↔right sets phrasing density (packed ↔ sustained); up↔down sets how strictly it stays on-theme vs. lets sound lead the meter. Lower = looser meaning buys a tighter rhythm; the app then enforces matching syllables on paired bars and re-asks the AI if a pair drifts.</li>
-          <li><b>Generate lyrics:</b> writes new bars that extend your scheme. Pick an <b>Engine</b>: a free hosted open model, or bring your own <b>Anthropic / OpenAI / Google</b> key (stored only in this browser — you pay that provider). Set the key with the &#128273; Key button and choose a model.</li>
-          <li><b>Export .txt:</b> save the document with its title, BPM and key.</li>
+          <li><b>Gutter (left numbers):</b> each line shows <code>bar &#8470; &#9474; syllables  VOWEL</code> &mdash; the vowel is that line's ending rhyme sound. A <code>&middot;</code> instead of a count means an <b>empty bar</b>.</li>
+          <li><b>Bars and empty bars.</b> Inside a region with a bar count (e.g. <code>[Chorus - 8 bars]</code>) <b>every line is a bar</b>, including blank ones. Leave bars 5&ndash;7 blank and start a pickup on bar 8 and that is exactly where it lands. Type past the count and the tag updates itself. In a region with <em>no</em> count, bars are just your written lines and blank lines are only spacing.</li>
+          <li><b>Fold a region:</b> <b>right-click its tag</b> to collapse everything under it (the tag shows how many bars are hidden); right-click again to expand. Nothing is deleted &mdash; it only clears clutter on a long song.</li>
+          <li><b>Cross-rhyme (ABAB):</b> a rhyme need not answer the very next bar. Set vowel <em>A</em> on bar 1, <em>B</em> on bar 2, then answer <em>A</em> on bar 3 and <em>B</em> on bar 4 &mdash; the pair lands every other bar. Because the pattern repeats, even a loose / <em>family</em> rhyme reads as deliberate. The scheme map rings the every-other-bar pair in white.</li>
+          <li><b>Pickups.</b> Trailing throwaway syllables after your rhyme (&ldquo;&hellip;yeah&rdquo;, &ldquo;&hellip;and I&rdquo;) flow into the next bar and do <em>not</em> count toward the bar's syllable target &mdash; free room for meaning. Mark one with a comma: in <em>&ldquo;&hellip;on the line, He says&rdquo;</em> the rhyme is <b>line</b>, not &ldquo;says&rdquo;.</li>
+          <li><b>&#127752; Rhyme colors:</b> end-words that rhyme share a color; dotted underlines mark internal echoes. <b>Word chips</b> (Near / Slant) &mdash; click to insert at your cursor, Shift+click to copy.</li>
+          <li><b>Guidance</b> (toggle in the Write header, off by default) coaches each bar: complete the couplet, or open a fresh vowel.</li>
+          <li><b>&#8634; Undo / &#8635; Redo</b> cover everything &mdash; text, BPM, anchor, region moves, generations. <b>&#11015; Export .txt</b> saves the words with title, BPM and key.</li>
         </ul>
 
         <h4>Arrangement timeline</h4>
         <ul>
           <li><b>One tag, two names.</b> A <code>[tag]</code> with lyrics under it is a <b>Lyrics Region tag</b> in the editor; the <em>same tag</em> shows on the timeline as an <b>arrangement region tag</b>. Two views of one thing. A tag can also carry <em>no lyrics</em> (e.g. <code>[Instrumental break]</code>): it still appears in the editor, you just give it a <b>bar length</b>.</li>
           <li><b>Bar length.</b> Tags <em>with</em> lyrics size themselves automatically (1 line = 1 bar). For tags <em>without</em> lyrics, set the length from the tag menu (4 / 8 / 16 / 32 / custom). Open the menu by <b>clicking the tag in the lyric editor</b>, or <b>Alt+Click the region</b> on the timeline. The menu also has Rename and Delete.</li>
-          <li><b>Beat grid &amp; Anchor.</b> The grid is synced to the BPM. To lock it to your song: move the <b>play marker</b> to the first downbeat (turn <b>Snap</b> off for precision), then press <b>⚓ Anchor</b> — bar 1 (and the metronome) snap to the marker and the grid pivots from there. Bars <em>before</em> the anchor are numbered 0, −1, −2… so you can see the lead-in.</li>
           <li><b>Slip</b> is an offset <em>relative to the anchor</em> (neutral 0 = right on it). Nudge with <b>◀ ▶</b> (±10ms, Shift = ±1ms); for a big shift, toggle the <b>⇄ slip-drag</b> button and drag the numbered ruler. Click the readout to reset to neutral.</li>
           <li><b>Snap.</b> The playhead and selections snap to the grid. Pick the resolution next to the <b>Snap</b> toggle: <b>whole note (default) / ½ / ¼ (beat) / ⅛ / 1⁄16</b>.</li>
-          <li><b>Region colors.</b> A region that contains lyrics shows <b style="color:var(--accent2)">teal</b>; an arrangement-only region with no lyrics (e.g. <code>[Instrumental break]</code>) shows <b style="color:#ff8a4c">amber</b>.</li>
-          <li><b>Drag</b> a region to reorder it — an insert line shows where it lands, and the rest ripple aside. <b>Ctrl+Click</b> several, then drag to move them as a <b>block</b>.</li>
-          <li><b>Selecting with gaps:</b> Ctrl+Click two non-adjacent regions and only <em>those</em> highlight on the waveform — the regions between them stay un-highlighted. They get auto-added only when you run an action that needs a continuous run: <b>Loop selected</b>, or Copy / Cut / Duplicate.</li>
-          <li><b>🔁 Loop selected</b> loops the highlighted regions (they turn red, gaps filled). <b>🗑 Delete region</b> (or the Delete key) removes a region; lyric-bearing ones warn first, and <b>Ctrl+Z</b> undoes it.</li>
-          <li><b>Transport keys:</b> <b>Space</b> = play / <b>stop</b> (the marker returns to where playback started). <b>Enter</b> = play / <b>pause in place</b> (the marker stays put). The ▶ button pauses in place too.</li>
-          <li><b>▣ Scratch pad:</b> a composite lane for chopping audio — closed by default. Hit <b>▣ Scratch</b> to open it, copy a waveform span, and paste it in to audition or export. Close it anytime.</li>
-          <li><b>Resize:</b> drag the handle just under the timeline to make the waveform taller. <b>🔔 Click</b> = metronome. <b>☰ Auto sections</b> detects sections from a loaded track.</li>
+          <li><b>Region colors.</b> A region that contains lyrics shows bright <b style="color:var(--accent2)">teal</b>; an arrangement-only region with no lyrics (e.g. <code>[Instrumental break]</code>) shows a <b style="color:#62a6a3">muted teal</b>.</li>
+          <li><b>Drag</b> a region to reorder it &mdash; an insert line shows where it lands. <b>Ctrl+Click</b> several, or <b>Shift+Click</b> to add a whole range, then drag to move them as a <b>block</b>. Regions never overlap and never slide before the start of the track.</li>
+          <li><b>&#128257; Loop selected</b> loops the highlighted regions. <b>&#128465; Delete region</b> (or the Delete key) removes one; lyric-bearing regions warn first, and <b>Ctrl+Z</b> undoes it.</li>
+          <li><b>&#9635; Scratch pad:</b> a composite lane for chopping audio &mdash; closed by default. Hit <b>&#9635; Scratch</b> to open it, copy a waveform span, and paste it in to audition or export.</li>
+          <li><b>Resize:</b> drag the handle just under the timeline to make the waveform taller. <b>&#128276; Click</b> = metronome. <b>&#9776; Auto sections</b> detects sections from a loaded track. <b>&#12316; Warp</b> drops pins to bend the grid for a track that drifts off a constant tempo.</li>
         </ul>
 
-        <h4>Audio editing & inpaint</h4>
+        <h4>Playing back</h4>
         <ul>
-          <li><b>Right-click the timeline → Add region → 4 / 8 / 16 bars</b> inserts that many <b>blank bars</b> and ripple-pushes the rest of the song to the right (nothing is deleted). Re-fit your <code>[tags]</code> afterward — audio edits don't move them.</li>
-          <li>The <b>🎨 Inpaint</b> panel opens on the new region: type a genre/vibe and pick a model (ACE-Step by default). The fill renders on the <b>Songflow audio engine</b> (a cloud worker) — until that's connected the region stays silent; everything else is fully offline.</li>
+          <li><b>Two markers.</b> The <b style="color:#ffbf47">amber cue</b> is where playback starts and returns to &mdash; it stays put. The <b style="color:var(--accent2)">teal playhead</b> is the one that moves while the song plays. Click the timeline to set the cue.</li>
+          <li><b>Karaoke highlight.</b> As the song plays, the bar being sung lights up in the editor and empties left-to-right in time with the music, so you can see instantly whether your words line up with the track.</li>
+          <li><b>Space belongs to one panel at a time.</b> Click the timeline and Space plays; click into the lyrics and Space types. The pill under the timeline shows which mode you are in, and <b>Tab</b> flips it. <b>Enter</b> plays / pauses in place.</li>
+          <li><b>&#128279; Link cursor</b> (on by default): clicking the timeline also moves your lyric cursor to that bar. Turn it off if you would rather the cursor stay where you left it.</li>
+          <li><b>Beat grid &amp; Anchor.</b> Move the play marker to the first downbeat (turn <b>Snap</b> off for precision) and press <b>&#9875; Anchor</b> &mdash; bar 1 and the metronome pivot to that point. Bars before the anchor count &minus;1, &minus;2&hellip; so you can write a pickup into the song.</li>
         </ul>
 
-        <p class="muted">Everything runs in your browser — nothing is uploaded. Documents autosave here.</p>
+        <h4>Generate &amp; Conform</h4>
+        <ul>
+          <li><b>Write a&hellip;</b> pick Verse, Hook, Pre-Chorus, Bridge, Intro or Outro (or Auto, which follows the section your cursor is in), then how many bars.</li>
+          <li><b>Genre preset</b> moves the <b>Lyrics Pattern Table</b> to that genre's sweet spot. The table itself: left&harr;right is packed &harr; sustained phrasing; up&harr;down is stay on-theme &harr; let the sound lead the meter (looser meaning buys tighter rhythm).</li>
+          <li><b>Rhyme planner</b> (on by default) chooses the rhyme sounds up front, from your own rhyme palette, before writing a word. It is what stops the AI riding one vowel for eight bars or burying the rhyme in a pickup.</li>
+          <li><b>&#8627; Conform</b> turns raw text into lyrics. Paste anything &mdash; notes, a rant, a poem, a voice-memo transcript &mdash; and it works out what you are trying to say, keeps your voice and slang, and rewrites it as bars that obey the rhythm and rhyme rules above.</li>
+          <li><b>Engine.</b> Signed in, you generate on your <b>included credits</b> with no key and no setup; the meter shows what is left. You can instead bring your own <b>OpenRouter / Anthropic / OpenAI / Google</b> key &mdash; it is stored only in this browser and you pay that provider directly.</li>
+          <li><b>Highlight bars &rarr; Replace</b> rewrites just those bars to the same rhythm and rhyme skeleton, with dials for how strictly to match.</li>
+        </ul>
+
+        <h4>Audio editing &amp; inpaint</h4>
+        <ul>
+          <li><b>Right-click the timeline &rarr; Add region &rarr; 4 / 8 / 16 bars</b> inserts that many <b>blank bars</b> and pushes the rest of the song right (nothing is deleted).</li>
+          <li>The <b>&#127912; Inpaint</b> panel opens on the new region: type a genre/vibe and pick a model. The fill renders on the <b>Songflow audio engine</b> (a cloud worker) &mdash; until that is connected the region stays silent; everything else works offline.</li>
+        </ul>
+
+        <p class="muted">Your work saves in this browser as you type. Sign in to sync it to the cloud, or use <b>&#128190; Save project</b> for a file you keep yourself.</p>
       </div>
     </div>
   </div>
@@ -647,11 +666,11 @@ $("helpClose").onclick=()=>showHelp(false);
 $("helpModal").addEventListener("click",e=>{if(e.target===$("helpModal"))showHelp(false);});
 document.addEventListener("keydown",e=>{if(e.key==="Escape")showHelp(false);});
 </script>
-<script src="ams-timeline.js?v=114"></script>
-<script src="ams-vowels.js?v=114"></script>
-<script src="ams-pron.js?v=114"></script>
-<script src="ams-bpm.js?v=114"></script>
-<script src="ams-sections.js?v=114"></script>
+<script src="ams-timeline.js?v=115"></script>
+<script src="ams-vowels.js?v=115"></script>
+<script src="ams-pron.js?v=115"></script>
+<script src="ams-bpm.js?v=115"></script>
+<script src="ams-sections.js?v=115"></script>
 <script>
 const doc=$("doc"),gut=$("gut");
 // keep the gutter (line #, syllables, rhyme vowel) locked to the lyric scroll — they share the
@@ -1591,7 +1610,7 @@ window.addEventListener("keydown",e=>{if(e.key==="Escape"&&$("tourOvl").classLis
 window.addEventListener("resize",()=>{if($("tourOvl").classList.contains("on"))tourShow();});
 if(!localStorage.getItem("ams.tour.seen"))setTimeout(()=>{try{tourStart();}catch(e){}},800);   // first visit → auto-run
 </script>
-<script src="lyric-core.js?v=114"></script>
+<script src="lyric-core.js?v=115"></script>
 <!-- Cloud sign-in (magic link) -->
 <div id="authPanel" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10000;align-items:center;justify-content:center">
   <div style="background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px;width:350px;max-width:92vw;box-shadow:0 14px 44px rgba(0,0,0,.55)">
@@ -1603,7 +1622,7 @@ if(!localStorage.getItem("ams.tour.seen"))setTimeout(()=>{try{tourStart();}catch
   </div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script src="songflow-cloud.js?v=114"></script>
+<script src="songflow-cloud.js?v=115"></script>
 <!-- BUG REPORTER markup lives inside .lyx (the lyric processor); this just wires it. -->
 <script>
 (function(){
