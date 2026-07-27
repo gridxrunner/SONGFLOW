@@ -36,6 +36,7 @@ function switchDoc(i){
   if(rhymeOn)paintRhymes();else update();
   syncDocSel();
   if(typeof restoreProjectState==="function")restoreProjectState();   // bring back the new project's audio + settings
+  setTimeout(()=>{try{materializeSlots();}catch(e){}try{autoFoldEmptyRegions();}catch(e){}},80);   // pad + fold wordless regions
 }
 $("docSel").onchange=()=>switchDoc(+$("docSel").value);
 $("docNew").onclick=async()=>{
@@ -223,7 +224,78 @@ function update(){
   const d=docsState.docs[docsState.active];d.text=doc.innerText;saveDocs();
   renderStats();renderSchemeMap();refreshLinePanels();
   try{updateFlowHud();}catch{}
-  clearTimeout(tagTimer);tagTimer=setTimeout(()=>{try{syncTagCounts();}catch{}try{tagRegions();}catch{}},600);
+  clearTimeout(tagTimer);tagTimer=setTimeout(()=>{
+    // pad regions up to their bar count first; if that rewrote the doc it re-enters update(),
+    // so skip the tag-count sync this cycle and let the next settle handle it.
+    let padded=false; try{padded=materializeSlots();}catch{}
+    if(!padded){try{syncTagCounts();}catch{}}
+    try{tagRegions();}catch{}
+  },600);
+}
+/* MATERIALIZE SLOTS — a region tagged "- N bars" always shows N lines beneath it, so the writer
+   can click bar 6 of 8 and type straight into it. Runs on every settle (including project LOAD,
+   which was the gap: _writeDoc only materialized on structural edits, so a saved 8-bar break
+   reopened with however many lines it happened to have). Pairs with syncTagCounts, which grows
+   the TAG when you type PAST N — together they keep lines == N in both directions. Idempotent. */
+let _matBusy=false;
+function materializeSlots(){
+  if(_matBusy)return false;
+  const lines=doc.innerText.split("\n");
+  const caret=(typeof caretOffset==="function")?caretOffset():null;
+  let caretLine=-1;
+  if(caret!=null){let n=0;for(let k=0;k<lines.length;k++){if(caret<=n+lines[k].length){caretLine=k;break;}n+=lines[k].length+1;}}
+  const out=[];let changed=false,addedBeforeCaret=0,i=0;
+  while(i<lines.length){
+    const t=lines[i].trim();
+    out.push(lines[i]);
+    if(isTag(t)){
+      const N=(typeof parseTagBars==="function")?parseTagBars(t.replace(/^\[|\]$/g,"")).bars:null;
+      let j=i+1;while(j<lines.length&&!isTag(lines[j].trim()))j++;
+      const body=lines.slice(i+1,j);
+      if(N!=null){
+        let last=body.length-1;while(last>=0&&!body[last].trim())last--;   // last real line
+        const slots=last+1;
+        for(let k=0;k<slots;k++)out.push(body[k]);
+        if(slots<N){
+          for(let p=slots;p<N;p++)out.push("");                            // pad up to N bar slots
+          changed=true;
+          if(caretLine>=j)addedBeforeCaret+=(N-slots);
+        }
+        if(j<lines.length)out.push("");                                    // exactly one separator before the next tag
+        if(body.length!==(slots+(j<lines.length?1:0)))changed=true;        // trailing-blank cleanup counts as a change
+      }else{ for(const b of body)out.push(b); }
+      i=j;continue;
+    }
+    i++;
+  }
+  if(!changed)return false;
+  _matBusy=true;
+  try{
+    doc.textContent=out.join("\n");
+    if(rhymeOn)paintRhymes();else update();
+    if(caret!=null){try{setCaret(Math.min(caret+addedBeforeCaret,doc.innerText.length));}catch(e){}}
+  }finally{_matBusy=false;}
+  return true;
+}
+/* On a freshly-opened project, fold any counted region that has NO words in it at all (a pure
+   instrumental / intro / outro). Materializing turns those into N blank lines, which is a wall of
+   empty space; folding them keeps the sheet readable. One-time per project — the fold state is
+   saved, so expanding one (right-click) sticks. */
+function autoFoldEmptyRegions(){
+  const d=docsState.docs[docsState.active]; if(!d||d.autoFolded)return;
+  const lines=doc.innerText.split("\n");
+  const folds=foldsGet(); let si=-1;
+  for(let i=0;i<lines.length;i++){
+    const t=lines[i].trim(); if(!isTag(t))continue;
+    si++;
+    const N=(typeof parseTagBars==="function")?parseTagBars(t.replace(/^\[|\]$/g,"")).bars:null;
+    if(N==null||N<4)continue;                                   // only worth folding a real block
+    let j=i+1,hasWords=false;
+    while(j<lines.length&&!isTag(lines[j].trim())){ if(lines[j].trim())hasWords=true; j++; }
+    if(!hasWords)folds.add(si);
+  }
+  d.autoFolded=true; foldsSave(folds);
+  if(rhymeOn)paintRhymes();
 }
 /* GROW-ONLY tag-count sync (founder rule): typing more bars directly below a "- N bars" tag
    auto-updates the tag's count (and so the timeline region). Never shrinks — deleting lines
@@ -1947,3 +2019,5 @@ syncDocSel();
 update();
 if(rhymeOn)paintRhymes();
 if(typeof restoreProjectState==="function")restoreProjectState();   // bring back this project's saved audio + settings on load
+// pad counted regions to their full bar count, then fold the wordless ones so the sheet stays readable
+setTimeout(()=>{try{materializeSlots();}catch(e){}try{autoFoldEmptyRegions();}catch(e){}},80);
