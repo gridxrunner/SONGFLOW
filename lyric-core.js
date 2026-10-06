@@ -32,6 +32,8 @@ function switchDoc(i){
   docsState.docs[docsState.active].text=doc.innerText;
   if(typeof saveProjectState==="function")saveProjectState();   // stash the current project's audio settings
   docsState.active=i;saveDocs();
+  undoStack.length=0;redoStack.length=0;typedSinceStructural=false;_syncUndoBtns();   // undo history belongs to the project it was made in
+  _genSeq++;if(typeof genGlowHide==="function")genGlowHide();if($("ideaGo"))$("ideaGo").disabled=false;   // a generation in flight must not land in this project
   doc.textContent=docsState.docs[i].text;selLine=-1;
   if(rhymeOn)paintRhymes();else update();
   syncDocSel();
@@ -62,8 +64,12 @@ $("docDel").onclick=()=>{
   docsState.docs.splice(docsState.active,1);
   if(!docsState.docs.length)docsState.docs.push({name:"Lyrics 1",text:"",updated:0});
   docsState.active=Math.min(docsState.active,docsState.docs.length-1);
-  saveDocs();doc.textContent=docsState.docs[docsState.active].text;selLine=-1;
+  saveDocs();
+  undoStack.length=0;redoStack.length=0;typedSinceStructural=false;_syncUndoBtns();   // the deleted project's undo history must not apply here
+  _genSeq++;if(typeof genGlowHide==="function")genGlowHide();if($("ideaGo"))$("ideaGo").disabled=false;
+  doc.textContent=docsState.docs[docsState.active].text;selLine=-1;
   if(rhymeOn)paintRhymes();else update();syncDocSel();
+  if(typeof restoreProjectState==="function")restoreProjectState();   // load the survivor's own audio, grid and positions
 };
 doc.textContent=docsState.docs[docsState.active].text;
 
@@ -170,10 +176,13 @@ function rhymeAnchorWord(line){
   return idx>=0?words[idx].replace(/[,;:]+$/,""):"";
 }
 
+/* rhyme families are keyed on the PHONETIC vowel class — the same engine as the gutter, the
+   pills and the scheme map — NOT on spelling. The old endVowelKey spelling key colored
+   "time"/"same" together and split "time"/"night"; one sound = one color everywhere now. */
 function rhymeFams(lines){
   const fams={};let next=0;const cnt={};
   for(const l of lines){const t=l.trim();if(!t||isTag(t))continue;
-    const key=endVowelKey(rhymeAnchorWord(t));if(!key)continue;
+    const key=vowelClass(rhymeAnchorWord(t));if(!key)continue;
     if(!(key in fams))fams[key]=next++;cnt[key]=(cnt[key]||0)+1;}
   return {fams,cnt};
 }
@@ -367,10 +376,11 @@ function paintRhymes(){
     // colour the RHYME ANCHOR token (last word before a trailing pickup), not necessarily the last word
     const wordToks=[];toks.forEach((w,i)=>{if(w.trim())wordToks.push(i);});
     const aIdx=rhymeAnchorIdx(wordToks.map(i=>toks[i]));const last=aIdx>=0?wordToks[aIdx]:-1;
-    return toks.map((w,i)=>{if(!w.trim())return w;const key=endVowelKey(w);
-      if(i===last)return key&&(key in fams)?`<span class="r${fams[key]%6}">${esc(w)}</span>`:esc(w);
+    return toks.map((w,i)=>{if(!w.trim())return w;const key=vowelClass(w);
+      // the color IS the vowel-class color (VC) — a word, its gutter pill and its scheme-map dot always match
+      if(i===last)return key&&(key in fams)?`<span class="rv" style="color:${VC[key]||"inherit"}">${esc(w)}</span>`:esc(w);
       const clean=w.toLowerCase().replace(/[^a-z]/g,"");
-      if(key&&(key in fams)&&cnt[key]>=2&&clean.length>=3&&!STOP.has(clean))return `<span class="r${fams[key]%6} in">${esc(w)}</span>`;
+      if(key&&(key in fams)&&cnt[key]>=2&&clean.length>=3&&!STOP.has(clean))return `<span class="in" style="color:${VC[key]||"inherit"}">${esc(w)}</span>`;
       return esc(w);}).join("");
   });
   doc.innerHTML=_applyFolds(parts,lines);update();
@@ -459,6 +469,7 @@ $("tagIns").onchange=()=>{
   if(typeof pushUndo==="function")pushUndo();
   const text=doc.innerText;
   let off=(typeof caretOffset==="function"&&caretOffset()!=null)?caretOffset():text.length;
+  if(off>0&&off<=text.length&&text[off-1]!=="\n"){const nl=text.indexOf("\n",off);off=nl<0?text.length:nl;}   // caret mid-line (or inside a tag) -> insert after that line, never split it
   let ins="["+v+"]";
   const before=text.slice(0,off),after=text.slice(off);
   if(before&&!before.endsWith("\n"))ins="\n"+ins;
@@ -469,8 +480,8 @@ $("tagIns").onchange=()=>{
   if(typeof manualBars!=="undefined"&&typeof tl!=="undefined"){
     const spb=(60/tl.bpm)*tl.beatsPerBar, go=tl.gridOffset||0;
     const phBar=Math.max(-go/spb, Math.round(((tl.playhead!=null?tl.playhead:0)-go)/spb));   // the play marker, in bars
-    if(!manualBars||!manualBars.length)manualBars=(tl.regions||[]).map(r=>Math.round(r.start/spb));   // whole-bar snap
-    manualBars.splice((before.match(/^\s*\[.+\]\s*$/gm)||[]).length,0,phBar);
+    const _tagN=t=>(t.match(/^\s*\[.*\]\s*$/gm)||[]).length, shown=window._secStartBars||[];
+    if(shown.length===_tagN(text)&&_tagN(next)===_tagN(text)+1){if(typeof _droppedPos!=="undefined")_droppedPos.length=0;manualBars=shown.map((v,k)=>(manualBars&&manualBars.length===shown.length&&manualBars[k]!=null)?manualBars[k]:v);manualBars.splice(_tagN(before),0,phBar);}   // layout out of step with the text → tagRegions places the new tag after its neighbour
   }
   doc.textContent=next;
   if(rhymeOn)paintRhymes();else update();
@@ -514,7 +525,9 @@ function acceptTag(k){
   let end=off;while(end<text.length&&text[end]!=="]"&&text[end]!=="\n")end++;
   if(text[end]==="]")end++;
   const before=text.slice(0,ctx.open),after=text.slice(end),ins="["+tag+"]";
-  if(typeof manualBars!=="undefined"&&manualBars)manualBars.splice((before.match(/^\s*\[.+\]\s*$/gm)||[]).length,0,null);
+  // accepting over an EXISTING tag (retyping its name) keeps the count — only a genuinely new tag gets a slot
+  const _tagN=t=>(t.match(/^\s*\[.*\]\s*$/gm)||[]).length;
+  // no manualBars splice here: tagRegions' carry-over reconciles the count change (and returns a re-picked tag home)
   doc.textContent=before+ins+after;
   if(rhymeOn)paintRhymes();else update();
   setCaret((before+ins).length);hideTagMenu();
@@ -564,6 +577,7 @@ function _undoSnap(){return {
 function _undoRestore(s){
   doc.textContent=s.text;
   if(typeof manualBars!=="undefined")manualBars=s.manualBars?s.manualBars.slice():null;
+  if(typeof _droppedPos!=="undefined")_droppedPos.length=0;   // the restored layout is the truth -- stale remembered positions must not override it
   if(s.bpm!==undefined&&typeof tl!=="undefined"&&tl.bpm!==s.bpm){tl.setTempo(s.bpm);if(typeof detectedBpm!=="undefined")detectedBpm=s.bpm;if(typeof renderBpmReadout==="function")renderBpmReadout();}
   if(s.ga!==undefined&&typeof gridAnchor!=="undefined"){gridAnchor=s.ga;gridSlip=s.gs;}
   if(s.warp!==undefined&&typeof warpMarkers!=="undefined"){warpMarkers=s.warp?s.warp.slice():[];if(typeof applyWarp==="function")applyWarp(false);}
@@ -639,6 +653,7 @@ function applyArrange(items){
   pushUndo();
   _writeDoc(pre, items.map(x=>blocks[x.i]));
   if(typeof manualBars!=="undefined")manualBars=items.map(x=>Math.round(x.startBar*1000)/1000); // positions, in new order (negative = before the anchor / bar 1)
+  if(typeof _droppedPos!=="undefined")_droppedPos.length=0;
   try{tagRegions();}catch{}
   if(typeof saveProjectState==="function")saveProjectState();   // persist the new region positions
   if(typeof tl!=="undefined"){tl.selRegions=[];tl.selRegion=-1;tl.sel=null;tl.render();}
@@ -683,7 +698,7 @@ function setRegionBars(idx,bars){
   blocks[idx].lines[0]=`[${pb.name} - ${bars} bars]`;
   _writeDoc(pre,blocks);                          // _writeDoc materializes the region to N slot lines
   // materialise ALL positions so nothing auto-repacks (intro + gaps stay exactly put)
-  manualBars=starts.slice();
+  manualBars=starts.slice();if(typeof _droppedPos!=="undefined")_droppedPos.length=0;
   manualBars[idx]=starts[idx];                                    // edited section keeps its start, grows right
   // push later sections forward only as far as needed to clear an overlap (cascade)
   let prevEnd=starts[idx]+bars;
@@ -768,12 +783,14 @@ function deleteSections(idxs){
   try{
     const spb=(60/tl.bpm)*tl.beatsPerBar;
     const cur=(tl.regions||[]).map(r=>Math.round(r.start/spb));
-    let base=(typeof manualBars!=="undefined"&&manualBars&&manualBars.length===blocks.length)?manualBars.slice():cur;
+    const shownAt=(window._secStartBars&&window._secStartBars.length===blocks.length)?window._secStartBars:cur;
+    let base=(typeof manualBars!=="undefined"&&manualBars&&manualBars.length===blocks.length)?manualBars.map((v,k)=>v!=null?v:shownAt[k]):cur;   // auto sections stay where they're shown
     if(base.length!==blocks.length)base=cur;
     mb=base.filter((_,k)=>!del.has(k));
   }catch(e){mb=null;}
   _writeDoc(pre, blocks.filter((_,k)=>!del.has(k)));
   if(typeof manualBars!=="undefined")manualBars=(mb&&mb.length)?mb:null;
+  if(typeof _droppedPos!=="undefined")_droppedPos.length=0;
   try{tagRegions();}catch{}
   if(typeof tl!=="undefined"){tl.selRegions=[];tl.selRegion=-1;tl.sel=null;tl.render();}
   if(typeof saveProjectState==="function")saveProjectState();
@@ -831,7 +848,7 @@ $("lExport").onclick=()=>{
 /* ---- stats ---- */
 function renderStats(){
   const lines=doc.innerText.split("\n");const secs=[];let curSec=null;const endV=[];
-  for(const l of lines){const t=l.trim();const m=t.match(/^\[(.+)\]$/);
+  for(const l of lines){const t=l.trim();const m=t.match(/^\[(.*)\]$/);
     if(m){curSec={label:m[1],bars:0,words:0,syls:0};secs.push(curSec);continue;}
     if(!t)continue;if(!curSec){curSec={label:"—",bars:0,words:0,syls:0};secs.push(curSec);}
     const ws=t.split(/\s+/);curSec.bars++;curSec.words+=ws.length;curSec.syls+=sylOfBar(t);
@@ -862,7 +879,7 @@ function renderStats(){
 function renderSchemeMap(){
   const el=$("schemeMap");if(!el)return;
   const lines=doc.innerText.split("\n");const secs=[];let cur=null;
-  for(const l of lines){const t=l.trim();const m=t.match(/^\[(.+)\]$/);
+  for(const l of lines){const t=l.trim();const m=t.match(/^\[(.*)\]$/);
     if(m){cur={label:m[1],bars:[]};secs.push(cur);}
     else if(t){if(!cur){cur={label:"—",bars:[]};secs.push(cur);}
       cur.bars.push({v:vowelClass(rhymeAnchorWord(t)),syl:sylOfBar(t)});}}
@@ -879,7 +896,7 @@ function renderSchemeMap(){
       const col=VC[b.v]||"#3a3d4d",stale=run>=8?" stale":"",cross=xr[i]?" xr":"";
       dots+=`<span class="smdot${stale}${cross}" style="background:${col}" title="${b.v||"—"}${b.v?" · "+vFriendly(b.v):""} · ${b.syl} syl${xr[i]?" · cross-rhyme (ABAB)":""}">${b.syl}</span>`;});
     const nm=(typeof parseTagBars==="function")?parseTagBars(s.label).name:s.label;
-    return `<div class="smrow"><span class="smlab">${esc(nm)}</span>${dots}</div>`;
+    return `<div class="smrow"><span class="smlab">${esc(nm)}</span><span class="smdots">${dots}</span></div>`;   // dots wrap inside their own column, never under the label
   }).join("");
 }
 /* syllable target = an OPTIONAL override gated by the Force-syllables toggle. Off (default) =
@@ -1364,7 +1381,7 @@ function refreshLinePanels(){
     $("rhymeList").innerHTML='<span class="muted">—</span>';
     if($("ideaCtx"))$("ideaCtx").textContent=(selLine>=0)?"Not on a bar — type here to add the next bar.":"Document is empty — write a line, then click it.";renderForce([]);
     $("rhyNextHead").style.display="none";$("rhyNext").innerHTML="";return;}
-  let secLab="—";for(let i=idx;i>=0;i--){const m=lines[i].trim().match(/^\[(.+)\]$/);if(m){secLab=m[1];break;}}
+  let secLab="—";for(let i=idx;i>=0;i--){const m=lines[i].trim().match(/^\[(.*)\]$/);if(m){secLab=m[1];break;}}
   let bar=0;for(let i=0;i<=idx;i++)if(isContent(i))bar++;
   if(pending)bar++;                                              // the empty line is the NEXT bar in sequence
   const ws=lines[idx].trim().split(/\s+/);const syl=sylOfBar(lines[idx]);const endW=rhymeAnchorWord(lines[idx]);
@@ -1498,13 +1515,42 @@ async function callLLM({provider,model,system,user,maxTokens=600}){
   }
   throw new Error("Unknown engine.");
 }
+/* ---- signed-out + included credits must never dead-end ----
+   Generating on included credits needs a session (the server meters WHO is spending). Signed out,
+   we don't fire a doomed request and drop a red line — we open the sign-in panel, remember what
+   the writer asked for, and run it automatically the moment the magic link lands (sf-auth). */
+let _sfUser=null,_pendingGen=null;
+async function freeNeedsAuth(){
+  try{ if(window.SBClient){const {data}=await window.SBClient.auth.getSession(); if(data&&data.session&&data.session.access_token){_sfUser=data.session.user||_sfUser;return false;} } }catch(e){}
+  return true;
+}
+function queueAfterAuth(fn,noteEl){
+  _pendingGen=fn;
+  if(noteEl){noteEl.className="muted";noteEl.style.color="var(--accent2)";noteEl.textContent="Sign in (one-tap email link) and this will generate the moment you're in — or pick another engine to use your own key.";}
+  const b=$("authBtn");if(b)b.click();               // signed out → opens the sign-in panel
+}
+window.addEventListener("sf-auth",e=>{
+  _sfUser=(e&&e.detail&&e.detail.user)||null;
+  if(typeof renderCredits==="function")renderCredits();
+  if(_sfUser&&_pendingGen){const fn=_pendingGen;_pendingGen=null;setTimeout(fn,400);}   // resume the queued generation
+  if(!_sfUser)_pendingGen=null;
+});
 /* credit meter — reads the user's own row (RLS lets them see only their balance) */
 let _credBal=null;
 function renderCredits(bal){
   if(bal!=null)_credBal=Number(bal);
   const el=$("credMeter");if(!el)return;
   const isFree=(($("aiProvider")&&$("aiProvider").value)||"free")==="free";
-  if(!isFree||_credBal==null){el.style.display="none";return;}
+  if(!isFree){el.style.display="none";return;}
+  if(_credBal==null){                                   // no balance yet: signed out → say so (don't hide the state); signed in → still loading
+    if(_sfUser){el.style.display="none";return;}
+    el.style.display="";
+    el.innerHTML=`<a href="#" style="color:var(--accent2);text-decoration:none;font-weight:700">Sign in to use credits</a>`;
+    el.title="Included credits need a sign-in (top right) so we know whose balance to draw from.";
+    el.onclick=ev=>{ev.preventDefault();if(!_sfUser){const b=$("authBtn");if(b)b.click();}};
+    return;
+  }
+  el.onclick=null;
   el.style.display="";
   const low=_credBal<=0.5;
   el.innerHTML=`<span style="opacity:.7">Credits</span> <b style="color:${_credBal<=0?"var(--danger)":low?"#ffd43b":"var(--accent2)"}">$${_credBal.toFixed(2)}</b>`;
@@ -1610,7 +1656,7 @@ function priorContext(){
   let idx=(selLine>=0&&selLine<lines.length)?selLine:lines.length-1;
   let sec="Verse"; const prior=[];
   for(let i=idx;i>=0;i--){
-    const t=lines[i].trim(), m=t.match(/^\[(.+)\]$/);
+    const t=lines[i].trim(), m=t.match(/^\[(.*)\]$/);
     if(m){sec=m[1];break;}                              // reached this section's header → done
     if(t&&!isTag(t)&&prior.length<6)prior.unshift(t);   // keep the 6 nearest bars of THIS section
   }
@@ -1686,6 +1732,11 @@ async function generateLyrics(){
   if(provider!=="free"&&!aiKeyOf(provider)){               // no key yet → open the key dialog
     const note=$("ideaNote");if(note){note.className="muted";note.style.color="var(--danger)";note.textContent=`Add your ${AI.providers[provider].label} key first.`;}
     if($("aiKey"))$("aiKey").click();return;
+  }
+  if(provider==="free"&&await freeNeedsAuth()){            // signed out on included credits → sign in, then auto-run this exact request
+    const args=arguments[0];
+    queueAfterAuth(()=>generateLyrics(args),$("ideaNote"));
+    return;
   }
   const n=+NSEL.value||4;
   // CONFORM FREE TEXT: when called as generateLyrics({conform:"...raw text..."}), the bars are crafted
@@ -1868,6 +1919,10 @@ async function _rewriteBars(bars,vMatch,sMatch){
   const model=($("aiModel")&&$("aiModel").value.trim())||aiModelOf(provider);
   const note=$("selNote");
   if(provider!=="free"&&!aiKeyOf(provider)){if(note){note.style.color="var(--danger)";note.textContent=`Add your ${AI.providers[provider].label} key first.`;}if($("aiKey"))$("aiKey").click();return null;}
+  if(provider==="free"&&await freeNeedsAuth()){            // signed out on included credits → open sign-in instead of failing
+    if(note){note.style.color="var(--accent2)";note.textContent="Sign in (one-tap email link), then hit Generate again — or pick another engine to use your own key.";}
+    const b=$("authBtn");if(b)b.click();return null;
+  }
   bars=bars.filter(l=>l&&l.trim()&&!isTag(l));
   const n=bars.length;
   if(!n){if(note){note.style.color="var(--danger)";note.textContent="Select at least one lyric line.";}return null;}

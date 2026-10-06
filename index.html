@@ -148,7 +148,7 @@
     const audio=buf.byteLength>audioStart?new Uint8Array(buf,audioStart):null;
     const id=newId();
     const d=load();
-    d.docs.push({name:nameOverride||meta.name||"Opened project",text:meta.text||"",manualBars:meta.manualBars||null,
+    d.docs.push({name:nameOverride||meta.name||"Opened project",text:meta.text||"",manualBars:meta.manualBars||null,secNames:meta.secNames||null,secKeys:meta.secKeys||null,
       bpm:meta.bpm,anchor:meta.anchor,slip:meta.slip,warp:meta.warp||[],warpShow:!!meta.warpShow,
       trackName:meta.trackName||null,updated:0,id});
     if(audio&&audio.length)await idbPut(id,new Blob([audio],{type:meta.audioType||"audio/wav"}));

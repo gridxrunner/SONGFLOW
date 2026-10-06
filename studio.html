@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Songflow — Lyric Studio</title>
-<link rel="stylesheet" href="ams.css?v=116">
+<link rel="stylesheet" href="ams.css?v=124">
 <style>
   /* standalone shell: no rail/drawer; the page fills the window */
   body{display:block}
@@ -201,8 +201,9 @@
   .qdot{display:inline-block;width:14px;height:14px;line-height:13px;text-align:center;border-radius:50%;background:var(--panel2);border:1px solid var(--line);color:var(--mut);font-size:9px;font-weight:800;cursor:pointer;vertical-align:1px;margin-left:3px}
   .qdot:hover{border-color:var(--accent2);color:var(--accent2)}
   .schememap{display:flex;flex-direction:column;gap:4px}
-  .smrow{display:flex;align-items:center;gap:3px;flex-wrap:wrap}
-  .smrow .smlab{font-size:8.5px;color:var(--mut);min-width:52px;text-transform:uppercase;letter-spacing:.4px;white-space:nowrap}
+  .smrow{display:flex;align-items:flex-start;gap:3px}
+  .smrow .smlab{font-size:8.5px;color:var(--mut);min-width:52px;text-transform:uppercase;letter-spacing:.4px;white-space:nowrap;line-height:16px}
+  .smrow .smdots{display:flex;flex-wrap:wrap;gap:3px;flex:1;min-width:0}   /* long sections wrap UNDER their own dots, never under the label — a wrapped row can't read as a new section */
   .smdot{min-width:17px;height:16px;padding:0 2px;border-radius:4px;font-size:8px;font-weight:800;color:#0c0d12;display:flex;align-items:center;justify-content:center}
   .smdot.stale{outline:2px solid var(--danger);outline-offset:1px}
   /* cross-rhyme (ABAB) bars: white dashed ring marks the every-other-bar pair */
@@ -314,7 +315,7 @@
       <div class="spacer"></div>
       <button class="tbtn" id="undoBtn" title="Undo (Ctrl+Z)" style="width:auto;padding:0 9px" disabled>&#8634; Undo</button>
       <button class="tbtn" id="redoBtn" title="Redo (Ctrl+Shift+Z / Ctrl+Y)" style="width:auto;padding:0 9px" disabled>&#8635; Redo</button>
-      <button class="tbtn" id="lRhyme" style="width:auto;padding:0 10px">&#127752; Rhyme colors</button>
+      <button class="tbtn" id="lRhyme" style="width:auto;padding:0 10px" title="Color every bar's rhyme anchor by its vowel sound — the same colors as the vowel pills and the scheme map. Dotted underline = an internal echo of a rhyme vowel. Full key: Color legend under the scheme map.">&#127752; Rhyme colors</button>
       <button class="tbtn" id="lExport" title="export lyrics to a .txt file" style="width:auto;padding:0 10px">&#11015; Export .txt</button>
       <button class="tbtn" id="aExport" title="export the edited audio to a .wav file" style="width:auto;padding:0 10px">&#11015; Export audio</button>
       <button class="tbtn" id="lClear" style="width:auto;padding:0 10px">Clear</button>
@@ -361,6 +362,12 @@
         <div class="chips" id="rhymeList"><span class="muted">—</span></div>
         <div class="lab">Scheme map</div>
         <div id="schemeMap" class="schememap"><span class="muted">Write some bars to see the rhyme scheme.</span></div>
+        <details class="legend"><summary>Color legend</summary>
+          <div class="legrow"><span class="vw" style="background:#7c5cff">AY</span> <span class="vw" style="background:#d9a23b">EH</span> one color per vowel sound &mdash; the same color on a word, a pill, and a scheme-map dot always means the same rhyme vowel</div>
+          <div class="legrow"><span style="color:#c45cff">word</span> colored end-word = that bar's rhyme anchor (the word before a pickup comma)</div>
+          <div class="legrow"><span class="in" style="color:var(--accent2)">word</span> dotted underline = internal echo &mdash; a mid-line word carrying a vowel your endings already rhyme on</div>
+          <div class="legrow"><span class="smdot xr" style="background:#19d3c5;min-width:14px;height:13px">2</span> white ring = <b>cross-rhyme</b> (ABAB) &mdash; this bar answers the one <i>two</i> back &middot; red outline = the same vowel riding 8+ bars</div>
+        </details>
 
         <!-- ============ GENERATE ============ -->
         <div class="pdiv"></div><div class="psection">Generate <span class="qdot" data-help>?</span></div>
@@ -453,15 +460,8 @@
         <textarea class="inp" id="conformText" rows="6" style="width:100%;min-height:130px;resize:vertical;font-family:inherit;line-height:1.45" placeholder="Paste any raw text — notes, a poem, a rant, a paragraph. Songflow finds your message + voice and crafts it into lyrics on these rules, then hit Conform."></textarea>
         <button class="tbtn" id="conformGo" style="width:100%;margin-top:6px;padding:10px;font-weight:700;justify-content:center" title="Discern your message + audience-aware voice from the text above, then write lyrics that deliver it on the rhythm & rhyme rules (uses the bars / pattern table / genre / planner set above).">&#8627; Conform</button>
 
-        <!-- ============ LEGEND + STATS ============ -->
+        <!-- ============ STATS ============ (the color legend now lives right under the scheme map) -->
         <div class="pdiv"></div>
-        <details class="legend"><summary>Color legend</summary>
-          <div class="legrow"><span class="r0">&#9679;</span><span class="r1">&#9679;</span><span class="r2">&#9679;</span><span class="r3">&#9679;</span><span class="r4">&#9679;</span><span class="r5">&#9679;</span> rhyme families — line-endings that rhyme share a color</div>
-          <div class="legrow"><span class="in" style="color:var(--accent2)">word</span> dotted underline = internal echo</div>
-          <div class="legrow">vowel pills (<span class="vw" style="background:#7c5cff">AY</span> <span class="vw" style="background:#d9a23b">EH</span>) = the rhyme vowel, one fixed color each</div>
-          <div class="legrow"><span class="smdot xr" style="background:#19d3c5;min-width:14px;height:13px">2</span> white ring in the scheme map = <b>cross-rhyme</b> (ABAB) — this bar answers the one <i>two</i> back, not the bar above</div>
-          <div class="legrow muted">Coming: live syllable-match coloring (green = matched, red = off) and generated-blue.</div>
-        </details>
         <div class="psection" style="margin-top:9px">Stats <span class="qdot" data-help>?</span></div>
         <div id="statsBox"></div>
       </div>
@@ -569,7 +569,7 @@
           <li><b>Fold a region:</b> <b>right-click its tag</b> to collapse everything under it (the tag shows how many bars are hidden); right-click again to expand. Nothing is deleted &mdash; it only clears clutter on a long song.</li>
           <li><b>Cross-rhyme (ABAB):</b> a rhyme need not answer the very next bar. Set vowel <em>A</em> on bar 1, <em>B</em> on bar 2, then answer <em>A</em> on bar 3 and <em>B</em> on bar 4 &mdash; the pair lands every other bar. Because the pattern repeats, even a loose / <em>family</em> rhyme reads as deliberate. The scheme map rings the every-other-bar pair in white.</li>
           <li><b>Pickups.</b> Trailing throwaway syllables after your rhyme (&ldquo;&hellip;yeah&rdquo;, &ldquo;&hellip;and I&rdquo;) flow into the next bar and do <em>not</em> count toward the bar's syllable target &mdash; free room for meaning. Mark one with a comma: in <em>&ldquo;&hellip;on the line, He says&rdquo;</em> the rhyme is <b>line</b>, not &ldquo;says&rdquo;.</li>
-          <li><b>&#127752; Rhyme colors:</b> end-words that rhyme share a color; dotted underlines mark internal echoes. <b>Word chips</b> (Near / Slant) &mdash; click to insert at your cursor, Shift+click to copy.</li>
+          <li><b>&#127752; Rhyme colors:</b> each bar's rhyme anchor is colored by its <b>vowel sound</b> &mdash; the same color as that vowel's pill in the gutter and its dot in the scheme map, so all three views speak one color language. Dotted underlines mark internal echoes. <b>Word chips</b> (Near / Slant) &mdash; click to insert at your cursor, Shift+click to copy.</li>
           <li><b>Guidance</b> (toggle in the Write header, off by default) coaches each bar: complete the couplet, or open a fresh vowel.</li>
           <li><b>&#8634; Undo / &#8635; Redo</b> cover everything &mdash; text, BPM, anchor, region moves, generations. <b>&#11015; Export .txt</b> saves the words with title, BPM and key.</li>
         </ul>
@@ -653,12 +653,14 @@ function toast(m){if(!_toast){_toast=document.createElement("div");_toast.classN
   _toast.textContent=m;_toast.classList.add("show");clearTimeout(_toast._h);_toast._h=setTimeout(()=>_toast.classList.remove("show"),2200);}
 const _pl=new Audio();_pl.volume=0.9;
 function playInPlayer(name,url){_pl.src=url;$("plName").textContent=name;_pl.play();}
-$("plPlay").onclick=()=>{if(_pl.src)_pl.paused?_pl.play():_pl.pause();};
-$("plStop").onclick=()=>{_pl.pause();_pl.currentTime=0;};
+/* the sample-accurate loop engine (window.lpActive / lpPause / lpSeek) lives in the studio script
+   below; these mini-player controls defer to it whenever a loop is playing */
+$("plPlay").onclick=()=>{if(window.lpActive&&window.lpActive()){window.lpPause();return;}if(_pl.src)_pl.paused?_pl.play():_pl.pause();};
+$("plStop").onclick=()=>{if(window.lpActive&&window.lpActive())window.lpPause();_pl.pause();_pl.currentTime=0;};
 _pl.addEventListener("play",()=>$("plPlay").innerHTML="&#10074;&#10074;");
-_pl.addEventListener("pause",()=>$("plPlay").innerHTML="&#9654;");
+_pl.addEventListener("pause",()=>{if(window.lpActive&&window.lpActive())return;$("plPlay").innerHTML="&#9654;";});
 _pl.addEventListener("timeupdate",()=>{if(_pl.duration){$("plSeek").value=Math.round(1000*_pl.currentTime/_pl.duration);$("plTime").textContent=`${fmt(_pl.currentTime)} / ${fmt(_pl.duration)}`;}});
-$("plSeek").oninput=()=>{if(_pl.duration)_pl.currentTime=_pl.duration*$("plSeek").value/1000;};
+$("plSeek").oninput=()=>{if(!_pl.duration)return;const t=_pl.duration*$("plSeek").value/1000;if(window.lpActive&&window.lpActive()){window.lpSeek(t);return;}_pl.currentTime=t;};
 /* ---- guide modal ---- */
 function showHelp(on){$("helpModal").style.display=on?"flex":"none";}
 $("helpBtn").onclick=()=>showHelp(true);
@@ -666,11 +668,11 @@ $("helpClose").onclick=()=>showHelp(false);
 $("helpModal").addEventListener("click",e=>{if(e.target===$("helpModal"))showHelp(false);});
 document.addEventListener("keydown",e=>{if(e.key==="Escape")showHelp(false);});
 </script>
-<script src="ams-timeline.js?v=116"></script>
-<script src="ams-vowels.js?v=116"></script>
-<script src="ams-pron.js?v=116"></script>
-<script src="ams-bpm.js?v=116"></script>
-<script src="ams-sections.js?v=116"></script>
+<script src="ams-timeline.js?v=124"></script>
+<script src="ams-vowels.js?v=124"></script>
+<script src="ams-pron.js?v=124"></script>
+<script src="ams-bpm.js?v=124"></script>
+<script src="ams-sections.js?v=124"></script>
 <script>
 const doc=$("doc"),gut=$("gut");
 // keep the gutter (line #, syllables, rhyme vowel) locked to the lyric scroll — they share the
@@ -678,16 +680,115 @@ const doc=$("doc"),gut=$("gut");
 doc.addEventListener("scroll",()=>{gut.scrollTop=doc.scrollTop;});
 let rhymeOn=true,cur=null,curBuf=null,detectedBpm=120,curKey=null,bpmCycle=0,regionsFromAudio=false;
 let manualBars=null;   // per-section manual start (in bars) once the user slides a boundary; null entries = auto (1 line = 1 bar)
+let _prevSecNames=null, _prevSecKeys=null;   // what manualBars was last aligned to (names; names+lyrics) — lets a hand-typed tag keep everyone else's position
+let _droppedPos=[];   // positions of sections that just vanished mid-edit (kept 10 min) so a re-typed or re-pasted tag returns home
+/* the demo's arrangement as the founder laid it out: intro in bars −16…−1, verse 1 on the anchor */
+const DEMO_NAME="Real Crews (demo)", DEMO_LAYOUT=[-16,0,8,16,24,32,40,48,56,64,72,80,88], DEMO_GRID=33.501459;   // DEMO_GRID = the demo's anchor + slip (s)
 
 /* ---- playback timeline (loop-for-writing) ---- */
 const isCur=()=>!!(cur&&_pl&&_pl.src===cur.url);
+/* ================= SEAMLESS LOOP ENGINE =================
+   The <audio> element cannot loop gaplessly: its timeupdate ticks only ~4×/s and a seek flushes
+   the media pipeline, so the old "notice we passed the end, seek back" loop played up to a quarter
+   second too far and then dropped out. While a loop is engaged (and the decoded curBuf exists) we
+   play the SAME audio through one Web Audio AudioBufferSourceNode with native loopStart/loopEnd —
+   the wrap happens inside the audio engine, sample-accurate. _pl stays the master transport
+   everywhere else; the engine hands time back to it the moment the loop clears or you seek out.
+   tpTime()/tpPlaying() are the ONE clock the playhead, karaoke and metronome read. */
+let lp={src:null,gain:null,t0:0,pos0:0,start:0,end:0,lastRebase:0};
+let _lpRAF=null,_lpLastT=0;
+function tpPlaying(){return !!lp.src||(!!_pl.src&&!_pl.paused);}
+function tpTime(){
+  if(!lp.src)return _pl.currentTime||0;
+  const raw=lp.pos0+(metroCtx.currentTime-lp.t0);
+  return raw<lp.end?raw:lp.start+((raw-lp.start)%(lp.end-lp.start));
+}
+function loopEngage(pos){
+  const loop=tl.getLoop();if(!loop||!curBuf)return false;
+  const go=tl.gridOffset||0,s=Math.max(0,loop.start+go),e=Math.min(curBuf.duration,loop.end+go);
+  if(!(e>s))return false;                               // loop sits entirely past the audio → nothing to loop (declines with NO side effects)
+  ensureMetroGraph();                                   // music + clicks + loop share ONE context/output
+  _lpLastT=pos;loopSwapSrc(pos,s,e);
+  _pl.pause();try{_pl.currentTime=lp.pos0;}catch(err){}
+  tl.setPlaying(true);$("plPlay").innerHTML="&#10074;&#10074;";
+  if(typeof _kbStart==="function")_kbStart();
+  if(!_lpRAF)_lpRAF=requestAnimationFrame(loopRAF);
+  return true;
+}
+/* start (or restart) the buffer source at pos with bounds [s,e] — no UI churn */
+function loopSwapSrc(pos,s,e){
+  const ctx=metroCtx,old=lp.src;
+  s=(s!=null)?s:lp.start;e=(e!=null)?e:lp.end;
+  pos=Math.min(Math.max(pos,s),Math.max(s,e-0.001));
+  const src=ctx.createBufferSource();src.buffer=curBuf;src.loop=true;src.loopStart=s;src.loopEnd=e;
+  let g=lp.gain;
+  if(!g){g=ctx.createGain();g.gain.value=(_pl.volume!=null)?_pl.volume:0.9;g.connect(ctx.destination);}
+  src.connect(g);
+  if(old){try{old.stop();}catch(err){}try{old.disconnect();}catch(err){}}
+  src.start(0,pos);
+  lp.src=src;lp.gain=g;lp.start=s;lp.end=e;lp.pos0=pos;lp.t0=ctx.currentTime;lp.lastRebase=ctx.currentTime;
+}
+function loopStop(at,thenPlay){
+  if(!lp.src)return;
+  try{lp.src.stop();}catch(err){}try{lp.src.disconnect();}catch(err){}
+  try{if(lp.gain)lp.gain.disconnect();}catch(err){}
+  lp.src=null;lp.gain=null;
+  if(at!=null){if(curBuf&&curBuf.duration)at=Math.min(at,curBuf.duration);try{_pl.currentTime=at;}catch(err){}tl.setPlayhead(at);}
+  if(thenPlay)_pl.play();
+  else{tl.setPlaying(false);if(typeof _kbHide==="function")_kbHide();$("plPlay").innerHTML="&#9654;";}
+}
+function tpSeek(t){
+  if(!lp.src){try{_pl.currentTime=t;}catch(err){}return;}
+  const loop=tl.getLoop(),go=tl.gridOffset||0;
+  if(loop&&curBuf&&t>=loop.start+go&&t<loop.end+go){loopSwapSrc(t);_lpLastT=t;try{_pl.currentTime=t;}catch(err){}}
+  else loopStop(t,true);                                // seeked outside the loop → hand back to the element
+}
+function loopTick(){
+  if(!lp.src)return false;
+  const loop=tl.getLoop();
+  if(!loop){loopStop(tpTime(),true);return false;}       // loop cleared mid-play → element carries on
+  const go=tl.gridOffset||0,s=Math.max(0,loop.start+go),e=curBuf?Math.min(curBuf.duration,loop.end+go):loop.end+go;
+  if(!(e>s)){loopStop(tpTime(),true);return false;}      // loop dragged fully past the audio → element carries on
+  if((Math.abs(s-lp.start)>0.005||Math.abs(e-lp.end)>0.005)&&e>s&&metroCtx.currentTime-lp.lastRebase>0.15){
+    const t=tpTime();loopSwapSrc((t>=s&&t<e)?t:s,s,e);_lpLastT=lp.pos0;   // range/slip changed → re-lock (throttled)
+  }
+  const t=tpTime();
+  if(t<_lpLastT-0.05&&typeof metroResync==="function")metroResync();     // wrapped → kill queued clicks, re-aim the beat
+  _lpLastT=t;
+  tl.setPlayhead(t);
+  if(_pl.duration){$("plSeek").value=Math.round(1000*t/_pl.duration);$("plTime").textContent=`${fmt(t)} / ${fmt(_pl.duration)}`;}
+  return true;
+}
+function loopRAF(){
+  if(!loopTick()){_lpRAF=null;return;}
+  _lpRAF=requestAnimationFrame(loopRAF);
+}
+/* rAF freezes in a hidden tab (the native audio loop keeps playing regardless); this watchdog keeps
+   the maintenance duties — clear-detection, range changes, metronome re-aim — alive while hidden */
+setInterval(()=>{if(lp.src&&document.hidden)loopTick();},400);
+document.addEventListener("visibilitychange",()=>{if(!document.hidden&&lp.src&&!_lpRAF)_lpRAF=requestAnimationFrame(loopRAF);});
+window.lpActive=()=>!!lp.src;
+window.lpPause=()=>loopStop(tpTime(),false);
+window.lpSeek=t=>tpSeek(t);
 /* Transport: SPACE = play / STOP (marker returns to where playback started); ENTER = play /
    PAUSE in place (marker stays). The play BUTTON pauses in place too. */
 let playAnchor=0;
 function transport(returnOnStop){
   if(!cur){toast("Load an audio file first.");return;}
   if(!_pl.src){playInPlayer(cur.name,cur.url);playAnchor=0;return;}
-  if(_pl.paused){playAnchor=_pl.currentTime;tl.setCue(playAnchor);_pl.play();}   // leave the static cue at the start point
+  if(lp.src){                                            // playing through the loop engine → stop it
+    const at=returnOnStop?playAnchor:tpTime();
+    loopStop(at,false);tl.setPlayhead(at);
+    return;
+  }
+  if(_pl.paused){
+    playAnchor=_pl.currentTime;tl.setCue(playAnchor);     // leave the static cue at the start point
+    const loop=tl.getLoop(),go=tl.gridOffset||0;
+    if(loop&&curBuf&&playAnchor>=loop.start+go){          // starting inside (or past) the loop → engage gaplessly from the first cycle
+      if(loopEngage(playAnchor<loop.end+go?playAnchor:loop.start+go))return;   // loop past the audio end → fall through to normal play
+    }
+    _pl.play();
+  }
   else{_pl.pause();if(returnOnStop){_pl.currentTime=playAnchor;tl.setPlayhead(playAnchor);}}
 }
 /* ---- play-start CUE marker (static) + its (optional) link to the lyric cursor ---- */
@@ -704,10 +805,13 @@ if($("linkBtn"))$("linkBtn").onclick=()=>{
 syncLinkBtn();
 function setCueAt(t,opts){
   opts=opts||{}; t=Math.max(0,t||0);
+  const tRaw=t;                                 // unclamped click time — the lyric caret may live past the audio end
+  if(curBuf&&curBuf.duration)t=Math.min(t,curBuf.duration);   // cue/playhead/transport never leave the real audio
   tl.setCue(t); tl.setPlayhead(t);              // the static cue + the progress marker (coincide until you play)
   playAnchor=t;
-  if(isCur()&&_pl.duration){try{_pl.currentTime=t;}catch(e){}}
-  if(opts.fromTimeline&&cursorLink&&!_markLink){_markLink=true;try{_caretFromTime(t);}finally{_markLink=false;}}   // timeline click → move the lyric cursor to that bar (when linked)
+  if(lp.src)tpSeek(t);                          // looping → sample-accurate restart inside, or hand back to the element outside
+  else if(isCur()&&_pl.duration){try{_pl.currentTime=t;}catch(e){}}
+  if(opts.fromTimeline&&cursorLink&&!_markLink){_markLink=true;try{_caretFromTime(tRaw);}finally{_markLink=false;}}   // timeline click → move the lyric cursor to that bar (when linked)
 }
 function _caretFromTime(t){
   if(typeof _kbBuildMap!=="function"||typeof setCaret!=="function"||typeof doc==="undefined")return;
@@ -736,13 +840,17 @@ const tl=new AMSTimeline($("tl"),{
   onToggle:()=>{},
 });
 _pl.addEventListener("timeupdate",()=>{
-  if(!isCur())return;
+  if(!isCur()||lp.src)return;                            // loop engine owns the clock while engaged
   const loop=tl.getLoop();                               // bar-space; shift into audio time by the slip offset
-  if(loop){const go=tl.gridOffset||0;if(_pl.currentTime>=loop.end+go)_pl.currentTime=loop.start+go;}
+  if(loop){
+    const go=tl.gridOffset||0,s=loop.start+go,e=loop.end+go;
+    if(curBuf&&!_pl.paused&&_pl.currentTime>=s&&loopEngage(_pl.currentTime<e?_pl.currentTime:s))return;  // rolled into the loop → engage the gapless engine (a loop past the audio end declines)
+    if(!curBuf&&_pl.currentTime>=e)_pl.currentTime=s;    // no decoded buffer → legacy seek-back loop
+  }
   tl.setPlayhead(_pl.currentTime);
 });
-_pl.addEventListener("play",()=>tl.setPlaying(isCur()));
-_pl.addEventListener("pause",()=>tl.setPlaying(false));
+_pl.addEventListener("play",()=>{if(lp.src)return;tl.setPlaying(isCur());});
+_pl.addEventListener("pause",()=>{if(lp.src)return;tl.setPlaying(false);});
 
 /* ================= karaoke playback highlight =================
    As the track plays, the bar currently sounding lights up in the lyric editor and the highlight
@@ -759,7 +867,7 @@ function _kbBuildMap(){
   // is a SILENT bar (trailing blanks trimmed). Without an explicit count, content lines spread
   // evenly across the region (legacy stretch behavior).
   const groups=[]; let off=0, si=-1, cur=null;
-  for(const l of lines){const t=l.trim();const m=t.match(/^\[(.+)\]$/);
+  for(const l of lines){const t=l.trim();const m=t.match(/^\[(.*)\]$/);
     if(m){si++;cur={si,explicit:(window.parseTagBars&&parseTagBars(m[1]).bars!=null),slots:[]};groups.push(cur);}
     else if(cur){cur.slots.push(t?{ls:off,le:off+l.length}:null);}   // null slot = blank line (an empty bar)
     off+=l.length+1;}
@@ -808,10 +916,10 @@ function _kbRender(t){
   _kbEl.style.left=left+"px"; _kbEl.style.top=(rect.top-1)+"px";
   _kbEl.style.width=Math.max(0,rect.right-left)+"px"; _kbEl.style.height=(rect.height+2)+"px";
 }
-function _kbLoop(){ if(!isCur()||_pl.paused){_kbHide();_kbRAF=null;return;} _kbRender(_pl.currentTime); _kbRAF=requestAnimationFrame(_kbLoop); }
+function _kbLoop(){ if(!isCur()||!tpPlaying()){_kbHide();_kbRAF=null;return;} _kbRender(tpTime()); _kbRAF=requestAnimationFrame(_kbLoop); }
 function _kbStart(){ if(!_kbRAF)_kbRAF=requestAnimationFrame(_kbLoop); }
 _pl.addEventListener("play",_kbStart);
-_pl.addEventListener("pause",_kbHide);
+_pl.addEventListener("pause",()=>{if(lp.src)return;_kbHide();});
 _pl.addEventListener("seeked",()=>{ if(isCur()&&!_pl.paused)_kbStart(); });
 tl.setTempo(detectedBpm);
 
@@ -905,6 +1013,7 @@ $("loadBtn").onclick=()=>$("audioFile").click();
 function hasArrangementTags(){return doc.innerText.split("\n").some(l=>/^\[.+\]$/.test(l.trim()));}
 $("audioFile").onchange=async()=>{
   const f=$("audioFile").files[0];if(!f)return;
+  if(lp.src)loopStop(null,false);                     // release the loop engine — its source holds the OLD track
   const url=URL.createObjectURL(f);
   cur={name:f.name,url};
   $("curTrk").textContent=f.name;$("plName").textContent=f.name;
@@ -1103,9 +1212,9 @@ function metroResync(){
   const t=metroCtx.currentTime;
   metroSched.forEach(s=>{if(s.when>t+0.001){try{s.o.stop(t);}catch(e){}}});   // kill queued-but-unplayed clicks
   metroSched=[];
-  if(tl.beats){metroBeat=warpIndexAt(_pl.currentTime);return;}                 // warped grid → metroBeat is an index into tl.beats
+  if(tl.beats){metroBeat=warpIndexAt(tpTime());return;}                        // warped grid → metroBeat is an index into tl.beats
   const spB=60/tl.bpm, go=tl.gridOffset||0;
-  metroBeat=Math.floor((_pl.currentTime-go)/spB);                              // next loop schedules from here
+  metroBeat=Math.floor((tpTime()-go)/spB);                                     // next loop schedules from here
 }
 _pl.addEventListener("seeked",metroResync);                                    // position jumped → re-lock
 _pl.addEventListener("play",()=>{ if(metroOn)ensureMetroGraph(); });           // resuming → make sure the ctx is awake (don't cancel)
@@ -1114,9 +1223,9 @@ function metroLoop(){
   if(metroCtx){
     if(metroCtx.state!=="running"){try{metroCtx.resume();}catch(e){}}          // keep it awake → clicks never queue silently
     const spB=60/tl.bpm, bpb=tl.beatsPerBar, ahead=0.12;
-    const playing=!!_pl.src&&!_pl.paused&&_pl.duration;  // robust: any loaded audio that's playing
+    const playing=(lp.src||(!!_pl.src&&!_pl.paused))&&_pl.duration;  // element OR the loop engine
     if(playing){                                         // lock clicks to the track's beat grid (slip-aware)
-      const now=_pl.currentTime, lead=metroLead;         // on-screen Sync offset (audio-latency compensation)
+      const now=tpTime(), lead=metroLead;                // one transport clock (loop-engine aware)
       if(tl.beats){                                      // WARPED grid → step through the literal beat times
         const B=tl.beats;
         if(metroBeat<0||metroBeat>=B.length||B[metroBeat]<now-0.25||B[metroBeat]>now+2)metroBeat=warpIndexAt(now);  // re-aim on seek/loop/warp change
@@ -1207,6 +1316,7 @@ $("aExport").onclick=()=>{
 };
 /* commit an edited buffer: re-encode, reload the player + timeline, keep the playhead */
 function applyEdit(newBuf,atTime){
+  if(lp.src)loopStop(atTime!=null?atTime:tpTime(),false);   // the loop source holds the OLD buffer — release it before swapping
   curBuf=newBuf;
   const keep=atTime!=null?atTime:(isCur()?_pl.currentTime:0);
   const blob=bufferToWav(newBuf), url=URL.createObjectURL(blob);
@@ -1230,7 +1340,7 @@ function restoreAudioBuffer(buf){
 function addBlankRegion(atSec,bars){
   if(!curBuf){toast("Load a track first.");return;}
   const spb=(60/tl.bpm)*tl.beatsPerBar;
-  const at=Math.round(atSec/spb)*spb, dur=bars*spb;
+  const at=Math.max(0,Math.min(Math.round(atSec/spb)*spb,curBuf.duration)), dur=bars*spb;   // past the audio end → append at the end (never splice past the buffer)
   if(typeof pushUndo==="function")pushUndo();         // inserting blank bars is undoable
   applyEdit(spliceBuffer(curBuf,at,0,silenceLike(dur,curBuf)),at);
   inpaintTarget={start:at,end:at+dur};
@@ -1301,7 +1411,7 @@ async function idbPut(k,v){const db=await idbOpen();return new Promise((res,rej)
 async function idbGet(k){const db=await idbOpen();return new Promise((res,rej)=>{const t=db.transaction("audio","readonly");const q=t.objectStore("audio").get(k);q.onsuccess=()=>res(q.result);q.onerror=()=>rej(q.error);});}
 async function saveProjectAudio(blob){try{const id=(typeof activeDocId==="function")&&activeDocId();if(id)await idbPut(id,blob);}catch(e){}}
 function saveProjectState(){try{const d=docsState.docs[docsState.active];if(!d)return;
-  d.bpm=tl.bpm;d.anchor=gridAnchor;d.slip=gridSlip;d.warp=warpMarkers.slice();d.warpShow=warpShow;d.manualBars=manualBars;d.trackName=cur?cur.name:null;
+  d.bpm=tl.bpm;d.anchor=gridAnchor;d.slip=gridSlip;d.warp=warpMarkers.slice();d.warpShow=warpShow;d.manualBars=manualBars;d.secNames=_prevSecNames?_prevSecNames.slice():null;d.secKeys=_prevSecKeys?_prevSecKeys.slice():null;d.trackName=cur?cur.name:null;
   if(typeof doc!=="undefined")d.text=doc.innerText;saveDocs();}catch(e){}}
 /* ---- autosave: never lose progress. Text already saves on every edit; this is a safety
    net that also flushes BPM / slip / arrangement positions periodically and whenever the
@@ -1313,6 +1423,7 @@ window.addEventListener("beforeunload",autosaveNow);
 window.addEventListener("pagehide",autosaveNow);
 async function restoreProjectState(){
   let d=null;try{d=docsState.docs[docsState.active];}catch(e){}
+  if(lp.src)loopStop(null,false);                     // release the loop engine — never loop the previous project's audio
   curBuf=null;cur=null;regionsFromAudio=false;                       // clear the previous project's audio
   $("curTrk").textContent="no track";$("plName").textContent="No track loaded";
   tl.setLanes([]);tl.setSectionMarkers&&tl.setSectionMarkers([]);
@@ -1324,6 +1435,16 @@ async function restoreProjectState(){
     if(typeof applyWarp==="function")applyWarp(false); else applyGrid(false);
     if($("warpBtn"))$("warpBtn").classList.toggle("on",warpShow); tl.armWarp(warpShow);
     manualBars=(d.manualBars&&d.manualBars.length)?d.manualBars.slice():null;
+    // the saved layout may be one edit behind the saved text (text saves on every keystroke, the
+    // layout on autosave) -- restore the section names it's aligned to so tagRegions can reconcile
+    const _al=a=>(Array.isArray(a)&&manualBars&&a.length===manualBars.length)?a.slice():null;
+    _prevSecNames=_al(d.secNames); _prevSecKeys=_al(d.secKeys); _droppedPos=[];
+    // demo copies imported after the July demo update lost the founder's layout (intro before
+    // bar 1). An untouched copy has no positions at all — give it the layout back. Any copy
+    // someone has arranged carries its own positions and is left alone.
+    if(d.name===DEMO_NAME&&(!manualBars||manualBars.every(v=>v==null))                        // autosave stores "untouched" as all-null entries
+       &&Math.abs((+d.anchor||0)+(+d.slip||0)-DEMO_GRID)<0.1&&Math.round(+d.bpm||0)===131)      // still on the demo's own grid — a re-anchored copy is left alone
+      manualBars=DEMO_LAYOUT.slice();
   }
   let blob=null;try{const id=(typeof activeDocId==="function")&&activeDocId();if(id)blob=await idbGet(id);}catch(e){}
   if(blob){try{
@@ -1352,6 +1473,7 @@ async function saveProjectFile(){
     const meta={format:"songflow",version:1,name:d.name||"project",
       text:(typeof doc!=="undefined")?doc.innerText:(d.text||""),
       manualBars:(typeof manualBars!=="undefined")?manualBars:(d.manualBars||null),
+      secNames:(typeof _prevSecNames!=="undefined"&&_prevSecNames)?_prevSecNames:null,secKeys:(typeof _prevSecKeys!=="undefined"&&_prevSecKeys)?_prevSecKeys:null,
       bpm:tl.bpm,anchor:gridAnchor,slip:gridSlip,warp:(warpMarkers||[]).slice(),warpShow:!!warpShow,
       trackName:cur?cur.name:(d.trackName||null),savedAt:Date.now()};
     let audio=new Uint8Array(0);
@@ -1376,7 +1498,7 @@ async function openProjectFile(file){
     const audioStart=12+jsonLen;
     const audio=buf.byteLength>audioStart?new Uint8Array(buf,audioStart):null;
     const id=newId();                                                       // fresh id → opening twice never collides
-    docsState.docs.push({name:meta.name||"Opened project",text:meta.text||"",manualBars:meta.manualBars||null,
+    docsState.docs.push({name:meta.name||"Opened project",text:meta.text||"",manualBars:meta.manualBars||null,secNames:meta.secNames||null,secKeys:meta.secKeys||null,
       bpm:meta.bpm,anchor:meta.anchor,slip:meta.slip,warp:meta.warp||[],warpShow:!!meta.warpShow,
       trackName:meta.trackName||null,updated:0,id});
     if(audio&&audio.length){await idbPut(id,new Blob([audio],{type:meta.audioType||"audio/wav"}));}
@@ -1512,13 +1634,14 @@ function tagRegions(){
   // visual separators (keeps a plain [verse 1] with a paragraph break at 8 bars, not 9).
   const secs=[];let curSec=null;
   const closeSec=()=>{if(!curSec)return;let k=curSec._kinds;while(k.length&&k[k.length-1]===0)k.pop();curSec.slots=k.length;};
-  for(const l of lines){const t=l.trim();const m=t.match(/^\[(.+)\]$/);
-    if(m){closeSec();curSec={label:m[1],len:0,lyricLines:0,_kinds:[]};secs.push(curSec);}
-    else if(curSec){curSec._kinds.push(t?1:0);if(t){curSec.len++;curSec.lyricLines++;}}}
+  for(const l of lines){const t=l.trim();const m=t.match(/^\[(.*)\]$/);
+    if(m){closeSec();curSec={label:m[1],len:0,lyricLines:0,_kinds:[],_body:[]};secs.push(curSec);}
+    else if(curSec){curSec._kinds.push(t?1:0);if(t){curSec.len++;curSec.lyricLines++;curSec._body.push(t);}}}
   closeSec();
   if(!secs.length){                                                    // no tags → leave any audio-detected sections alone
     if(typeof regionsFromAudio!=="undefined"&&regionsFromAudio)return;
-    if(!curBuf)tl.setDuration(0); tl.reorderable=false; manualBars=null; tl.setRegions([]); return; }
+    if(manualBars&&_prevSecNames&&_prevSecNames.length===manualBars.length){const now=Date.now();manualBars.forEach((v,i)=>{if(v!=null)_droppedPos.push({name:_prevSecNames[i],pos:v,t:now});});}
+    if(!curBuf)tl.setDuration(0); tl.reorderable=false; manualBars=null; _prevSecNames=null; _prevSecKeys=null; tl.setRegions([]); return; }
   // TAGS EXIST → they ALWAYS own the timeline. The bond with the lyrics is never broken,
   // so audio-detected sections can never replace them.
   regionsFromAudio=false;
@@ -1526,28 +1649,75 @@ function tagRegions(){
   // otherwise the region is exactly its typed content lines (min 1 bar of width)
   secs.forEach(s=>{const pb=parseTagBars(s.label);s.name=pb.name;s.explicitBars=pb.bars;
     s.len=(pb.bars!=null)?Math.max(pb.bars,s.slots||0):Math.max(1,s.len);delete s._kinds;});
-  // manual overrides only stay valid while the section COUNT is unchanged
-  if(!manualBars||manualBars.length!==secs.length)manualBars=secs.map(()=>null);
+  // a tag typed, pasted, broken or deleted BY HAND changes the section count. Carry every
+  // surviving section's position over instead of discarding the whole layout. Identity = the
+  // section's NAME plus its lyric text (so two same-named sections — the demo has back-to-back
+  // "Instrumental break"s — can't trade places), falling back to name alone for a section edited
+  // in the same pause.
+  const curNames=secs.map(s=>String(s.name||"").trim().toLowerCase());
+  const curKeys=secs.map((s,k)=>curNames[k]+"\u0000"+s._body.join("\n"));
+  if(!manualBars||manualBars.length!==secs.length){
+    const oN=manualBars?manualBars.length:0,nN=secs.length,now=Date.now();
+    const lowBar=Math.round(-(tl.gridOffset||0)/spb);
+    const next=new Array(nN).fill(null),isNew=new Array(nN).fill(true);
+    if(oN&&_prevSecNames&&_prevSecNames.length===oN&&_prevSecKeys&&_prevSecKeys.length===oN){
+      const lcs=(a,b,i0,i1,j0,j1)=>{                     // order-preserving matched index pairs of a[i0..i1) and b[j0..j1)
+        const n=i1-i0,m=j1-j0,L=Array.from({length:n+1},()=>new Array(m+1).fill(0)),out=[];
+        for(let i=n-1;i>=0;i--)for(let j=m-1;j>=0;j--)L[i][j]=a[i0+i]===b[j0+j]?L[i+1][j+1]+1:Math.max(L[i+1][j],L[i][j+1]);
+        for(let i=0,j=0;i<n&&j<m;){if(a[i0+i]===b[j0+j]){out.push([i0+i,j0+j]);i++;j++;}else if(L[i+1][j]>=L[i][j+1])i++;else j++;}
+        return out;};
+      const pairs=[];let pi=-1,pj=-1;
+      for(const [i,j] of lcs(_prevSecKeys,curKeys,0,oN,0,nN).concat([[oN,nN]])){
+        pairs.push(...lcs(_prevSecNames,curNames,pi+1,i,pj+1,j));   // name-only inside each gap between exact matches
+        if(i<oN)pairs.push([i,j]);
+        pi=i;pj=j;}
+      const used=new Array(oN).fill(false);
+      pairs.forEach(([i,j])=>{next[j]=manualBars[i];isNew[j]=false;used[i]=true;});
+      manualBars.forEach((v,i)=>{if(!used[i]&&v!=null)_droppedPos.push({name:_prevSecNames[i],pos:v,t:now});});
+    }
+    _droppedPos=_droppedPos.filter(x=>now-x.t<600000);
+    // a section that vanished mid-edit (its "]" deleted, its block cut, the whole sheet cut and
+    // pasted back) returns to its old bar when its tag comes back — but ONLY if that bar still
+    // sits between its current neighbours, so a section pasted somewhere new packs there instead
+    for(let j=0;j<nN;j++){if(next[j]!=null||!isNew[j])continue;
+      let pe=null;for(let k=j-1;k>=0;k--)if(next[k]!=null){pe=next[k]+secs[k].len;break;}
+      let ns=null;for(let k=j+1;k<nN;k++)if(next[k]!=null){ns=next[k];break;}
+      let d=-1;for(let q=_droppedPos.length-1;q>=0;q--){const x=_droppedPos[q];   // NEWEST first
+        if(x.name===curNames[j]&&(pe==null||x.pos>=pe-1e-6)&&(ns==null||x.pos+secs[j].len<=ns+1e-6)){d=q;break;}}
+      if(d>=0){next[j]=_droppedPos[d].pos;isNew[j]=false;_droppedPos.splice(d,1);}}
+    // brand-new sections typed ABOVE the first positioned one (a count-in over the intro) get a
+    // real position ending where it starts — never bar 1, which would shove the whole song late
+    const fp=next.findIndex(v=>v!=null);
+    for(let k=fp-1,end=fp>0?Math.round(next[fp]):0;fp>0&&k>=0&&isNew[k];k--){next[k]=Math.max(lowBar,end-secs[k].len);end=next[k];}
+    manualBars=next;
+  }
+  _prevSecNames=curNames; _prevSecKeys=curKeys;
   // start bar per section: manual position wins, else packed right after the previous one
   const minBar=Math.round(-(tl.gridOffset||0)/spb);          // track start (audio 0) in WHOLE bars — a section may sit before the anchor but not before the track
   const startBar=[];let cum=0;
   for(let k=0;k<secs.length;k++){
     // snap every region start to a WHOLE bar (whole-note snap) — a fractional start makes an
     // N-bar region visually span N-1 ruler bars, which read as regions "jumping" / shrinking.
-    const s=(manualBars[k]!=null)?Math.max(minBar,Math.round(manualBars[k])):cum;
+    let s=(manualBars[k]!=null)?Math.max(minBar,Math.round(manualBars[k])):cum;
+    // sections NEVER overlap: floor each start at the previous section's end. This also
+    // self-repairs layouts that were saved while the old clamp bug let drags stack them.
+    if(k>0)s=Math.max(s,startBar[k-1]+secs[k-1].len);
+    // repair is DISPLAY-ONLY: never write the floored value back into manualBars — a transient
+    // state (typing into the section above) would otherwise permanently ratchet saved positions
     startBar.push(s); cum=Math.max(cum,s+secs[k].len);
   }
-  // expose the layout (in BARS), aligned 1:1 with EVERY section header (before tl.regions is
-  // filtered for zero-width). The resize ripple + the karaoke/cursor time-map read these so a
-  // clamped/empty region can never desync the indices. ----
+  // expose the layout (in BARS), aligned 1:1 with EVERY section header. The resize ripple +
+  // the karaoke/cursor time-map read these so indices can never desync. ----
   window._secStartBars=startBar.slice(); window._secLens=secs.map(s=>s.len);
   const lastEnd=Math.max(...startBar.map((s,k)=>s+secs[k].len));
-  // total span: the track if loaded; otherwise the arrangement + a few bars of room to drag into
-  const span=curBuf?curBuf.duration:(lastEnd+4)*spb;
-  if(!curBuf)tl.setDuration(span);
-  const regs=secs.map((s,k)=>({start:Math.min(startBar[k]*spb,span),
-    end:Math.min((startBar[k]+s.len)*spb,span),
-    label:s.name,bars:s.len,explicitBars:s.explicitBars,lenBars:s.len,hasLyrics:s.lyricLines>0,userEdited:manualBars[k]!=null})).filter(r=>r.end>r.start);
+  // no track → size the timeline to the arrangement (+ room to drag into). WITH a track the
+  // timeline computes its own virtual extent (audio vs arrangement), so regions are NEVER
+  // clamped to the audio end and NEVER filtered — the old clamp squashed overflowing sections
+  // to zero width, dropped them, and desynced region↔section indices (the arrange corruption).
+  if(!curBuf)tl.setDuration((lastEnd+4)*spb);
+  const regs=secs.map((s,k)=>({start:startBar[k]*spb,
+    end:(startBar[k]+s.len)*spb,
+    label:s.name,bars:s.len,explicitBars:s.explicitBars,lenBars:s.len,hasLyrics:s.lyricLines>0,userEdited:manualBars[k]!=null}));
   tl.reorderable=true;                                                 // these regions are linked to the lyric blocks
   tl.setRegions(regs);
 }
@@ -1610,7 +1780,7 @@ window.addEventListener("keydown",e=>{if(e.key==="Escape"&&$("tourOvl").classLis
 window.addEventListener("resize",()=>{if($("tourOvl").classList.contains("on"))tourShow();});
 if(!localStorage.getItem("ams.tour.seen"))setTimeout(()=>{try{tourStart();}catch(e){}},800);   // first visit → auto-run
 </script>
-<script src="lyric-core.js?v=116"></script>
+<script src="lyric-core.js?v=124"></script>
 <!-- Cloud sign-in (magic link) -->
 <div id="authPanel" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10000;align-items:center;justify-content:center">
   <div style="background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px;width:350px;max-width:92vw;box-shadow:0 14px 44px rgba(0,0,0,.55)">
@@ -1622,7 +1792,7 @@ if(!localStorage.getItem("ams.tour.seen"))setTimeout(()=>{try{tourStart();}catch
   </div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script src="songflow-cloud.js?v=116"></script>
+<script src="songflow-cloud.js?v=124"></script>
 <!-- BUG REPORTER markup lives inside .lyx (the lyric processor); this just wires it. -->
 <script>
 (function(){

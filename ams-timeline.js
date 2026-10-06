@@ -21,7 +21,7 @@ class AMSTimeline {
       .getPropertyValue("--lanelabel")); this.LBL = isNaN(v) ? 174 : v; };   // 0 is valid
     this.selRegions = [];    // selected arrangement regions (contiguous indices); loop acts on these
     this._readLbl();
-    this.lanes = []; this.duration = 0; this.playhead = 0;
+    this.lanes = []; this.duration = 0; this.audioDur = 0; this.playhead = 0;
     this.bpm = 120; this.beatsPerBar = 4;
     this.pxPerSec = 0;
     this.snap = true;
@@ -146,7 +146,9 @@ class AMSTimeline {
 
   /* ---- public API ---- */
   setLanes(lanes) { this.lanes = lanes; this.render(); }
-  setDuration(d) { this.duration = Math.max(d || 0, 0); this.render(); }
+  /* setDuration takes the AUDIO length; the timeline's real extent (this.duration) is virtual —
+     it grows past the audio end whenever the arrangement runs longer (see _recalcExtent). */
+  setDuration(d) { this.audioDur = Math.max(d || 0, 0); this._recalcExtent(); this.render(); }
   setTempo(bpm, beatsPerBar = 4) { if (bpm) { this.bpm = bpm; this.beatsPerBar = beatsPerBar; this.render(); } }
   setBeats(beats) {   // real beat times from analysis: snap + bars follow the groove
     this.beats = (beats && beats.length > 8) ? beats : null;
@@ -157,9 +159,9 @@ class AMSTimeline {
      warped grid (pushed via setBeats) stays in effect. */
   setWarp(markers, show) { this.warpMarkers = (markers || []).slice(); if (show !== undefined) this.warpShow = !!show; this.render(); }
   armWarp(on = true) { this.warpShow = on !== false; this.host.classList.toggle("warping", this.warpShow); this.render(); }
-  setRegions(regs) { this.regions = regs || []; this.render(); }
+  setRegions(regs) { this.regions = regs || []; this._recalcExtent(); this.render(); }
   setSectionMarkers(m) { this.sectionMarkers = m || []; this.render(); }
-  setGridOffset(s) { this.gridOffset = s || 0; this.render(); }
+  setGridOffset(s) { this.gridOffset = s || 0; this._recalcExtent(); this.render(); }
   /* ---- beatgrid anchor (DJ-style): click a downbeat to make it bar 1 ---- */
   armAnchor(on = true) { this._anchorArm = on !== false; this.host.classList.toggle("anchoring", this._anchorArm); }
   // snap a clicked time to the loudest sample within ±20ms (the downbeat's attack), if a real transient is there
@@ -276,11 +278,17 @@ class AMSTimeline {
       const pxPerSec = this._width() / (this.duration || 1);
       // snap the dragged region's NEW start to the grid, derive the actual delta
       let dt = this._snapT(orig[di].start + dxpx / pxPerSec) - orig[di].start;
-      // clamp: can't pass the previous region's start; can't push the last end past the track
-      const prevStart = di > 0 ? orig[di - 1].start : 0;
-      const minDt = (prevStart + 0.05) - orig[di].start;
-      const maxDt = this.duration - orig[orig.length - 1].end;
-      dt = Math.max(minDt, Math.min(maxDt, dt));
+      // clamp LEFT only: never cross the previous region's start, and never collapse it below
+      // 50ms (its end follows the dragged start). RIGHT is open — the timeline extends
+      // virtually past the audio end, and the extent recalcs on release. (The old
+      // maxDt = duration − lastEnd went NEGATIVE once the arrangement outran the track,
+      // inverting the clamp so every drag slammed left — the overlap-corruption bug.)
+      const MINLEN = 0.05;
+      const prev = di > 0 ? orig[di - 1] : null;
+      const minDt = prev
+        ? Math.max((prev.start + MINLEN) - orig[di].start, (prev.start + MINLEN) - prev.end)
+        : (MINLEN - orig[di].start);
+      dt = Math.max(minDt, dt);
       // ripple: dragged region + everything after it shift by dt; the region before
       // it stretches to stay contiguous (its end follows the new start)
       const regs = orig.map(r => ({ ...r }));
@@ -368,9 +376,16 @@ class AMSTimeline {
     const spb = this._secPerBar(), orig = a.orig;
     const idxs = [...a.set].sort((x, y) => x - y);
     const lo = idxs[0], hi = idxs[idxs.length - 1];
-    const b0 = orig[lo].start, b1 = orig[hi].end, total = this.duration, blockLen = b1 - b0;
+    const b0 = orig[lo].start, b1 = orig[hi].end, blockLen = b1 - b0;
     const floor = -this.gridOffset;                                    // track start (audio 0) in bar-space; pre-anchor OK, pre-track NO
-    const nb0 = this._clamp(this._snapT(b0 + a.dt), floor, total - blockLen);
+    // floor only — RIGHT is open (virtual extent). The old upper clamp (duration − blockLen)
+    // dropped BELOW the floor once the block outran the track, and _clamp then returned the
+    // floor for every drag: the whole selection slammed to the track start and overlapped
+    // everything. That inversion is the bug this replaces.
+    // left-side sections must still FIT between the floor and the block — floor the drop at
+    // floor + (their total length) so packing can never flatten them onto each other
+    const leftLen = orig.reduce((n, r, k) => (!a.set.has(k) && k < lo) ? n + (r.end - r.start) : n, 0);
+    const nb0 = Math.max(floor + leftLen, this._snapT(b0 + a.dt));
     const dt = nb0 - b0, nbEnd = nb0 + blockLen;
     const pos = orig.map((r, k) => ({ i: k, s: r.start, len: r.end - r.start, block: a.set.has(k) }));
     pos.forEach(p => { if (p.block) p.s += dt; });
@@ -449,6 +464,16 @@ class AMSTimeline {
     const at = (t, cls) => out.push(`<div class="bl ${cls}" style="left:${(t / this.duration) * w}px"></div>`);
     if (this.beats) {
       this.beats.forEach((t, i) => { if (i % this.beatsPerBar === 0) at(t, "bar"); else if (barPx >= 44) at(t, "beat"); });
+      // continue the grid across the virtual extension at the last beat interval
+      const B = this.beats, last = B[B.length - 1];
+      if (this.duration > last + 0.01) {
+        const per = (B.length > 1 ? last - B[B.length - 2] : spb / this.beatsPerBar) || spb / this.beatsPerBar;
+        const phase = (B.length - 1) % this.beatsPerBar;
+        for (let i = 1; last + i * per <= this.duration + per; i++) {
+          const t = last + i * per;
+          if ((phase + i) % this.beatsPerBar === 0) at(t, "bar"); else if (barPx >= 44) at(t, "beat");
+        }
+      }
     } else {
       const go = this.gridOffset;                                         // ANCHOR: bar 1 downbeat (BPM pivots here)
       const b0 = Math.min(0, Math.floor((0 - go) / spb));                 // extend back to t=0 when the anchor sits mid-track
@@ -473,6 +498,22 @@ class AMSTimeline {
 
   /* ---- geometry ---- */
   _secPerBar() { return (60 / this.bpm) * this.beatsPerBar; }
+  /* VIRTUAL EXTENT: the timeline is as long as the audio OR the arrangement, whichever runs
+     further. Lyrics longer than the track extend the grid past the waveform's end (plus four
+     bars of room to drag into); the waveform itself still stops where the audio stops. */
+  _recalcExtent() {
+    // lyric-linked (reorderable) regions live in bar-space (audio = t + gridOffset); audio-
+    // detected sections are already audio-time. Headroom only on a STRICT overflow, so an
+    // arrangement that merely touches the end — or an empty timeline — adds no phantom tail.
+    const go = this.reorderable ? (this.gridOffset || 0) : 0, spb = this._secPerBar();
+    let lastEnd = 0;
+    for (const r of (this.regions || [])) if (r && (r.end + go) > lastEnd) lastEnd = r.end + go;
+    const a = this.audioDur || 0;
+    const d = (lastEnd > 0 && lastEnd > a + 0.001) ? lastEnd + spb * 4 : a;
+    const changed = Math.abs(d - (this.duration || 0)) > 0.01;
+    this.duration = d;
+    return changed;
+  }
   _width() {
     const avail = this.area.clientWidth - this.LBL;
     if (!this.duration) return avail;
@@ -496,8 +537,13 @@ class AMSTimeline {
   _snapT(t) {
     if (!this.snap) return t;
     if (this.beats) {   // snap to the nearest REAL beat
-      let best = this.beats[0], d = Infinity;
-      for (const b of this.beats) { const dd = Math.abs(b - t); if (dd < d) { d = dd; best = b; } }
+      const B = this.beats, last = B[B.length - 1];
+      // past the built beat array (the virtual extension) → continue at the LAST beat interval,
+      // so drags into the overflow zone don't snap back to the final real beat
+      if (t > last) { const per = (B.length > 1 ? last - B[B.length - 2] : 60 / this.bpm) || 60 / this.bpm;
+        return last + Math.max(0, Math.round((t - last) / per)) * per; }
+      let best = B[0], d = Infinity;
+      for (const b of B) { const dd = Math.abs(b - t); if (dd < d) { d = dd; best = b; } }
       return best;
     }
     const beat = 60 / this.bpm;
@@ -577,6 +623,9 @@ class AMSTimeline {
 
   /* ---- render ---- */
   render() {
+    // keep the virtual extent honest on every repaint — but FREEZE it during an active drag so
+    // the px↔time mapping can't shift under the pointer (it recalcs on release)
+    if (!this._adrag && !this._rdrag && !this._slip) this._recalcExtent();
     const w = this._width();
     const spb = this._secPerBar();
     const bars = Math.max(1, Math.ceil(this.duration / spb));
@@ -908,15 +957,20 @@ class AMSTimeline {
     const w = c.width = this._width(), h = c.height = tlEl.clientHeight;
     const g = c.getContext("2d");
     g.strokeStyle = lane.color || "#7c5cff"; g.globalAlpha = .85; g.lineWidth = 1;
+    // on a VIRTUAL timeline (arrangement longer than the track) the audio owns only the left
+    // portion of the width — draw the wave across exactly that share so it ends where the
+    // audio ends instead of stretching to fill the extended grid
+    const adur = lane.buffer ? lane.buffer.duration : (this.audioDur || this.duration);
+    const wa = Math.max(1, Math.min(w, Math.round(w * (this.duration ? adur / this.duration : 1))));
     const p = lane.peaks;
     if (p && p.tiers) {
       const tiers = Object.keys(p.tiers).map(Number).sort((a, b) => a - b);
       let tier = tiers[tiers.length - 1];
-      for (const t of tiers) if (p.tiers[t].max.length <= w * 2) { tier = t; break; }
+      for (const t of tiers) if (p.tiers[t].max.length <= wa * 2) { tier = t; break; }
       const { min, max } = p.tiers[tier], n = max.length;
       g.beginPath();
-      for (let x = 0; x < w; x++) {
-        const a = Math.floor(x * n / w), b = Math.max(a + 1, Math.floor((x + 1) * n / w));
+      for (let x = 0; x < wa; x++) {
+        const a = Math.floor(x * n / wa), b = Math.max(a + 1, Math.floor((x + 1) * n / wa));
         let lo = 127, hi = -127;
         for (let i = a; i < b && i < n; i++) { lo = Math.min(lo, min[i]); hi = Math.max(hi, max[i]); }
         g.moveTo(x + .5, h / 2 - (hi / 127) * (h / 2 - 3));
@@ -924,13 +978,13 @@ class AMSTimeline {
       }
       g.stroke();
     } else if (lane.buffer) {
-      // map each pixel column x to the EXACT sample range [x·n/w, (x+1)·n/w) — the same
+      // map each pixel column x to the EXACT sample range [x·n/wa, (x+1)·n/wa) — the same
       // time→pixel mapping the grid uses — so a transient lands on its true bar/beat at
       // every zoom (the old ceil-step accumulated a position-dependent drift).
       const d = lane.buffer.getChannelData(0), n = d.length;
       g.beginPath();
-      for (let x = 0; x < w; x++) {
-        const a = Math.floor(x * n / w), z = Math.min(n, Math.floor((x + 1) * n / w));
+      for (let x = 0; x < wa; x++) {
+        const a = Math.floor(x * n / wa), z = Math.min(n, Math.floor((x + 1) * n / wa));
         const stride = Math.max(1, Math.floor((z - a) / 8));
         let lo = 1, hi = -1;
         for (let i = a; i < z; i += stride) { const v = d[i]; if (v < lo) lo = v; if (v > hi) hi = v; }
@@ -939,6 +993,12 @@ class AMSTimeline {
         g.lineTo(x + .5, h / 2 - lo * (h / 2 - 3));
       }
       g.stroke();
+    }
+    // faint end-of-audio marker when the grid runs past the track
+    if (wa < w - 2) {
+      g.globalAlpha = .5; g.strokeStyle = "#3a3d4d";
+      g.beginPath(); g.moveTo(wa + .5, 2); g.lineTo(wa + .5, h - 2); g.stroke();
+      g.globalAlpha = .85;
     }
   }
 
