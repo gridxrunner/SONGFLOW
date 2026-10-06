@@ -1,0 +1,24 @@
+# Free-plan Supabase projects pause after ~7 days without traffic, which takes down sign-in,
+# included credits, AI generation and bug intake. One small daily request keeps it awake.
+# Uses only the public (publishable) key that already ships in songflow-cloud.js.
+name: Keep Supabase awake
+
+on:
+  schedule:
+    - cron: "17 9 * * *"
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping the Songflow database
+        run: |
+          URL="https://stwlawvkrcoxosuimrzh.supabase.co"
+          KEY="$(curl -fsSL https://songflow.pages.dev/songflow-cloud.js | grep -o 'sb_publishable_[A-Za-z0-9_]*' | head -1)"
+          test -n "$KEY" || { echo "couldn't read the public key from the live site"; exit 1; }
+          AUTH=$(curl -s -o /dev/null -w "%{http_code}" "$URL/auth/v1/health" -H "apikey: $KEY")
+          REST=$(curl -s -o /dev/null -w "%{http_code}" "$URL/rest/v1/credit_pool?select=id&limit=1" -H "apikey: $KEY")
+          echo "auth health: HTTP $AUTH   database: HTTP $REST"
+          # 000 (address gone, i.e. paused) or 5xx (540 = paused) means it is down: fail so the run shows red in Actions
+          for c in "$AUTH" "$REST"; do [ "$c" -ge 200 ] && [ "$c" -lt 500 ] || exit 1; done

@@ -3,7 +3,12 @@
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Songflow — Lyric Studio</title>
-<link rel="stylesheet" href="ams.css?v=124">
+<link rel="stylesheet" href="ams.css?v=125">
+<script>/* last ~25 browser errors, attached to bug reports (see the Report bug wiring at the end) */
+window.__sfErrs=[];(function(){function add(k,m){try{var a=window.__sfErrs;a.push({t:new Date().toISOString(),k:k,m:String(m).slice(0,400)});if(a.length>25)a.shift();}catch(e){}}
+window.addEventListener("error",function(e){add("error",(e.message||"")+(e.filename?" @"+String(e.filename).split("/").pop()+":"+e.lineno:""));});
+window.addEventListener("unhandledrejection",function(e){var r=e.reason;add("promise",r&&(r.message||r));});
+var ce=console.error;console.error=function(){try{add("console",[].slice.call(arguments).map(String).join(" "));}catch(e){}return ce.apply(console,arguments);};})();</script>
 <style>
   /* standalone shell: no rail/drawer; the page fills the window */
   body{display:block}
@@ -344,7 +349,7 @@
           <div id="bugPanel">
             <div class="bughd"><b>Report a bug</b><button id="bugX" title="close">&#10005;</button></div>
             <textarea id="bugText" placeholder="What happened? What did you expect to happen? Steps to reproduce, if you can."></textarea>
-            <div class="bugrow"><span class="muted" style="flex:1;font-size:10.5px">Opens your email + copies the report (with page + version).</span><button id="bugSend">Send</button></div>
+            <div class="bugrow"><span class="muted" style="flex:1;font-size:10.5px">Goes straight to the Songflow team, with the page, version and any error messages attached.</span><button id="bugSend">Send</button></div>
           </div>
         </div>
       </div>
@@ -559,7 +564,7 @@
           <li><b>Projects.</b> The start screen lists your projects, a <b>Real Crews demo</b> (a finished song made with this exact workflow &mdash; open it to see how a project is put together), and <b>&#65291; New project</b>. Everything autosaves in this browser as you work.</li>
           <li><b>&#128190; Save project / &#128194; Open project.</b> Saves one <code>.songflow</code> file holding the audio, lyrics, arrangement and every setting &mdash; a real backup you can move between computers or send to someone.</li>
           <li><b>Sign in</b> (top right) is optional. One-tap email link, no password. It syncs your projects to the cloud so they follow you across devices, and it carries your <b>included AI credits</b>.</li>
-          <li><b>&#128030; Report bug</b> (bottom right of the editor) &mdash; hit it the moment something breaks or confuses you. It opens your email with the page and version already filled in.</li>
+          <li><b>&#128030; Report bug</b> (bottom right of the editor) &mdash; hit it the moment something breaks or confuses you. Your note goes straight to us with the page, version and any error messages attached.</li>
         </ul>
 
         <h4>Writing</h4>
@@ -668,11 +673,11 @@ $("helpClose").onclick=()=>showHelp(false);
 $("helpModal").addEventListener("click",e=>{if(e.target===$("helpModal"))showHelp(false);});
 document.addEventListener("keydown",e=>{if(e.key==="Escape")showHelp(false);});
 </script>
-<script src="ams-timeline.js?v=124"></script>
-<script src="ams-vowels.js?v=124"></script>
-<script src="ams-pron.js?v=124"></script>
-<script src="ams-bpm.js?v=124"></script>
-<script src="ams-sections.js?v=124"></script>
+<script src="ams-timeline.js?v=125"></script>
+<script src="ams-vowels.js?v=125"></script>
+<script src="ams-pron.js?v=125"></script>
+<script src="ams-bpm.js?v=125"></script>
+<script src="ams-sections.js?v=125"></script>
 <script>
 const doc=$("doc"),gut=$("gut");
 // keep the gutter (line #, syllables, rhyme vowel) locked to the lyric scroll — they share the
@@ -1780,7 +1785,7 @@ window.addEventListener("keydown",e=>{if(e.key==="Escape"&&$("tourOvl").classLis
 window.addEventListener("resize",()=>{if($("tourOvl").classList.contains("on"))tourShow();});
 if(!localStorage.getItem("ams.tour.seen"))setTimeout(()=>{try{tourStart();}catch(e){}},800);   // first visit → auto-run
 </script>
-<script src="lyric-core.js?v=124"></script>
+<script src="lyric-core.js?v=125"></script>
 <!-- Cloud sign-in (magic link) -->
 <div id="authPanel" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10000;align-items:center;justify-content:center">
   <div style="background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px;width:350px;max-width:92vw;box-shadow:0 14px 44px rgba(0,0,0,.55)">
@@ -1792,7 +1797,7 @@ if(!localStorage.getItem("ams.tour.seen"))setTimeout(()=>{try{tourStart();}catch
   </div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script src="songflow-cloud.js?v=124"></script>
+<script src="songflow-cloud.js?v=125"></script>
 <!-- BUG REPORTER markup lives inside .lyx (the lyric processor); this just wires it. -->
 <script>
 (function(){
@@ -1803,15 +1808,32 @@ if(!localStorage.getItem("ams.tour.seen"))setTimeout(()=>{try{tourStart();}catch
   function projName(){try{var d=JSON.parse(localStorage.getItem('ams.lyrics.docs')||'null');return d&&d.docs?((d.docs[d.active]||{}).name||''):''}catch(e){return''}}
   fab.onclick=function(){panel.classList.toggle('on');if(panel.classList.contains('on'))setTimeout(function(){ta.focus();},30);};
   x.onclick=function(){panel.classList.remove('on');};
-  send.onclick=function(){
+  function context(){
+    var c={url:location.href,version:'v'+ver,project:projName(),browser:navigator.userAgent,
+      screen:innerWidth+'x'+innerHeight,time:new Date().toISOString(),errors:(window.__sfErrs||[]).slice(-15)};
+    try{c.engine=(document.getElementById('aiProvider')||{}).value||null;}catch(e){}
+    try{c.lastGenerateNote=((document.getElementById('ideaNote')||{}).textContent||'').slice(0,300);}catch(e){}
+    try{c.bpm=tl.bpm;c.sections=(window._secStartBars||[]).length;c.track=(cur&&cur.name)||null;}catch(e){}
+    return c;
+  }
+  var busy=false;
+  send.onclick=async function(){
     var t=(ta.value||'').trim();if(!t){ta.focus();return;}
-    var ctx='URL: '+location.href+'\nVersion: v'+ver+'\nProject: '+projName()+'\nBrowser: '+navigator.userAgent+'\nTime: '+new Date().toISOString();
-    var full=t+'\n\n--- context ---\n'+ctx;
-    try{var all=JSON.parse(localStorage.getItem('ams.bugreports')||'[]');all.push({text:t,ctx:ctx,at:new Date().toISOString()});localStorage.setItem('ams.bugreports',JSON.stringify(all.slice(-100)));}catch(e){}
+    if(busy)return;busy=true;send.disabled=true;send.textContent='Sending\u2026';
+    var c=context(), full=t+'\n\n--- context ---\n'+JSON.stringify(c,null,1);
+    try{var all=JSON.parse(localStorage.getItem('ams.bugreports')||'[]');all.push({text:t,ctx:c,at:c.time});localStorage.setItem('ams.bugreports',JSON.stringify(all.slice(-100)));}catch(e){}
+    var headers={'content-type':'application/json'};
+    try{if(window.SBClient){var s=await window.SBClient.auth.getSession();var tok=s&&s.data&&s.data.session&&s.data.session.access_token;if(tok)headers.Authorization='Bearer '+tok;}}catch(e){}
+    var res=null,data={};
+    try{res=await fetch('/api/bug',{method:'POST',headers:headers,body:JSON.stringify({text:t,context:c})});try{data=await res.json();}catch(e){}}catch(e){res=null;}
+    busy=false;send.disabled=false;send.textContent='Send';
+    if(res&&res.ok&&data.ok){ta.value='';panel.classList.remove('on');if(typeof toast==='function')toast('Thanks \u2014 your report was sent. We\u2019re on it.');return;}
+    if(res&&res.status===429){if(typeof toast==='function')toast(data.error||'Too many reports just now \u2014 try again in a few minutes.');return;}
+    // the report service is unreachable: fall back to email + clipboard so nothing is lost
     try{if(navigator.clipboard)navigator.clipboard.writeText(full);}catch(e){}
     window.open('mailto:louisvalenciamedia@gmail.com?subject='+encodeURIComponent('Songflow bug report')+'&body='+encodeURIComponent(full),'_blank');
     ta.value='';panel.classList.remove('on');
-    if(typeof toast==='function')toast('Thanks! Report copied + your email opened. If no email app opened, just paste it to us.');
+    if(typeof toast==='function')toast('Couldn\u2019t reach the report service \u2014 your report is copied and your email opened. If no email app opened, paste it to us.');
   };
 })();
 </script>
