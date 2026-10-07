@@ -62,6 +62,10 @@ create trigger on_auth_user_created_credits
   after insert on auth.users
   for each row execute function public.grant_starting_credits();
 
+-- It only ever runs as a trigger, so browsers must not be able to call it via
+-- /rest/v1/rpc. Triggers still fire after this (Postgres doesn't check EXECUTE then).
+revoke execute on function public.grant_starting_credits() from public, anon, authenticated;
+
 -- 4) Atomic spend: debit the user AND the pool in one statement so two
 --    simultaneous generations can't both read a stale balance and overspend.
 --    Returns the user's remaining allowance.
