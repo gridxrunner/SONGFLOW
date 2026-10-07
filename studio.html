@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Songflow — Lyric Studio</title>
-<link rel="stylesheet" href="ams.css?v=125">
+<link rel="stylesheet" href="ams.css?v=126">
 <script>/* last ~25 browser errors, attached to bug reports (see the Report bug wiring at the end) */
 window.__sfErrs=[];(function(){function add(k,m){try{var a=window.__sfErrs;a.push({t:new Date().toISOString(),k:k,m:String(m).slice(0,400)});if(a.length>25)a.shift();}catch(e){}}
 window.addEventListener("error",function(e){add("error",(e.message||"")+(e.filename?" @"+String(e.filename).split("/").pop()+":"+e.lineno:""));});
@@ -673,11 +673,11 @@ $("helpClose").onclick=()=>showHelp(false);
 $("helpModal").addEventListener("click",e=>{if(e.target===$("helpModal"))showHelp(false);});
 document.addEventListener("keydown",e=>{if(e.key==="Escape")showHelp(false);});
 </script>
-<script src="ams-timeline.js?v=125"></script>
-<script src="ams-vowels.js?v=125"></script>
-<script src="ams-pron.js?v=125"></script>
-<script src="ams-bpm.js?v=125"></script>
-<script src="ams-sections.js?v=125"></script>
+<script src="ams-timeline.js?v=126"></script>
+<script src="ams-vowels.js?v=126"></script>
+<script src="ams-pron.js?v=126"></script>
+<script src="ams-bpm.js?v=126"></script>
+<script src="ams-sections.js?v=126"></script>
 <script>
 const doc=$("doc"),gut=$("gut");
 // keep the gutter (line #, syllables, rhyme vowel) locked to the lyric scroll — they share the
@@ -687,8 +687,12 @@ let rhymeOn=true,cur=null,curBuf=null,detectedBpm=120,curKey=null,bpmCycle=0,reg
 let manualBars=null;   // per-section manual start (in bars) once the user slides a boundary; null entries = auto (1 line = 1 bar)
 let _prevSecNames=null, _prevSecKeys=null;   // what manualBars was last aligned to (names; names+lyrics) — lets a hand-typed tag keep everyone else's position
 let _droppedPos=[];   // positions of sections that just vanished mid-edit (kept 10 min) so a re-typed or re-pasted tag returns home
-/* the demo's arrangement as the founder laid it out: intro in bars −16…−1, verse 1 on the anchor */
-const DEMO_NAME="Real Crews (demo)", DEMO_LAYOUT=[-16,0,8,16,24,32,40,48,56,64,72,80,88], DEMO_GRID=33.501459;   // DEMO_GRID = the demo's anchor + slip (s)
+let _legacyPackId=null;   // id of a pre-v126 project whose next tagRegions packs from bar 1 once and pins it (see restoreProjectState)
+/* the demo's arrangement: the intro runs from the very start of the track (bar −18: a 2-bar build,
+   then the 16-bar intro proper) up to verse 1 on the anchor */
+const DEMO_NAME="Real Crews (demo)", DEMO_LAYOUT=[-18,0,8,16,24,32,40,48,56,64,72,80,88], DEMO_GRID=33.501459;   // DEMO_GRID = the demo's anchor + slip (s)
+const DEMO_LAYOUT_V1=[-16,0,8,16,24,32,40,48,56,64,72,80,88];   // the July layout (16-bar intro), kept for copies whose tags were changed
+const DEMO_SECS=["intro","verse 1","prechorus","chorus","instrumental break","verse 2","prechorus","chorus","instrumental break","instrumental break","prechorus","chorus","outro"];
 
 /* ---- playback timeline (loop-for-writing) ---- */
 const isCur=()=>!!(cur&&_pl&&_pl.src===cur.url);
@@ -830,8 +834,8 @@ const tl=new AMSTimeline($("tl"),{
   spaceWantsTimeline:()=>activePanel==="timeline",   // Space plays only when the timeline is the active panel (editor active → Space types)
   onSelectSpan:(span)=>highlightLyricsForSpan(span),   // manual waveform span → highlight the lyrics in that time range (type to replace)
   onSeek:t=>setCueAt(t,{fromTimeline:true}),   // a timeline click places the static cue + moves the lyric cursor to that bar
-  onAnchor:t=>{gridAnchor=Math.max(0,t);gridSlip=0;applyGrid();},   // (legacy click-to-anchor path)
-  onSlipDrag:eff=>{gridSlip=eff-gridAnchor;updateSlipReadout();if(typeof saveProjectState==="function")saveProjectState();}, // ruler drag → adjust slip
+  onAnchor:(t,oldGo)=>{gridAnchor=Math.max(0,t);gridSlip=0;applyGrid();keepArrangementOnRegrid(oldGo!=null?oldGo:tl.gridOffset||0);},   // (legacy click-to-anchor path; the timeline passes the offset it replaced)
+  onSlipDrag:eff=>{gridSlip=eff-gridAnchor;updateSlipReadout();try{tagRegions();}catch(e){}if(typeof saveProjectState==="function")saveProjectState();}, // ruler drag → adjust slip (re-lay: the track-start floor moves with the grid)
   onRegions:()=>{regionsFromAudio=true;},   // any manual region edit (drag/create) locks them from tag re-mapping
   onArrange:(items)=>{try{applyArrange(items);}catch(e){}},   // a drag settled → reorder lyric blocks + store positions
   onRenameRegion:(i,label)=>{try{if(typeof renameSection==="function")renameSection(i,label);}catch(e){}}, // dbl-click rename → rewrite [Section] header
@@ -1108,7 +1112,26 @@ function applyGrid(save){
   if(save!==false&&typeof saveProjectState==="function")saveProjectState();
 }
 function updateSlipReadout(){$("slipVal").textContent=fmtOffset(gridSlip);}
-function setSlip(s){const lim=Math.max(8,tl.duration||8);gridSlip=Math.max(-lim,Math.min(lim,Math.round(s*1000)/1000));applyGrid();}
+/* Moving bar 1 re-aligns the GRID to the audio; it must not move the song. (Founder: you often
+   anchor on the first beat of the main part just to get a failed auto-grid right.) Placed positions
+   are stored in bars from the anchor, so without this every section rode along with bar 1 and the
+   intro landed on the anchor with a gap before it. Re-express each placed section on the new grid's
+   bar line nearest to where it sat in the audio; un-placed sections re-pack from the track start in
+   tagRegions. ANCHOR ONLY: slip is fine alignment, and there the sections should ride the grid onto
+   the true downbeats (converting each slip step separately also let sub-bar drift add up to a whole
+   bar). Call after the anchor moves, with the old offset. Restores (project load, undo) don't call
+   it: their positions already match their grid. */
+function keepArrangementOnRegrid(oldGo){
+  const newGo=tl.gridOffset||0, spb=(60/tl.bpm)*tl.beatsPerBar;
+  if(Math.abs(newGo-oldGo)>1e-9){
+    const move=b=>Math.round((Math.round(b)*spb+oldGo-newGo)/spb);   // from the bar it's SHOWN on (tagRegions rounds stored fractions)
+    if(manualBars)manualBars=manualBars.map(v=>v==null?null:move(v));
+    _droppedPos.forEach(x=>{x.pos=move(x.pos);});
+  }
+  try{tagRegions();}catch(e){}
+  if(typeof saveProjectState==="function")saveProjectState();
+}
+function setSlip(s){const lim=Math.max(8,tl.duration||8);gridSlip=Math.max(-lim,Math.min(lim,Math.round(s*1000)/1000));applyGrid();try{tagRegions();}catch(e){}}   // re-lay: the track-start floor moves with the grid
 $("slipBack").onclick=e=>setSlip(gridSlip-(e.shiftKey?0.001:0.01));   // Shift = 1ms fine
 $("slipFwd").onclick=e=>setSlip(gridSlip+(e.shiftKey?0.001:0.01));
 $("slipVal").onclick=()=>setSlip(0);                                  // neutral = back on the anchor
@@ -1116,8 +1139,9 @@ $("slipDragTog").onclick=()=>{tl.slipDrag=!tl.slipDrag;$("slipDragTog").classLis
   toast(tl.slipDrag?"Slip-drag ON — drag the numbered ruler left/right to shove the grid. Turn off to lock.":"Slip-drag off.");};
 $("anchorBtn").onclick=()=>{
   if(typeof pushUndo==="function")pushUndo();   // anchoring is undoable (Ctrl+Z restores the prior grid)
+  const oldGo=tl.gridOffset||0;
   gridAnchor=Math.max(0,(tl.playhead!=null?tl.playhead:(_pl.currentTime||0)));   // bar 1 = the play marker, right now
-  gridSlip=0; applyGrid();
+  gridSlip=0; applyGrid(); keepArrangementOnRegrid(oldGo);                    // the sections stay where they are in the song
   $("anchorBtn").classList.add("on"); setTimeout(()=>$("anchorBtn").classList.remove("on"),500);
   toast(`Bar 1 anchored at the play marker (${gridAnchor.toFixed(3)}s). Slip reset to neutral.`);
 };
@@ -1444,12 +1468,34 @@ async function restoreProjectState(){
     // layout on autosave) -- restore the section names it's aligned to so tagRegions can reconcile
     const _al=a=>(Array.isArray(a)&&manualBars&&a.length===manualBars.length)?a.slice():null;
     _prevSecNames=_al(d.secNames); _prevSecKeys=_al(d.secKeys); _droppedPos=[];
-    // demo copies imported after the July demo update lost the founder's layout (intro before
-    // bar 1). An untouched copy has no positions at all — give it the layout back. Any copy
-    // someone has arranged carries its own positions and is left alone.
-    if(d.name===DEMO_NAME&&(!manualBars||manualBars.every(v=>v==null))                        // autosave stores "untouched" as all-null entries
-       &&Math.abs((+d.anchor||0)+(+d.slip||0)-DEMO_GRID)<0.1&&Math.round(+d.bpm||0)===131)      // still on the demo's own grid — a re-anchored copy is left alone
-      manualBars=DEMO_LAYOUT.slice();
+    const tags=String(d.text||"").split("\n").map(l=>l.trim().match(/^\[(.*)\]$/)).filter(Boolean).map(m=>parseTagBars(m[1]));
+    const untouched=!manualBars||manualBars.every(v=>v==null);                                   // autosave stores "untouched" as all-null entries
+    // DEMO LAYOUT, once per copy: the intro starts at the very beginning of the track. The song has
+    // 18 bars before verse 1 (a 2-bar build, then the 16-bar intro), so the shipped "[intro - 16 bars]"
+    // left a gap in front of the intro, and copies arranged under the old placement bugs came out
+    // scrambled. Re-lay any copy still carrying the original demo sections and 16-bar intro on the
+    // demo's own grid; d.demoLayout marks it done, so later arranging by the writer is left alone.
+    if(d.name===DEMO_NAME&&!d.demoLayout
+       &&Math.abs((+d.anchor||0)+(+d.slip||0)-DEMO_GRID)<0.1&&Math.round(+d.bpm||0)===131){      // still on the demo's own grid — a re-anchored copy is left alone
+      const lines=String(d.text).split("\n"), il=lines.findIndex(l=>/^\[intro\s*[-–—]\s*16\s*bars?\]$/i.test(l.trim()));
+      if(il>=0&&tags.length===DEMO_SECS.length&&tags.every((t,k)=>t.name.toLowerCase()===DEMO_SECS[k])&&tags[0].bars===16){
+        lines[il]=lines[il].replace(/16(\s*bars?\s*\])/i,"18$1"); d.text=lines.join("\n");
+        manualBars=DEMO_LAYOUT.slice(); _prevSecNames=DEMO_SECS.slice(); _prevSecKeys=null;
+        d.manualBars=manualBars.slice(); d.secNames=DEMO_SECS.slice(); d.secKeys=null; d.demoLayout=2;
+        doc.textContent=d.text; if(rhymeOn)paintRhymes();else update();                      // update() saves the new text (it is also the editor's restore copy)
+        saveDocs();
+      }else if(untouched&&tags.length===DEMO_SECS.length)                                        // re-tagged but never arranged: the layout it had before
+        manualBars=(tags[0].bars===18?DEMO_LAYOUT:DEMO_LAYOUT_V1).slice();
+    }
+    // LAYOUT MODEL 2 (v126): un-positioned sections pack from the track start instead of bar 1. A
+    // project saved before that keeps what its writer saw: its next tagRegions packs the old way once
+    // and pins the first un-positioned section where it landed (the later ones then pack after it
+    // exactly as before), saving that pin together with layoutV.
+    _legacyPackId=null;
+    if(!d.layoutV){
+      if(tags.length&&packStartBar()!==0&&(!manualBars||manualBars.some(v=>v==null)))_legacyPackId=d.id;
+      else d.layoutV=2;
+    }
   }
   let blob=null;try{const id=(typeof activeDocId==="function")&&activeDocId();if(id)blob=await idbGet(id);}catch(e){}
   if(blob){try{
@@ -1480,7 +1526,7 @@ async function saveProjectFile(){
       manualBars:(typeof manualBars!=="undefined")?manualBars:(d.manualBars||null),
       secNames:(typeof _prevSecNames!=="undefined"&&_prevSecNames)?_prevSecNames:null,secKeys:(typeof _prevSecKeys!=="undefined"&&_prevSecKeys)?_prevSecKeys:null,
       bpm:tl.bpm,anchor:gridAnchor,slip:gridSlip,warp:(warpMarkers||[]).slice(),warpShow:!!warpShow,
-      trackName:cur?cur.name:(d.trackName||null),savedAt:Date.now()};
+      trackName:cur?cur.name:(d.trackName||null),layoutV:2,savedAt:Date.now()};   // layoutV: positions follow the track-start packing (see restoreProjectState)
     let audio=new Uint8Array(0);
     try{const id=activeDocId();const blob=id&&await idbGet(id);
       if(blob){audio=new Uint8Array(await blob.arrayBuffer());meta.audioType=blob.type||"audio/wav";}}catch(e){}
@@ -1505,7 +1551,7 @@ async function openProjectFile(file){
     const id=newId();                                                       // fresh id → opening twice never collides
     docsState.docs.push({name:meta.name||"Opened project",text:meta.text||"",manualBars:meta.manualBars||null,secNames:meta.secNames||null,secKeys:meta.secKeys||null,
       bpm:meta.bpm,anchor:meta.anchor,slip:meta.slip,warp:meta.warp||[],warpShow:!!meta.warpShow,
-      trackName:meta.trackName||null,updated:0,id});
+      trackName:meta.trackName||null,layoutV:meta.layoutV,updated:0,id});
     if(audio&&audio.length){await idbPut(id,new Blob([audio],{type:meta.audioType||"audio/wav"}));}
     saveDocs();
     switchDoc(docsState.docs.length-1);                                     // switch → restores text + audio + grid
@@ -1624,6 +1670,12 @@ function parseTagBars(label){
   return m?{name:m[1].trim(),bars:Math.max(1,parseInt(m[2],10))}:{name:String(label==null?"":label).trim(),bars:null};
 }
 function withBars(name,bars){return `${name} - ${bars} bars`;}
+/* where un-positioned sections start packing, in bars: the BEGINNING OF THE TRACK, not the anchor.
+   The anchor only pins the grid to a downbeat (founder: often the first beat of the main part, to
+   rescue a failed auto-grid), so packing from it dropped the intro onto bar 1 with empty track in
+   front of it. The first whole bar of the track; a downbeat up to a quarter bar before the audio
+   still counts, so a small negative slip can't push the whole song a bar late. */
+function packStartBar(){const spb=(60/tl.bpm)*tl.beatsPerBar;return Math.ceil(-(tl.gridOffset||0)/spb-0.25);}
 window.parseTagBars=parseTagBars;window.withBars=withBars;
 /* arrangement tags → regions. A section is sized by an explicit "- N bars" tag if present,
    otherwise by its content (1 line = 1 bar, min 1). Positions are free: contiguous by
@@ -1698,8 +1750,11 @@ function tagRegions(){
   }
   _prevSecNames=curNames; _prevSecKeys=curKeys;
   // start bar per section: manual position wins, else packed right after the previous one
-  const minBar=Math.round(-(tl.gridOffset||0)/spb);          // track start (audio 0) in WHOLE bars — a section may sit before the anchor but not before the track
-  const startBar=[];let cum=0;
+  const trackBar=-(tl.gridOffset||0)/spb;                    // track start (audio 0) in bars, unrounded
+  const minBar=Math.round(trackBar);                         // ...in WHOLE bars — a section may sit before the anchor but not before the track
+  const packBar=packStartBar();
+  const curDoc=docsState.docs[docsState.active], legacy=_legacyPackId!=null&&!!curDoc&&curDoc.id===_legacyPackId;
+  const startBar=[];let cum=legacy?0:packBar;                                                // a pre-v126 project packs from bar 1 this once
   for(let k=0;k<secs.length;k++){
     // snap every region start to a WHOLE bar (whole-note snap) — a fractional start makes an
     // N-bar region visually span N-1 ruler bars, which read as regions "jumping" / shrinking.
@@ -1711,6 +1766,10 @@ function tagRegions(){
     // state (typing into the section above) would otherwise permanently ratchet saved positions
     startBar.push(s); cum=Math.max(cum,s+secs[k].len);
   }
+  if(legacy){                                    // pin the old packing so it survives the new packing rule
+    _legacyPackId=null; const f=manualBars.findIndex(v=>v==null); if(f>=0)manualBars[f]=startBar[f];
+    curDoc.manualBars=manualBars.slice(); curDoc.secNames=curNames.slice(); curDoc.secKeys=curKeys.slice(); curDoc.layoutV=2; saveDocs();
+  }
   // expose the layout (in BARS), aligned 1:1 with EVERY section header. The resize ripple +
   // the karaoke/cursor time-map read these so indices can never desync. ----
   window._secStartBars=startBar.slice(); window._secLens=secs.map(s=>s.len);
@@ -1720,8 +1779,12 @@ function tagRegions(){
   // clamped to the audio end and NEVER filtered — the old clamp squashed overflowing sections
   // to zero width, dropped them, and desynced region↔section indices (the arrange corruption).
   if(!curBuf)tl.setDuration((lastEnd+4)*spb);
+  // fromTrackStart: the opening section is DRAWN from the track's first instant. Audio rarely starts
+  // on a bar line, and the sliver before the first whole bar read as a gap in front of the intro.
+  // Drawing only — its position (start) stays on the bar grid, so drags and playback are unchanged.
   const regs=secs.map((s,k)=>({start:startBar[k]*spb,
     end:(startBar[k]+s.len)*spb,
+    fromTrackStart:k===0&&startBar[0]<=packBar,
     label:s.name,bars:s.len,explicitBars:s.explicitBars,lenBars:s.len,hasLyrics:s.lyricLines>0,userEdited:manualBars[k]!=null}));
   tl.reorderable=true;                                                 // these regions are linked to the lyric blocks
   tl.setRegions(regs);
@@ -1785,7 +1848,7 @@ window.addEventListener("keydown",e=>{if(e.key==="Escape"&&$("tourOvl").classLis
 window.addEventListener("resize",()=>{if($("tourOvl").classList.contains("on"))tourShow();});
 if(!localStorage.getItem("ams.tour.seen"))setTimeout(()=>{try{tourStart();}catch(e){}},800);   // first visit → auto-run
 </script>
-<script src="lyric-core.js?v=125"></script>
+<script src="lyric-core.js?v=126"></script>
 <!-- Cloud sign-in (magic link) -->
 <div id="authPanel" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10000;align-items:center;justify-content:center">
   <div style="background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px;width:350px;max-width:92vw;box-shadow:0 14px 44px rgba(0,0,0,.55)">
@@ -1797,7 +1860,7 @@ if(!localStorage.getItem("ams.tour.seen"))setTimeout(()=>{try{tourStart();}catch
   </div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script src="songflow-cloud.js?v=125"></script>
+<script src="songflow-cloud.js?v=126"></script>
 <!-- BUG REPORTER markup lives inside .lyx (the lyric processor); this just wires it. -->
 <script>
 (function(){

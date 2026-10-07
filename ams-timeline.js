@@ -177,8 +177,9 @@ class AMSTimeline {
   }
   setAnchorAt(clientX) {
     const t = this._snapToTransient(this._tAtClientX(clientX));
+    const old = this.gridOffset;
     this.gridOffset = t; this._anchorArm = false; this.host.classList.remove("anchoring");
-    this.render(); this.opts.onAnchor && this.opts.onAnchor(t);
+    this.render(); this.opts.onAnchor && this.opts.onAnchor(t, old);   // old offset: the page keeps the sections where they were
   }
   setComposite(segs) { this.compositeSegs = segs || []; this.render(); }
   setPlaying(on) { this.playBtn.innerHTML = on ? "&#10074;&#10074;" : "&#9654;"; }
@@ -255,7 +256,7 @@ class AMSTimeline {
       const dt = this._snapT(anchor.start + dxpx / pxPerSec) - anchor.start;   // beat-snapped delta
       this._adrag.dt = dt;
       const set = this._adrag.set;
-      this.regions = orig.map((r, k) => set.has(k) ? { ...r, start: r.start + dt, end: r.end + dt } : { ...r });
+      this.regions = orig.map((r, k) => set.has(k) ? { ...r, start: r.start + dt, end: r.end + dt, fromTrackStart: false } : { ...r });
       this._layoutRegions();
       const strip = this.scrollEl.querySelector(".regionstrip");
       if (strip) strip.querySelectorAll(".region").forEach(el => el.classList.toggle("dragging", set.has(+el.dataset.ri)));
@@ -491,8 +492,8 @@ class AMSTimeline {
     const strip = this.scrollEl.querySelector(".regionstrip"); if (!strip) return;
     strip.querySelectorAll(".region").forEach(el => {
       const r = this.regions[+el.dataset.ri]; if (!r) return;
-      el.style.left = (this._xo(r.start) - this.LBL) + "px";
-      el.style.width = Math.max(8, this._xo(r.end) - this._xo(r.start)) + "px";
+      el.style.left = (this._rx0(r) - this.LBL) + "px";
+      el.style.width = Math.max(8, this._xo(r.end) - this._rx0(r)) + "px";
     });
   }
 
@@ -529,6 +530,9 @@ class AMSTimeline {
   // linearly here, so a tag edge can sit slightly off a bent bar line. Intentional for now — a full
   // warp remap of region coords is a follow-up (would need the warp's global-beat origin in here).
   _xo(t) { return this._x(t + this.gridOffset); }
+  // left edge of a region, in px. The opening lyric section is drawn from the track's first instant
+  // (fromTrackStart, set by the page) while its position stays on the bar grid.
+  _rx0(r) { return r.fromTrackStart ? this._x(0) : this._xo(r.start); }
   _tAtClientX(clientX) {
     const r = this.scrollEl.getBoundingClientRect();
     const x = clientX - r.left - this.LBL;
@@ -658,7 +662,7 @@ class AMSTimeline {
             const kind = (r.hasLyrics === false) ? "nolyr" : "haslyr";
             const kindTip = (r.hasLyrics === false) ? " · no lyrics (arrangement-only)" : "";
             return `<div class="region ${kind} ${selected ? "on" : ""} ${looping ? "looping" : ""}" data-ri="${i}"
-              style="left:${this._xo(r.start) - this.LBL}px;width:${Math.max(8, this._xo(r.end) - this._xo(r.start))}px"
+              style="left:${this._rx0(r) - this.LBL}px;width:${Math.max(8, this._xo(r.end) - this._rx0(r))}px"
               title="${txt}${tip}${kindTip} — ${hint}, click to select, Shift+Click adjacent to extend, double-click to rename"><span class="rlbl">${txt}</span></div>`;
           }).join("")}
         </div>
@@ -884,7 +888,7 @@ class AMSTimeline {
     let rects = [];
     if (regionSel) {
       rects = this.selRegions.map(k => this.regions[k]).filter(Boolean)
-        .map(r => [this._xo(r.start), this._xo(r.end)]);
+        .map(r => [this._xo(r.start), this._xo(r.end)]);   // the span Loop / Cut / Copy act on
     } else if (this.sel) {
       rects = [[this._x(this.sel.start), this._x(this.sel.end)]];   // free drag-selection (audio time)
     } else return;

@@ -150,7 +150,7 @@
     const d=load();
     d.docs.push({name:nameOverride||meta.name||"Opened project",text:meta.text||"",manualBars:meta.manualBars||null,secNames:meta.secNames||null,secKeys:meta.secKeys||null,
       bpm:meta.bpm,anchor:meta.anchor,slip:meta.slip,warp:meta.warp||[],warpShow:!!meta.warpShow,
-      trackName:meta.trackName||null,updated:0,id});
+      trackName:meta.trackName||null,layoutV:meta.layoutV,updated:0,id});
     if(audio&&audio.length)await idbPut(id,new Blob([audio],{type:meta.audioType||"audio/wav"}));
     d.active=d.docs.length-1;save(d);
     return d;
