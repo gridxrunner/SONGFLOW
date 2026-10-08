@@ -472,14 +472,7 @@ class AMSTimeline {
       if (!a.moved) {                                            // no drag → select the single section
         this.selRegions = [a.i]; this.selRegion = a.i; this.sel = { ...this.regions[a.i] };
         this.opts.onSelectRegions && this.opts.onSelectRegions([this.regions[a.i]]);
-        this.render();
-        // a single click only selects; the second click of a double-click opens the tag menu
-        // (colour / bars / rename / delete) under the tag
-        if (e && e.detail >= 2 && this.opts.onRegionMenu) {
-          const el = this.scrollEl.querySelector(`.region[data-ri="${a.i}"]`);
-          const rb = el ? el.getBoundingClientRect() : null;
-          this.opts.onRegionMenu(a.i, rb ? Math.max(rb.left, Math.min(e.clientX, rb.right - 20)) : e.clientX, rb ? rb.bottom + 4 : e.clientY + 8);
-        }
+        this.render();                                           // a click only selects; right-click opens the tag menu
         return;
       }
       // single-region drag MOVES to the drop point (ripples overlaps); block drag shoves
@@ -771,7 +764,7 @@ class AMSTimeline {
             const selected = this.selRegions.includes(i);
             const looping = selected && this.loop;           // selected + loop active => red
             const hint = this.reorderable
-              ? "click to select this section; double-click for the tag menu (color, bars, rename, delete); drag to slide it into an open spot; Ctrl+Click several then drag to move them as a block; Delete removes it (and its lyrics)"
+              ? "click to select this section; right-click for the tag menu (name, color, bars, delete); drag to slide it into an open spot; Ctrl+Click several then drag to move them as a block; Delete removes it (and its lyrics)"
               : "drag to move (ripples downstream)";
             // bar length is set from the word processor (click the [Tag]); the timeline just
             // shows the section's span — no dropdown here.
@@ -840,6 +833,7 @@ class AMSTimeline {
     // Other tabs keep the ripple-move / drag-to-create behaviour.
     const strip = this.scrollEl.querySelector(".regionstrip");
     strip.onmousedown = e => {
+      if (e.button !== 0) return;                              // right-click is the tag menu (oncontextmenu below)
       const regEl = e.target.closest(".region");
       if (regEl && e.altKey && this.reorderable) {            // Alt+Click → open the tag-options menu (bars / rename / delete)
         e.preventDefault(); e.stopPropagation();
@@ -890,8 +884,20 @@ class AMSTimeline {
       }
       this._rcreate = this._snapT(this._tAtClientX(e.clientX));   // empty strip → create (other tabs)
     };
-    // double-click: a lyric-linked tag opens the tag menu (handled on release above, since a click
-    // repaints the strip); audio-detected sections have no menu, so they rename inline here
+    // right-click a lyric-linked tag → select it and open the tag menu (name, colour, bars, delete)
+    strip.oncontextmenu = e => {
+      const el = e.target.closest(".region"); if (!el || !this.reorderable) return;
+      e.preventDefault();
+      const i = +el.dataset.ri;
+      if (!this.selRegions.includes(i)) {
+        this.selRegions = [i]; this.selRegion = i; this.sel = this.regions[i] ? { ...this.regions[i] } : null;
+        this.opts.onSelectRegions && this.opts.onSelectRegions([this.regions[i]]);
+        this.render();
+      }
+      const now = this.scrollEl.querySelector(`.region[data-ri="${i}"]`), rb = now ? now.getBoundingClientRect() : null;
+      this.opts.onRegionMenu && this.opts.onRegionMenu(i, rb ? Math.max(rb.left, Math.min(e.clientX, rb.right - 20)) : e.clientX, rb ? rb.bottom + 4 : e.clientY + 8);
+    };
+    // audio-detected sections have no tag menu, so a double-click renames them inline
     strip.ondblclick = e => {
       if (this.reorderable) return;
       const el = e.target.closest(".region"); if (el) this._renameRegion(+el.dataset.ri);

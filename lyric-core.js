@@ -432,7 +432,7 @@ function paintTagColors(){try{
     }else el.style.color=h?tagTint(h,.5):"";
   });
 }catch(e){}}
-/* fold / unfold a region's lines: a single CLICK on its tag (founder 2026-10-08; right-click works too) */
+/* fold / unfold a region's lines: a single CLICK on its tag (founder 2026-10-08) */
 function toggleFold(si){
   const f=foldsGet();
   if(f.has(si))f.delete(si);else f.add(si);
@@ -441,12 +441,14 @@ function toggleFold(si){
   paintRhymes();
   if(off!=null&&typeof setCaret==="function"){try{setCaret(Math.min(off,doc.innerText.length));}catch(e){}}
 }
+// right-click a tag → its menu (name, bar length, colour, delete)
 doc.addEventListener("contextmenu",e=>{
   const s=e.target&&e.target.closest?e.target.closest(".sect"):null;
   if(!s)return;                                           // anywhere else keeps the normal menu
   e.preventDefault();
   const si=[...doc.querySelectorAll(".sect")].indexOf(s);if(si<0)return;
-  toggleFold(si);
+  hideTagMenu();
+  const r=s.getBoundingClientRect();openTagOpts(si,r.left,r.bottom+4);
 });
 function esc(s){return s.replace(/&/g,"&amp;").replace(/</g,"&lt;");}
 function unpaint(){doc.textContent=docText();update();}
@@ -864,8 +866,10 @@ function deleteSections(idxs){
    lives on the timeline — this is the single place to set a section's length. ---- */
 let _tagOptsEl=null;
 function _tagOptsOff(e){if(_tagOptsEl&&!_tagOptsEl.contains(e.target))closeTagOpts();}
-function _tagOptsKey(e){if(e.key==="Escape")closeTagOpts();}
-function closeTagOpts(){if(_tagOptsEl){_tagOptsEl.remove();_tagOptsEl=null;document.removeEventListener("mousedown",_tagOptsOff,true);document.removeEventListener("keydown",_tagOptsKey,true);}}
+function _tagOptsKey(e){if(e.key==="Escape")closeTagOpts(true);}
+// closing saves a name typed in the menu's title (cancel = Esc: drop it)
+function closeTagOpts(cancel){if(_tagOptsEl){const commit=_tagOptsEl._commit;_tagOptsEl.remove();_tagOptsEl=null;document.removeEventListener("mousedown",_tagOptsOff,true);document.removeEventListener("keydown",_tagOptsKey,true);
+  if(!cancel&&commit){try{commit();}catch(e){}}}}
 /* ---- tag colours: picked in the tag menu; the tag, its stretch of the timeline (fainter) and the
    [Tag] in the lyrics all wear it. Teal is the default, so picking teal clears the colour.
    "All <name> tags" LINKS that name: every tag with it shares one colour (tagLinks, enforced in
@@ -901,7 +905,7 @@ function openTagOpts(sectionIdx,x,y){
   const linked=typeof tagLinks!=="undefined"&&tagLinks.has(_tagKey(name));
   const colorOf=()=>(typeof secColors!=="undefined"&&secColors&&secColors[sectionIdx])||null;
   const m=document.createElement("div");m.className="tagopts";
-  m.innerHTML=`<div class="toh">${esc(name)}</div>`+
+  m.innerHTML=`<input class="toname" value="${esc(name).replace(/"/g,"&quot;")}" maxlength="60" spellcheck="false" title="The tag's name: click to change it, then press Enter">`+
     `<div class="tol">Bar length</div>`+
     `<div class="tobars">`+[4,8,16,32].map(b=>`<span class="tob${b===curBars?' on':''}" data-b="${b}">${b}</span>`).join("")+
     `<span class="tob" data-b="custom">Custom…</span></div>`+
@@ -911,11 +915,15 @@ function openTagOpts(sectionIdx,x,y){
     `<label class="toall" title="Link every &ldquo;${esc(name)}&rdquo; tag to one color: change any of them and they all change, and new ones match"><input type="checkbox"${linked?" checked":""}>`+
       `<svg class="lki" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.07 0l3-3a5 5 0 0 0-7.07-7.07l-1.5 1.5"/><path d="M14 11a5 5 0 0 0-7.07 0l-3 3a5 5 0 0 0 7.07 7.07l1.5-1.5"/></svg>`+
       `<span class="lkt"><span>All</span><b>${esc(name)}</b><span>tags</span></span><span class="sw"></span></label>`+
-    `<div class="toopt" data-act="rename">&#9998; Rename…</div>`+
     `<div class="toopt danger" data-act="delete">&#128465; Delete section</div>`;
   document.body.appendChild(m);
   m.style.left=Math.max(6,Math.min(window.innerWidth-m.offsetWidth-6,x))+"px";
   m.style.top=Math.max(6,Math.min(window.innerHeight-m.offsetHeight-6,y))+"px";
+  // rename in place: Enter (or closing the menu) saves a changed name; Esc cancels
+  const nameIn=m.querySelector(".toname");
+  m._commit=()=>{const v=nameIn.value.trim().replace(/^\[|\]$/g,"").trim();if(v&&v!==name)renameSection(sectionIdx,v);};
+  nameIn.onkeydown=ev=>{ev.stopPropagation();if(ev.key==="Enter"){ev.preventDefault();closeTagOpts();}};
+  nameIn.onfocus=()=>nameIn.select();
   const allBox=m.querySelector(".toall input"),cust=m.querySelector(".toc.cust"),custIn=cust.querySelector("input");
   const showColor=()=>{const c=colorOf(),isCust=!!c&&!TAG_PALETTE.some(p=>p[0]===c);
     m.querySelectorAll(".toc[data-c]").forEach(el=>el.classList.toggle("on",(c||TAG_PALETTE[0][0])===el.dataset.c));
@@ -936,19 +944,13 @@ function openTagOpts(sectionIdx,x,y){
   _tagOptsEl=m;
   setTimeout(()=>{if(_tagOptsEl!==m)return;document.addEventListener("mousedown",_tagOptsOff,true);document.addEventListener("keydown",_tagOptsKey,true);},0);
 }
-// a tag in the editor (rhyme-paint wraps tags in .sect): CLICK folds / unfolds its lines, DOUBLE-CLICK
-// opens the tag menu. The fold waits a beat so a double-click can claim the click instead.
-let _sectClickT=null,_sectFolded=null;   // _sectFolded: the fold a first click just made (a slow double-click takes it back)
-doc.addEventListener("mousedown",e=>{if(e.detail>1&&e.target.closest&&e.target.closest(".sect"))e.preventDefault();});   // no word-select on a tag double-click
+// a tag in the editor (rhyme-paint wraps tags in .sect): a left CLICK folds / unfolds its lines; the extra
+// clicks of a double-click are ignored (one double-click = one fold), and don't select a word either
+doc.addEventListener("mousedown",e=>{if(e.detail>1&&e.target.closest&&e.target.closest(".sect"))e.preventDefault();});
 doc.addEventListener("click",e=>{
-  const sect=e.target.closest&&e.target.closest(".sect");if(!sect)return;
+  const sect=e.target.closest&&e.target.closest(".sect");if(!sect||e.detail>1)return;
   const idx=[...doc.querySelectorAll(".sect")].indexOf(sect);if(idx<0)return;
-  clearTimeout(_sectClickT);
-  if(e.detail>=2){
-    if(_sectFolded&&_sectFolded.idx===idx&&Date.now()-_sectFolded.t<700)toggleFold(idx);   // undo the first click's fold
-    _sectFolded=null;
-    const el=doc.querySelectorAll(".sect")[idx]||sect,r=el.getBoundingClientRect();openTagOpts(idx,r.left,r.bottom+4);return;}
-  _sectClickT=setTimeout(()=>{toggleFold(idx);_sectFolded={idx,t:Date.now()};},250);
+  hideTagMenu();toggleFold(idx);
 });
 
 /* ---- export the current document to a .txt file ---- */
@@ -1224,7 +1226,9 @@ document.addEventListener("selectionchange",()=>{
     selLine=pre.toString().split("\n").length-1;refreshLinePanels();
     try{lastCaret=caretOffset();}catch{}
     try{updateFlowHud();}catch{}
-    try{showTagMenu();}catch{}
+    // the "[" menu opens while TYPING a tag (input event); a caret that merely lands in a tag (a click,
+    // a fold) must not pop it. Moving the caret out of the tag still closes it.
+    try{const tm=$("tagMenu");if(tm&&tm.style.display!=="none"&&!tagQueryAtCaret())hideTagMenu();}catch{}
   },120);
 });
 

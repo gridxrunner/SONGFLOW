@@ -168,6 +168,9 @@ body{padding-bottom:46px}
 .barsmenu .bmcustom{border-top:1px solid var(--line);margin-top:3px;color:var(--mut)}
 /* word-processor tag-options menu (left-click a [Tag]) */
 .tagopts{position:fixed;z-index:130;background:#15161e;border:1px solid var(--accent2);border-radius:9px;padding:6px;box-shadow:0 12px 32px rgba(0,0,0,.62);min-width:174px}
+.tagopts .toname{display:block;width:100%;box-sizing:border-box;margin:0 0 3px;padding:3px 6px;border:1px solid transparent;border-radius:6px;background:transparent;color:var(--txt);font:inherit;font-size:12px;font-weight:800;outline:none;cursor:text}
+.tagopts .toname:hover{border-color:var(--line)}
+.tagopts .toname:focus{border-color:var(--accent2);background:var(--panel2)}
 .tagopts .toh{font-size:11px;font-weight:800;color:var(--txt);padding:2px 6px 5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .tagopts .tol{font-size:9px;text-transform:uppercase;letter-spacing:.6px;color:var(--mut);padding:3px 6px 3px}
 .tagopts .tobars{display:flex;gap:4px;flex-wrap:wrap;padding:0 4px 5px}
