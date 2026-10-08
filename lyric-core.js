@@ -368,7 +368,7 @@ function syncTagCounts(){
   if(rhymeOn)paintRhymes();else update();
   if(caretAdj!=null){try{setCaret(Math.min(caretAdj,doc.innerText.length));}catch(e){}}
 }
-/* ---- region fold state (right-click a tag to minimize its lines; stored per project) ---- */
+/* ---- region fold state (click a tag to minimize its lines; stored per project) ---- */
 function foldsGet(){const d=docsState.docs[docsState.active];return new Set((d&&d.folds)||[]);}
 function foldsSave(set){const d=docsState.docs[docsState.active];if(d){d.folds=[...set];saveDocs();}}
 /* wrap each folded section's body (INCLUDING its leading newline) in a .foldbody span — a 0×0
@@ -388,7 +388,7 @@ function _applyFolds(parts,lines){
         const N=(typeof parseTagBars==="function")?parseTagBars(inside).bars:null;
         let lastC=j-1;while(lastC>i&&!lines[lastC].trim())lastC--;
         const shown=(N!=null)?Math.max(N,lastC-i):Math.max(1,lastC-i);
-        out.push(parts[i].replace('class="sect"',`class="sect foldhead" data-fold="${shown} bar${shown===1?"":"s"} — right-click to expand"`)
+        out.push(parts[i].replace('class="sect"',`class="sect foldhead" data-fold="${shown} bar${shown===1?"":"s"} — click to expand"`)
           +`<span class="foldbody">${"\n"+parts.slice(i+1,j).join("\n")}</span>`);
         i=j-1;continue;
       }
@@ -432,17 +432,21 @@ function paintTagColors(){try{
     }else el.style.color=h?tagTint(h,.5):"";
   });
 }catch(e){}}
-/* right-click a region tag → fold / unfold its lines (founder: no new visual element) */
+/* fold / unfold a region's lines: a single CLICK on its tag (founder 2026-10-08; right-click works too) */
+function toggleFold(si){
+  const f=foldsGet();
+  if(f.has(si))f.delete(si);else f.add(si);
+  foldsSave(f);
+  const off=(typeof caretOffset==="function")?caretOffset():null;
+  paintRhymes();
+  if(off!=null&&typeof setCaret==="function"){try{setCaret(Math.min(off,doc.innerText.length));}catch(e){}}
+}
 doc.addEventListener("contextmenu",e=>{
   const s=e.target&&e.target.closest?e.target.closest(".sect"):null;
   if(!s)return;                                           // anywhere else keeps the normal menu
   e.preventDefault();
-  const heads=[...doc.querySelectorAll(".sect")];
-  const si=heads.indexOf(s);if(si<0)return;
-  const f=foldsGet();
-  if(f.has(si))f.delete(si);else f.add(si);
-  foldsSave(f);
-  paintRhymes();
+  const si=[...doc.querySelectorAll(".sect")].indexOf(s);if(si<0)return;
+  toggleFold(si);
 });
 function esc(s){return s.replace(/&/g,"&amp;").replace(/</g,"&lt;");}
 function unpaint(){doc.textContent=docText();update();}
@@ -932,11 +936,19 @@ function openTagOpts(sectionIdx,x,y){
   _tagOptsEl=m;
   setTimeout(()=>{if(_tagOptsEl!==m)return;document.addEventListener("mousedown",_tagOptsOff,true);document.addEventListener("keydown",_tagOptsKey,true);},0);
 }
-// left-click a tag span in the editor → open its options (rhyme-paint wraps tags in .sect)
+// a tag in the editor (rhyme-paint wraps tags in .sect): CLICK folds / unfolds its lines, DOUBLE-CLICK
+// opens the tag menu. The fold waits a beat so a double-click can claim the click instead.
+let _sectClickT=null,_sectFolded=null;   // _sectFolded: the fold a first click just made (a slow double-click takes it back)
+doc.addEventListener("mousedown",e=>{if(e.detail>1&&e.target.closest&&e.target.closest(".sect"))e.preventDefault();});   // no word-select on a tag double-click
 doc.addEventListener("click",e=>{
   const sect=e.target.closest&&e.target.closest(".sect");if(!sect)return;
   const idx=[...doc.querySelectorAll(".sect")].indexOf(sect);if(idx<0)return;
-  const r=sect.getBoundingClientRect();openTagOpts(idx,r.left,r.bottom+4);
+  clearTimeout(_sectClickT);
+  if(e.detail>=2){
+    if(_sectFolded&&_sectFolded.idx===idx&&Date.now()-_sectFolded.t<700)toggleFold(idx);   // undo the first click's fold
+    _sectFolded=null;
+    const el=doc.querySelectorAll(".sect")[idx]||sect,r=el.getBoundingClientRect();openTagOpts(idx,r.left,r.bottom+4);return;}
+  _sectClickT=setTimeout(()=>{toggleFold(idx);_sectFolded={idx,t:Date.now()};},250);
 });
 
 /* ---- export the current document to a .txt file ---- */

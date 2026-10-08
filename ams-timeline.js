@@ -473,9 +473,9 @@ class AMSTimeline {
         this.selRegions = [a.i]; this.selRegion = a.i; this.sel = { ...this.regions[a.i] };
         this.opts.onSelectRegions && this.opts.onSelectRegions([this.regions[a.i]]);
         this.render();
-        if (e && e.detail === 2) { this._renameRegion(a.i); return; }   // second click of a double-click → rename
-        // ...and open the tag menu (colour / bars / rename / delete) under the tag on a single click
-        if (e && e.detail < 2 && this.opts.onRegionMenu) {
+        // a single click only selects; the second click of a double-click opens the tag menu
+        // (colour / bars / rename / delete) under the tag
+        if (e && e.detail >= 2 && this.opts.onRegionMenu) {
           const el = this.scrollEl.querySelector(`.region[data-ri="${a.i}"]`);
           const rb = el ? el.getBoundingClientRect() : null;
           this.opts.onRegionMenu(a.i, rb ? Math.max(rb.left, Math.min(e.clientX, rb.right - 20)) : e.clientX, rb ? rb.bottom + 4 : e.clientY + 8);
@@ -771,7 +771,7 @@ class AMSTimeline {
             const selected = this.selRegions.includes(i);
             const looping = selected && this.loop;           // selected + loop active => red
             const hint = this.reorderable
-              ? "click for the tag menu (color, bars, rename, delete); drag to slide this section into an open spot; Ctrl+Click several then drag to move them as a block; Delete removes it (and its lyrics)"
+              ? "click to select this section; double-click for the tag menu (color, bars, rename, delete); drag to slide it into an open spot; Ctrl+Click several then drag to move them as a block; Delete removes it (and its lyrics)"
               : "drag to move (ripples downstream)";
             // bar length is set from the word processor (click the [Tag]); the timeline just
             // shows the section's span — no dropdown here.
@@ -785,7 +785,7 @@ class AMSTimeline {
             const rcVars = rc ? `;--rc:${rc};--rcb:${this._rc(r, .2)};--rcs:${this._rc(r, .5)};--rcm:${this._rc(r, .09)}` : "";
             return `<div class="region ${kind} ${rc ? "colored" : ""} ${selected ? "on" : ""} ${looping ? "looping" : ""}" data-ri="${i}"
               style="left:${this._rx0(r) - this.LBL}px;width:${Math.max(8, this._xo(r.end) - this._rx0(r))}px${rcVars}"
-              title="${txt}${tip}${kindTip} — ${hint}, Shift+Click adjacent to extend, double-click to rename"><span class="rlbl">${txt}</span></div>`;
+              title="${txt}${tip}${kindTip} — ${hint}, Shift+Click adjacent to extend"><span class="rlbl">${txt}</span></div>`;
           }).join("")}
         </div>
       </div>
@@ -890,10 +890,10 @@ class AMSTimeline {
       }
       this._rcreate = this._snapT(this._tAtClientX(e.clientX));   // empty strip → create (other tabs)
     };
-    // double-click a region to rename it (founder: edit the text between the brackets). The release
-    // handler catches the second click itself (a click repaints the strip, so the browser's dblclick
-    // can land on a tag that was just replaced); this covers anything else.
+    // double-click: a lyric-linked tag opens the tag menu (handled on release above, since a click
+    // repaints the strip); audio-detected sections have no menu, so they rename inline here
     strip.ondblclick = e => {
+      if (this.reorderable) return;
       const el = e.target.closest(".region"); if (el) this._renameRegion(+el.dataset.ri);
     };
 
@@ -932,6 +932,10 @@ class AMSTimeline {
       tlEl.onmousemove = e => {
         if (!press) return;
         if (!press.moved && Math.abs(e.clientX - press.x0) < 4) return;   // ignore sub-4px jitter
+        if (!press.moved && this.selRegions.length) {            // a manual span replaces the section picked by its tag
+          this.selRegions = []; this.selRegion = -1;
+          this.opts.onSelectRegions && this.opts.onSelectRegions([]);
+        }
         press.moved = true;
         const t = this._tAtClientX(e.clientX);
         this.sel = { start: this._snapGrid(Math.min(press.t0, t)), end: this._snapGrid(Math.max(press.t0, t)), audio: true };

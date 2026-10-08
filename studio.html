@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Songflow — Lyric Studio</title>
-<link rel="stylesheet" href="ams.css?v=137">
-<script src="songflow-scope.js?v=137"></script>
+<link rel="stylesheet" href="ams.css?v=138">
+<script src="songflow-scope.js?v=138"></script>
 <script>/* last ~25 browser errors, attached to bug reports (see the Report bug wiring at the end) */
 window.__sfErrs=[];(function(){function add(k,m){try{var a=window.__sfErrs;a.push({t:new Date().toISOString(),k:k,m:String(m).slice(0,400)});if(a.length>25)a.shift();}catch(e){}}
 window.addEventListener("error",function(e){add("error",(e.message||"")+(e.filename?" @"+String(e.filename).split("/").pop()+":"+e.lineno:""));});
@@ -359,7 +359,7 @@ var ce=console.error;console.error=function(){try{add("console",[].slice.call(ar
           <button class="tbtn" id="aDelete" title="delete the selected waveform selection (closes the gap)" style="width:auto;padding:0 9px;font-size:11px">&#128465; Delete selection</button>
           <span class="muted" style="font-size:10.5px">drag on the waveform to select a span</span>
         </div>
-        <div class="muted" style="padding:0 2px;font-size:10.5px">Your <b>arrangement region tags</b> appear here, mirroring the lyric editor. <b>Click</b> a tag for the tag menu (color / bars / rename / delete) &middot; <b>drag</b> to reorder &middot; <b>double-click</b> to rename. New here? Open <b>? Guide → ▶ Take the tour</b>.</div>
+        <div class="muted" style="padding:0 2px;font-size:10.5px">Your <b>arrangement region tags</b> appear here, mirroring the lyric editor. <b>Click</b> a tag to select its section &middot; <b>double-click</b> for the tag menu (color / bars / rename / delete) &middot; <b>drag</b> to reorder. New here? Open <b>? Guide → ▶ Take the tour</b>.</div>
         <div class="lyx">
           <div class="gut" id="gut"></div>
           <div id="doc" contenteditable="true" spellcheck="false"></div>
@@ -598,7 +598,7 @@ var ce=console.error;console.error=function(){try{add("console",[].slice.call(ar
         <ul>
           <li><b>Gutter (left numbers):</b> each line shows <code>bar &#8470; &#9474; syllables  VOWEL</code> &mdash; the vowel is that line's ending rhyme sound. The bar numbers match the timeline ruler, gaps between sections included. A <code>&middot;</code> instead of a count means an <b>empty bar</b>.</li>
           <li><b>Bars and empty bars.</b> Inside a region with a bar count (e.g. <code>[Chorus - 8 bars]</code>) <b>every line is a bar</b>, including blank ones. Leave bars 5&ndash;7 blank and start a pickup on bar 8 and that is exactly where it lands. Type past the count and the tag updates itself. In a region with <em>no</em> count, bars are just your written lines and blank lines are only spacing.</li>
-          <li><b>Fold a region:</b> <b>right-click its tag</b> to collapse everything under it (the tag shows how many bars are hidden); right-click again to expand. Nothing is deleted &mdash; it only clears clutter on a long song.</li>
+          <li><b>Fold a region:</b> <b>click its tag</b> in the lyrics to collapse everything under it (the tag shows how many bars are hidden); click again to expand. Nothing is deleted &mdash; it only clears clutter on a long song.</li>
           <li><b>Cross-rhyme (ABAB):</b> a rhyme need not answer the very next bar. Set vowel <em>A</em> on bar 1, <em>B</em> on bar 2, then answer <em>A</em> on bar 3 and <em>B</em> on bar 4 &mdash; the pair lands every other bar. Because the pattern repeats, even a loose / <em>family</em> rhyme reads as deliberate. The scheme map rings the every-other-bar pair in white.</li>
           <li><b>Pickups.</b> Trailing throwaway syllables after your rhyme (&ldquo;&hellip;yeah&rdquo;, &ldquo;&hellip;and I&rdquo;) flow into the next bar and do <em>not</em> count toward the bar's syllable target &mdash; free room for meaning. Mark one with a comma: in <em>&ldquo;&hellip;on the line, He says&rdquo;</em> the rhyme is <b>line</b>, not &ldquo;says&rdquo;.</li>
           <li><b>&#127752; Rhyme colors:</b> each bar's rhyme anchor is colored by its <b>vowel sound</b> &mdash; the same color as that vowel's pill in the gutter and its dot in the scheme map, so all three views speak one color language. Dotted underlines mark internal echoes. <b>Word chips</b> (Near / Slant) &mdash; click to insert at your cursor, Shift+click to copy.</li>
@@ -609,7 +609,7 @@ var ce=console.error;console.error=function(){try{add("console",[].slice.call(ar
         <h4>Arrangement timeline</h4>
         <ul>
           <li><b>One tag, two names.</b> A <code>[tag]</code> with lyrics under it is a <b>Lyrics Region tag</b> in the editor; the <em>same tag</em> shows on the timeline as an <b>arrangement region tag</b>. Two views of one thing. A tag can also carry <em>no lyrics</em> (e.g. <code>[Instrumental break]</code>): it still appears in the editor, you just give it a <b>bar length</b>.</li>
-          <li><b>Bar length.</b> Tags <em>with</em> lyrics size themselves automatically (1 line = 1 bar). For tags <em>without</em> lyrics, set the length from the tag menu (4 / 8 / 16 / 32 / custom). Open the menu by <b>clicking the tag</b>, in the lyric editor or on the timeline. The menu also has Rename and Delete.</li>
+          <li><b>Bar length.</b> Tags <em>with</em> lyrics size themselves automatically (1 line = 1 bar). For tags <em>without</em> lyrics, set the length from the tag menu (4 / 8 / 16 / 32 / custom). Open the menu by <b>double-clicking the tag</b>, in the lyric editor or on the timeline. The menu also has Rename and Delete.</li>
           <li><b>Tag colors.</b> The same menu has a <b>Color</b> row. The tag takes the color on the timeline, the stretch of timeline it covers gets a lighter tint, the [tag] in your lyrics matches, and the lyrics under it take a lighter tint of it (half the color, half white; rhyme-colored words keep their rhyme colors). The rainbow dot opens a custom color; teal is the default. Tick <b>All &ldquo;Name&rdquo; tags</b> to link every tag with that name: change any one and they all change, and a new tag with that name comes in the same color. Untick it to color them one at a time again.</li>
           <li><b>Slip</b> is an offset <em>relative to the anchor</em> (neutral 0 = right on it). Nudge with <b>◀ ▶</b> (±10ms, Shift = ±1ms); for a big shift, toggle the <b>⇄ slip-drag</b> button and drag the numbered ruler. Click the readout to reset to neutral.</li>
           <li><b>Snap.</b> The playhead and selections snap to the grid. Pick the resolution next to the <b>Snap</b> toggle: <b>whole note (default) / ½ / ¼ (beat) / ⅛ / 1⁄16</b>.</li>
@@ -701,11 +701,11 @@ $("helpClose").onclick=()=>showHelp(false);
 $("helpModal").addEventListener("click",e=>{if(e.target===$("helpModal"))showHelp(false);});
 document.addEventListener("keydown",e=>{if(e.key==="Escape")showHelp(false);});
 </script>
-<script src="ams-timeline.js?v=137"></script>
-<script src="ams-vowels.js?v=137"></script>
-<script src="ams-pron.js?v=137"></script>
-<script src="ams-bpm.js?v=137"></script>
-<script src="ams-sections.js?v=137"></script>
+<script src="ams-timeline.js?v=138"></script>
+<script src="ams-vowels.js?v=138"></script>
+<script src="ams-pron.js?v=138"></script>
+<script src="ams-bpm.js?v=138"></script>
+<script src="ams-sections.js?v=138"></script>
 <script>
 const doc=$("doc"),gut=$("gut");
 // keep the gutter (line #, syllables, rhyme vowel) locked to the lyric scroll — they share the
@@ -875,7 +875,7 @@ const tl=new AMSTimeline($("tl"),{
   onRenameRegion:(i,label)=>{try{if(typeof renameSection==="function")renameSection(i,label);}catch(e){}}, // dbl-click rename → rewrite [Section] header
   onSetRegionBars:(i,bars)=>{try{if(typeof setRegionBars==="function")setRegionBars(i,bars);}catch(e){}}, // bars dropdown → resize + ripple
   onRegionMenu:(i,x,y)=>{try{if(typeof openTagOpts==="function")openTagOpts(i,x,y);}catch(e){}},
-  onRegionMenuClose:()=>{try{if(typeof closeTagOpts==="function")closeTagOpts();}catch(e){}}, // click (or Alt+Click) a region → the same tag-options menu as the editor
+  onRegionMenuClose:()=>{try{if(typeof closeTagOpts==="function")closeTagOpts();}catch(e){}}, // double-click (or Alt+Click) a region → the same tag-options menu as the editor
   onDeleteRegions:(idxs)=>{try{deleteSections(idxs);}catch(e){}}, // delete section(s) + their lyric blocks
   onWarpStart:()=>{if(typeof pushUndo==="function")pushUndo();},   // snapshot before a warp edit so Ctrl+Z restores it
   onWarpAdd:t=>{warpMarkers.push(t);warpMarkers.sort((a,b)=>a-b);applyWarp();toast("Warp pin dropped — the grid bends to it. Drop more on the downbeats that drift.");},
@@ -2020,7 +2020,7 @@ const TOUR=[
   {sel:"#schemeMap",t:"Scheme map",b:"One colored dot per bar shows your rhyme pattern. A white ring marks a cross-rhyme (ABAB) pair."},
   {sel:".gridctl",t:"Tempo & beat grid",b:"Drag the BPM numbers to fine-tune the tempo. Hit Anchor, then click the first downbeat anywhere on the timeline — the beat grid snaps there and locks to your song. Bars are numbered from the first bar of the track."},
   {sel:"#tl",t:"The timeline",b:"Your track as a waveform with a beat grid. Click to move the playhead — it snaps to the Snap menu's resolution (whole note by default, then ½, ¼/beat, ⅛, 1⁄16). Drag to select a span. Drag the bar under the timeline to make it taller."},
-  {sel:".regionstrip",t:"Arrangement region tags",b:"Same tags as the lyric editor, shown on the grid. Bright teal = a region with lyrics; muted teal = an arrangement-only region (no lyrics, e.g. an instrumental break). Drag to reorder (an insert line shows where it lands), double-click to rename, click a tag (here or in the lyrics) for the menu: bar length, color, rename, delete. Tick All \"Name\" tags there to keep every tag with that name the same color."},
+  {sel:".regionstrip",t:"Arrangement region tags",b:"Same tags as the lyric editor, shown on the grid. Bright teal = a region with lyrics; muted teal = an arrangement-only region (no lyrics, e.g. an instrumental break). Click a tag to select its section; drag to reorder (an insert line shows where it lands); double-click a tag (here or in the lyrics) for the menu: bar length, color, rename, delete. Tick All \"Name\" tags there to keep every tag with that name the same color."},
   {sel:"#ideaGo",t:"Generate",b:"Write matching bars with the AI. Signed in, it runs on your included credits; or pick another engine and use your own key. Overrides can force a vowel or syllable count for special cases."},
   {sel:"#lExport",t:"Export & save",b:"Save your lyrics as text, or export the edited audio. Everything autosaves in your browser as you go."},
   {sel:"#authBtn",t:"Your account",b:"Sign in with Google or an email link to use your included AI credits. Once you're in, click your name for your credits, the waitlist, and Sign out. Your projects are filed under your account in this browser."}
@@ -2055,7 +2055,7 @@ window.addEventListener("keydown",e=>{if(e.key==="Escape"&&$("tourOvl").classLis
 window.addEventListener("resize",()=>{if($("tourOvl").classList.contains("on"))tourShow();});
 if(!localStorage.getItem("ams.tour.seen"))setTimeout(()=>{try{tourStart();}catch(e){}},800);   // first visit → auto-run
 </script>
-<script src="lyric-core.js?v=137"></script>
+<script src="lyric-core.js?v=138"></script>
 <!-- Sign-in: Google (shown once the provider is switched on in Supabase) or a magic link by email -->
 <div id="authPanel" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10000;align-items:center;justify-content:center">
   <div style="background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px;width:350px;max-width:92vw;box-shadow:0 14px 44px rgba(0,0,0,.55)">
@@ -2069,7 +2069,7 @@ if(!localStorage.getItem("ams.tour.seen"))setTimeout(()=>{try{tourStart();}catch
   </div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script src="songflow-cloud.js?v=137"></script>
+<script src="songflow-cloud.js?v=138"></script>
 <!-- BUG REPORTER markup lives inside .lyx (the lyric processor); this just wires it. -->
 <script>
 (function(){
