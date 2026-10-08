@@ -1464,7 +1464,7 @@ document.querySelectorAll("[data-help]").forEach(d=>d.onclick=()=>{if(typeof sho
 const AI={providers:{
   free:    {label:"Songflow — included credits", keyLS:null, models:[]},   // routed through /api/generate (server-held key + per-user metering)
   groq:    {label:"Groq (fast · free tier)", keyLS:"ams.ai.key.groq", models:["llama-3.3-70b-versatile","llama-3.1-8b-instant","gemma2-9b-it"]},
-  openrouter:{label:"OpenRouter (any model)", keyLS:"ams.ai.key.openrouter", models:["deepseek/deepseek-v4-flash","deepseek/deepseek-chat","openai/gpt-5.5","anthropic/claude-opus-4.8","meta-llama/llama-3.3-70b-instruct","google/gemini-2.0-flash-001"]},   // default = DeepSeek V4 Flash: cheaper than V3 chat AND #1-ranked for creative writing (2026-07); non-reasoning, fast
+  openrouter:{label:"OpenRouter (any model)", keyLS:"ams.ai.key.openrouter", models:["deepseek/deepseek-v4.1-flash","deepseek/deepseek-v4-flash","deepseek/deepseek-chat","openai/gpt-5.5","anthropic/claude-opus-4.8","meta-llama/llama-3.3-70b-instruct","google/gemini-2.0-flash-001"]},   // default = DeepSeek V4 Flash: cheaper than V3 chat AND #1-ranked for creative writing (2026-07); non-reasoning, fast
   anthropic:{label:"Anthropic", keyLS:"ams.ai.key.anthropic", models:["claude-sonnet-4-6","claude-opus-4-8","claude-haiku-4-5-20251001"]},
   openai:  {label:"OpenAI", keyLS:"ams.ai.key.openai", models:["gpt-4o","gpt-4o-mini","gpt-4.1","gpt-4.1-mini"]},
   google:  {label:"Google Gemini", keyLS:"ams.ai.key.google", models:["gemini-2.5-flash","gemini-2.5-pro","gemini-2.0-flash"]}
@@ -1477,6 +1477,11 @@ if(!localStorage.getItem("ams.ai.key.anthropic")&&localStorage.getItem("ams.anth
 // moved to V4 Flash (cheaper + better creative ranking). It stays in the list to re-pick deliberately.
 if(localStorage.getItem(AI_MODEL_LS+"openrouter")==="deepseek/deepseek-chat")
   localStorage.setItem(AI_MODEL_LS+"openrouter","deepseek/deepseek-v4-flash");
+// default-model upgrade (v128): V4 Flash -> V4.1 Flash, ONCE, so anyone who later picks V4 Flash keeps it.
+try{if(!localStorage.getItem("ams.ai.mig.v41")){
+  if(localStorage.getItem(AI_MODEL_LS+"openrouter")==="deepseek/deepseek-v4-flash")localStorage.setItem(AI_MODEL_LS+"openrouter","deepseek/deepseek-v4.1-flash");
+  localStorage.setItem("ams.ai.mig.v41","1");}}catch(e){}
+function prettyModel(id){return String(id||"").split("/").pop().replace(/^deepseek-/,"DeepSeek ").replace(/-/g," ").replace(/\bv(\d)/g,"V$1").replace(/\b(flash|pro|chat)\b/g,w=>w[0].toUpperCase()+w.slice(1));}
 function aiKeyOf(p){const prov=AI.providers[p];return prov&&prov.keyLS?localStorage.getItem(prov.keyLS):null;}
 function aiModelOf(p){return localStorage.getItem(AI_MODEL_LS+p)||(AI.providers[p]&&AI.providers[p].models[0])||"";}
 async function aiErr(res,p){let t="";try{t=await res.text();}catch(e){}
@@ -1541,6 +1546,7 @@ async function callLLM({provider,model,system,user,maxTokens=600}){
     let d={};try{d=await res.json();}catch(e){}
     if(!res.ok)throw new Error(d.error||`Generation failed (${res.status}).`);
     if(d.balance!=null&&typeof renderCredits==="function")renderCredits(d.balance);
+    if(d.model)window._sfLastModel=d.model;                       // shown in the "Generated" note
     return (d.text||"").trim();
   }
   throw new Error("Unknown engine.");
@@ -1769,6 +1775,7 @@ async function generateLyrics(){
     return;
   }
   const n=+NSEL.value||4;
+  window._sfLastModel=null;
   // CONFORM FREE TEXT: when called as generateLyrics({conform:"...raw text..."}), the bars are crafted
   // FROM the user's free text (discern message + audience buzzwords) instead of continuing prior bars.
   const conformText=(arguments[0]&&typeof arguments[0]==="object"&&typeof arguments[0].conform==="string"&&arguments[0].conform.trim())?arguments[0].conform.trim():null;
@@ -1909,7 +1916,7 @@ OUTPUT FORMAT (STRICT): output ONLY the ${n} new lyric ${n>1?"bars":"bar"}, one 
     if(_genSeq===myGen){                              // still our run (not cancelled by an undo mid-flight)
       genFillSlot(slot,bars);                         // swap the glowing placeholders for the real bars
       const vDrift=!endsOk(bars), mDrift=!matchOk(bars), lDrift=leadInRhyme(bars);
-      note.style.color="";note.textContent=`Generated ${bars.length} bar(s).`+(vDrift?" Couldn't fully lock the forced vowel — tweak as needed.":lDrift?" A rhyme may still be sitting in a lead-in — move it to the bar's last word.":mDrift?" A bar's length is still a little off — tweak as needed.":" Edit freely — they're in your document.");
+      note.style.color="";note.textContent=`Generated ${bars.length} bar(s)${window._sfLastModel?" with "+prettyModel(window._sfLastModel):""}.`+(vDrift?" Couldn't fully lock the forced vowel — tweak as needed.":lDrift?" A rhyme may still be sitting in a lead-in — move it to the bar's last word.":mDrift?" A bar's length is still a little off — tweak as needed.":" Edit freely — they're in your document.");
     }
   }catch(err){if(_genSeq===myGen){genCancelSlot(slot);note.className="muted";note.style.color="var(--danger)";note.textContent="Generation failed: "+err.message;}}
   if(_genSeq===myGen){genGlowHide();btn.disabled=false;}

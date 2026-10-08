@@ -10,15 +10,17 @@
  *   SUPABASE_URL          - e.g. https://xxxx.supabase.co
  *   SUPABASE_SERVICE_KEY  - the service_role key (server-only; bypasses RLS to move the ledger)
  * Optional:
- *   SF_MODEL              - model id override (default deepseek/deepseek-v4-flash)
+ *   SF_MODEL              - model id override (default deepseek/deepseek-v4.1-flash; falls back to
+ *                           deepseek/deepseek-v4-flash if it errors or returns nothing)
  *   SF_MAX_TOKENS         - hard per-request output cap (default 2000)
  */
 
-const DEFAULT_MODEL = "deepseek/deepseek-v4-flash";
+const DEFAULT_MODEL = "deepseek/deepseek-v4.1-flash";   // newest DeepSeek Flash (Sep 2026)
+const FALLBACK_MODEL = "deepseek/deepseek-v4-flash";    // the previous default, used only if the newer one fails
 const HARD_TOKEN_CAP = 2000;
 // Conservative fallback pricing (USD per token) used ONLY if OpenRouter doesn't report a cost.
 // Deliberately over-estimates so a pricing surprise can never silently overspend the pool.
-const FALLBACK_IN = 0.30 / 1e6, FALLBACK_OUT = 1.20 / 1e6;
+const FALLBACK_IN = 0.60 / 1e6, FALLBACK_OUT = 2.40 / 1e6;   // 2x V4.1 Flash list price
 
 const json = (obj, status = 200) =>
   new Response(JSON.stringify(obj), { status, headers: { "content-type": "application/json" } });
@@ -82,53 +84,60 @@ export async function onRequestPost({ request, env }) {
   if (balance <= 0)
     return json({ error: "You've used all your Songflow credits. Add your own OpenRouter key in the Engine box to keep generating.", balance: 0 }, 402);
 
-  // ---- generate ----
-  const model = env.SF_MODEL || DEFAULT_MODEL;
-  let data;
-  try {
-    const or = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${env.OPENROUTER_KEY}`,
-        "content-type": "application/json",
-        "HTTP-Referer": "https://songflow.pages.dev",
-        "X-Title": "Songflow"
-      },
-      body: JSON.stringify({
-        model,
-        messages: [{ role: "system", content: system }, { role: "user", content: user }],
-        max_tokens: maxTokens,
-        temperature: 0.9,
-        usage: { include: true }              // ask OpenRouter to report real cost so metering is exact
-      })
-    });
-    const raw = await or.text();
-    if (!or.ok) return json({ error: `Generation failed (${or.status}). ${raw.slice(0, 160)}` }, 502);
-    data = JSON.parse(raw);
-  } catch (e) {
-    return json({ error: "Couldn't reach the model. Try again." }, 502);
+  // ---- generate: the current model first; if it errors or comes back empty, the previous one ----
+  const models = [...new Set([env.SF_MODEL || DEFAULT_MODEL, FALLBACK_MODEL])];
+  let text = "", used = null, cost = 0, lastErr = "Couldn't reach the model. Try again.";
+  for (const model of models) {
+    let data;
+    try {
+      const or = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${env.OPENROUTER_KEY}`,
+          "content-type": "application/json",
+          "HTTP-Referer": "https://songflow.pages.dev",
+          "X-Title": "Songflow"
+        },
+        body: JSON.stringify({
+          model,
+          messages: [{ role: "system", content: system }, { role: "user", content: user }],
+          max_tokens: maxTokens,
+          temperature: 0.9,
+          usage: { include: true }              // ask OpenRouter to report real cost so metering is exact
+        })
+      });
+      const raw = await or.text();
+      if (!or.ok) { lastErr = `Generation failed (${or.status}). ${raw.slice(0, 160)}`; continue; }
+      data = JSON.parse(raw);
+    } catch (e) {
+      lastErr = "Couldn't reach the model. Try again.";
+      continue;
+    }
+    // meter every billed call -- an empty answer was still paid for. Prefer OpenRouter's reported
+    // cost, else a conservative token estimate.
+    const u = data.usage || {};
+    let c = Number(u.cost);
+    if (!isFinite(c) || c < 0)
+      c = (Number(u.prompt_tokens) || 0) * FALLBACK_IN + (Number(u.completion_tokens) || 0) * FALLBACK_OUT;
+    cost += c;
+    const choice = (data.choices && data.choices[0]) || {};
+    text = ((choice.message && choice.message.content) || "").trim();
+    if (text) { used = model; break; }
+    lastErr = `The model returned no text (finish_reason: ${choice.finish_reason || "none"}).`;
   }
 
-  const choice = (data.choices && data.choices[0]) || {};
-  const text = ((choice.message && choice.message.content) || "").trim();
-  if (!text) return json({ error: `The model returned no text (finish_reason: ${choice.finish_reason || "none"}).` }, 502);
-
-  // ---- meter: prefer OpenRouter's reported cost, else a conservative token estimate ----
-  const u = data.usage || {};
-  let cost = Number(u.cost);
-  if (!isFinite(cost) || cost < 0)
-    cost = (Number(u.prompt_tokens) || 0) * FALLBACK_IN + (Number(u.completion_tokens) || 0) * FALLBACK_OUT;
-
-  // Decrement AFTER a successful generation. If this write fails we still return the lyrics —
-  // the user already got value, and a tiny accounting leak beats a broken feature.
+  // Decrement AFTER generating. If this write fails we still return the lyrics -- the user
+  // already got value, and a tiny accounting leak beats a broken feature.
   let newBalance = balance - cost;
-  try {
-    const r = await fetch(`${env.SUPABASE_URL}/rest/v1/rpc/spend_credit`, {
-      method: "POST", headers: sbHeaders,
-      body: JSON.stringify({ p_user: userId, p_amount: cost })
-    });
-    if (r.ok) { const v = await r.json(); if (v != null && isFinite(Number(v))) newBalance = Number(v); }
-  } catch (e) { /* keep the estimate */ }
-
-  return json({ text, balance: Math.max(0, newBalance), cost });
+  if (cost > 0) {
+    try {
+      const r = await fetch(`${env.SUPABASE_URL}/rest/v1/rpc/spend_credit`, {
+        method: "POST", headers: sbHeaders,
+        body: JSON.stringify({ p_user: userId, p_amount: cost })
+      });
+      if (r.ok) { const v = await r.json(); if (v != null && isFinite(Number(v))) newBalance = Number(v); }
+    } catch (e) { /* keep the estimate */ }
+  }
+  if (!text) return json({ error: lastErr, balance: Math.max(0, newBalance) }, 502);
+  return json({ text, balance: Math.max(0, newBalance), cost, model: used });
 }
