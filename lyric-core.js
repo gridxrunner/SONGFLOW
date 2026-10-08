@@ -197,13 +197,10 @@ function schemeLetters(lines){
 }
 
 let tagTimer=null;
-function update(){
-  try{normalizeDoc();}catch(e){}                          // flatten any block structure BEFORE reading lines
-  const lines=doc.innerText.split("\n");
-  const target=+(localStorage.getItem(TKEY)||0);let bar=0;
-  // BAR-SLOT numbering: in a region with an explicit "- N bars" count, EVERY line below the tag
-  // is a positional bar slot — blank lines are EMPTY BARS and get numbered too (trailing blanks
-  // trimmed). In a region without a count, blanks stay unnumbered visual separators.
+/* which lines are BARS. BAR-SLOT rules: in a region with an explicit "- N bars" count, EVERY line
+   below the tag is a positional bar slot (blank lines are EMPTY BARS, trailing blanks trimmed); in a
+   region without a count, only typed lines are bars and blanks are visual separators. */
+function barSlots(lines){
   const isBar=new Array(lines.length).fill(false);
   {let secStart=0,secN=null;                               // the pre-tag stretch counts as an auto region
    const close=(end)=>{
@@ -219,9 +216,35 @@ function update(){
    });
    close(lines.length);
   }
+  return isBar;
+}
+/* each bar line's NUMBER as the timeline shows it: its section's start on the ruler plus its slot,
+   counted from the track's first bar (tl.barOrigin) - so gaps between sections are counted too and
+   the gutter always matches the ruler. Until the timeline layout matches the text (no tags yet, or
+   mid-edit before tagRegions has run) it counts down the sheet instead. */
+function lineBarLabels(lines,isBar){
+  isBar=isBar||barSlots(lines);
+  const out=new Array(lines.length).fill(null);
+  const starts=window._secStartBars, nTags=lines.reduce((n,l)=>n+(isTag(l.trim())?1:0),0);
+  const onTimeline=typeof tl!=="undefined"&&typeof tl.barOrigin==="function"&&Array.isArray(starts)&&nTags>0&&starts.length===nTags;
+  const origin=onTimeline?tl.barOrigin():0;
+  let seq=0,si=-1,k=0;
+  lines.forEach((l,i)=>{const t=l.trim();
+    if(isTag(t)){si++;k=0;return;}
+    if(!isBar[i])return;
+    seq++;
+    out[i]=(onTimeline&&si>=0)?(starts[si]+k-origin+1):seq;
+    k++;});
+  return out;
+}
+/* the lyric gutter (bar no. | syllables VOWEL). Re-run after the timeline layout or grid changes. */
+function renderGutter(){
+  const lines=doc.innerText.split("\n");
+  const target=+(localStorage.getItem(TKEY)||0);
+  const isBar=barSlots(lines), labels=lineBarLabels(lines,isBar);
   const gutRows=lines.map((l,i)=>{const t=l.trim();
     if(isTag(t)||!isBar[i])return "";
-    bar++;
+    const bar=labels[i];
     if(!t)return `${bar} │ <span class="sch">·</span>`;     // an EMPTY bar (rest / instrumental slot)
     const syl=sylOfBar(t);                                  // CORE count — a trailing lead-in/pickup doesn't add to it
     const s=target&&syl>target?`<span class="over">${syl}</span>`:String(syl);
@@ -229,6 +252,11 @@ function update(){
     return `${bar} │ ${s}${vc?` <span class="sch">${vc}</span>`:""}`;});
   // mirror the text's region folds so gutter rows stay aligned with the visible lines
   gut.innerHTML=(rhymeOn&&typeof _applyFolds==="function")?_applyFolds(gutRows,lines):gutRows.join("\n");
+}
+function update(){
+  try{normalizeDoc();}catch(e){}                          // flatten any block structure BEFORE reading lines
+  const lines=doc.innerText.split("\n");
+  renderGutter();
   localStorage.setItem("ams.lyrics",doc.innerText);
   const d=docsState.docs[docsState.active];d.text=doc.innerText;saveDocs();
   renderStats();renderSchemeMap();refreshLinePanels();
@@ -1382,8 +1410,10 @@ function refreshLinePanels(){
     if($("ideaCtx"))$("ideaCtx").textContent=(selLine>=0)?"Not on a bar — type here to add the next bar.":"Document is empty — write a line, then click it.";renderForce([]);
     $("rhyNextHead").style.display="none";$("rhyNext").innerHTML="";return;}
   let secLab="—";for(let i=idx;i>=0;i--){const m=lines[i].trim().match(/^\[(.*)\]$/);if(m){secLab=m[1];break;}}
-  let bar=0;for(let i=0;i<=idx;i++)if(isContent(i))bar++;
-  if(pending)bar++;                                              // the empty line is the NEXT bar in sequence
+  const _lbl=lineBarLabels(lines);                               // the same numbers the gutter and the ruler show
+  let bar;
+  if(pending&&selLine>=0&&_lbl[selLine]!=null)bar=_lbl[selLine];  // caret on an empty bar SLOT: that slot's own number
+  else{bar=_lbl[idx];if(bar==null){bar=0;for(let i=0;i<=idx;i++)if(isContent(i))bar++;}if(pending)bar++;}   // else the NEXT bar after the one above
   const ws=lines[idx].trim().split(/\s+/);const syl=sylOfBar(lines[idx]);const endW=rhymeAnchorWord(lines[idx]);
   // This-Bar card: section · bar № · even/odd badge · live syllables (vs target)
   const even=bar%2===0,tgt=(typeof sylForceOn==="function"&&sylForceOn())?+($("sylTarget").value||0):0;

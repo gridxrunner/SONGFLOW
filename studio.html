@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Songflow — Lyric Studio</title>
-<link rel="stylesheet" href="ams.css?v=126">
+<link rel="stylesheet" href="ams.css?v=127">
 <script>/* last ~25 browser errors, attached to bug reports (see the Report bug wiring at the end) */
 window.__sfErrs=[];(function(){function add(k,m){try{var a=window.__sfErrs;a.push({t:new Date().toISOString(),k:k,m:String(m).slice(0,400)});if(a.length>25)a.shift();}catch(e){}}
 window.addEventListener("error",function(e){add("error",(e.message||"")+(e.filename?" @"+String(e.filename).split("/").pop()+":"+e.lineno:""));});
@@ -285,8 +285,8 @@ var ce=console.error;console.error=function(){try{add("console",[].slice.call(ar
           </span>
         </div>
         <span class="gcdiv"></span>
-        <button class="gcanchor" id="anchorBtn" title="Set the grid origin (bar 1) at the PLAY MARKER. Move the marker to the song's first downbeat (turn Snap off for precise placement), then press this — the whole grid + metronome lock to that point and Slip resets to neutral. Then nudge the BPM until a later downbeat also lines up.">&#9875; Anchor</button>
-        <div class="gctk" title="Fine-nudge the grid anchor so bar 1 lands exactly on the downbeat (±10ms · Shift = ±1ms). Click the readout to reset.">
+        <button class="gcanchor" id="anchorBtn" title="Lock the beat grid to the PLAY MARKER. Move the marker to a clear downbeat (turn Snap off for precise placement), then press this — the grid + metronome lock to that point and Slip resets to neutral. Then nudge the BPM until a later downbeat also lines up. Bar numbers always count from the first bar of the track.">&#9875; Anchor</button>
+        <div class="gctk" title="Fine-nudge the grid anchor so the grid lands exactly on the downbeat (±10ms · Shift = ±1ms). Click the readout to reset.">
           <span class="gclab">Slip</span>
           <button class="gcstep" id="slipBack" title="anchor earlier (−10ms · Shift = −1ms — zoom in to align exactly)">&#9664;</button>
           <span class="gcread" id="slipVal" title="click to reset the anchor to the start">0 ms</span>
@@ -598,7 +598,7 @@ var ce=console.error;console.error=function(){try{add("console",[].slice.call(ar
           <li><b>Karaoke highlight.</b> As the song plays, the bar being sung lights up in the editor and empties left-to-right in time with the music, so you can see instantly whether your words line up with the track.</li>
           <li><b>Space belongs to one panel at a time.</b> Click the timeline and Space plays; click into the lyrics and Space types. The pill under the timeline shows which mode you are in, and <b>Tab</b> flips it. <b>Enter</b> plays / pauses in place.</li>
           <li><b>&#128279; Link cursor</b> (on by default): clicking the timeline also moves your lyric cursor to that bar. Turn it off if you would rather the cursor stay where you left it.</li>
-          <li><b>Beat grid &amp; Anchor.</b> Move the play marker to the first downbeat (turn <b>Snap</b> off for precision) and press <b>&#9875; Anchor</b> &mdash; bar 1 and the metronome pivot to that point. Bars before the anchor count &minus;1, &minus;2&hellip; so you can write a pickup into the song.</li>
+          <li><b>Beat grid &amp; Anchor.</b> Move the play marker to the first downbeat (turn <b>Snap</b> off for precision) and press <b>&#9875; Anchor</b> &mdash; the beat grid and metronome lock to that point, and Slip nudges them from there. Bars are numbered from the first bar of the track, so the ruler and the lyric gutter always show the same bar numbers.</li>
         </ul>
 
         <h4>Generate &amp; Conform</h4>
@@ -673,11 +673,11 @@ $("helpClose").onclick=()=>showHelp(false);
 $("helpModal").addEventListener("click",e=>{if(e.target===$("helpModal"))showHelp(false);});
 document.addEventListener("keydown",e=>{if(e.key==="Escape")showHelp(false);});
 </script>
-<script src="ams-timeline.js?v=126"></script>
-<script src="ams-vowels.js?v=126"></script>
-<script src="ams-pron.js?v=126"></script>
-<script src="ams-bpm.js?v=126"></script>
-<script src="ams-sections.js?v=126"></script>
+<script src="ams-timeline.js?v=127"></script>
+<script src="ams-vowels.js?v=127"></script>
+<script src="ams-pron.js?v=127"></script>
+<script src="ams-bpm.js?v=127"></script>
+<script src="ams-sections.js?v=127"></script>
 <script>
 const doc=$("doc"),gut=$("gut");
 // keep the gutter (line #, syllables, rhyme vowel) locked to the lyric scroll — they share the
@@ -1109,6 +1109,7 @@ function applyGrid(save){
   if(typeof buildWarpBeats==="function")tl.setBeats(buildWarpBeats());
   $("slipVal").textContent=fmtOffset(gridSlip);
   if(typeof metroResync==="function")metroResync();   // keep a running metronome locked to the new grid
+  if(typeof renderGutter==="function")renderGutter(); // where bar 1 falls can change with the grid
   if(save!==false&&typeof saveProjectState==="function")saveProjectState();
 }
 function updateSlipReadout(){$("slipVal").textContent=fmtOffset(gridSlip);}
@@ -1179,6 +1180,7 @@ function buildWarpBeats(){
   let startBeat=Math.floor(Math.round((0-go)/firstPer)/bpb)*bpb;          // a bar line near t=0
   while(timeOf(startBeat)< -0.5)startBeat+=bpb;                            // step forward to the first in-range bar line
   while(timeOf(startBeat-bpb)>=-0.5)startBeat-=bpb;                        // …but keep any earlier one still in range
+  tl.beatsStartBar=startBeat/bpb;                                          // bar-space index of beats[0], for ruler numbering
   const beats=[];
   for(let i=startBeat;beats.length<20000;i++){const t=timeOf(i);beats.push(t);if(t>tl.duration+lastPer)break;}
   return beats.length>8?beats:null;
@@ -1369,13 +1371,14 @@ function restoreAudioBuffer(buf){
 function addBlankRegion(atSec,bars){
   if(!curBuf){toast("Load a track first.");return;}
   const spb=(60/tl.bpm)*tl.beatsPerBar;
-  const at=Math.max(0,Math.min(Math.round(atSec/spb)*spb,curBuf.duration)), dur=bars*spb;   // past the audio end → append at the end (never splice past the buffer)
+  const go=tl.gridOffset||0;
+  const at=Math.max(0,Math.min(go+Math.round((atSec-go)/spb)*spb,curBuf.duration)), dur=bars*spb;   // snap to the grid's bar lines   // past the audio end → append at the end (never splice past the buffer)
   if(typeof pushUndo==="function")pushUndo();         // inserting blank bars is undoable
   applyEdit(spliceBuffer(curBuf,at,0,silenceLike(dur,curBuf)),at);
   inpaintTarget={start:at,end:at+dur};
-  tl.sel={start:at,end:at+dur};tl.render();
+  tl.sel={start:at,end:at+dur,audio:true};tl.render();
   openInpaint();
-  toast(`Inserted ${bars} blank bars at bar ${(at/spb+1).toFixed(0)} — paint a genre in, or leave it silent. Re-fit your arrangement tags.`);
+  toast(`Inserted ${bars} blank bars at bar ${tl.barLabel(Math.round((at-go)/spb))} — paint a genre in, or leave it silent. Re-fit your arrangement tags.`);
 }
 
 /* ================= audio clipboard: copy / cut / paste / delete =================
@@ -1675,7 +1678,7 @@ function withBars(name,bars){return `${name} - ${bars} bars`;}
    rescue a failed auto-grid), so packing from it dropped the intro onto bar 1 with empty track in
    front of it. The first whole bar of the track; a downbeat up to a quarter bar before the audio
    still counts, so a small negative slip can't push the whole song a bar late. */
-function packStartBar(){const spb=(60/tl.bpm)*tl.beatsPerBar;return Math.ceil(-(tl.gridOffset||0)/spb-0.25);}
+function packStartBar(){return tl.barOrigin();}   // sections pack from bar 1 = the track's first whole bar (same rule as the numbering)
 window.parseTagBars=parseTagBars;window.withBars=withBars;
 /* arrangement tags → regions. A section is sized by an explicit "- N bars" tag if present,
    otherwise by its content (1 line = 1 bar, min 1). Positions are free: contiguous by
@@ -1788,6 +1791,7 @@ function tagRegions(){
     label:s.name,bars:s.len,explicitBars:s.explicitBars,lenBars:s.len,hasLyrics:s.lyricLines>0,userEdited:manualBars[k]!=null}));
   tl.reorderable=true;                                                 // these regions are linked to the lyric blocks
   tl.setRegions(regs);
+  if(typeof renderGutter==="function")renderGutter();                 // gutter bar numbers follow the new layout
 }
 
 /* ================= resizable timeline height ================= */
@@ -1812,7 +1816,7 @@ const TOUR=[
   {sel:"#thisBar",t:"Your live writing coach",b:"For the bar your cursor is on, this tells you which vowel completes the rhyme — a couplet, or a cross-rhyme (ABAB)."},
   {sel:"#rhymeList",t:"Rhyme words",b:"Words that rhyme with your current line. Click to drop one at the cursor; Shift-click to copy."},
   {sel:"#schemeMap",t:"Scheme map",b:"One colored dot per bar shows your rhyme pattern. A white ring marks a cross-rhyme (ABAB) pair."},
-  {sel:".gridctl",t:"Tempo & beat grid",b:"Drag the BPM numbers to fine-tune the tempo. Hit Anchor, then click the first downbeat anywhere on the timeline — bar 1 snaps there and the whole grid pivots to lock to your song."},
+  {sel:".gridctl",t:"Tempo & beat grid",b:"Drag the BPM numbers to fine-tune the tempo. Hit Anchor, then click the first downbeat anywhere on the timeline — the beat grid snaps there and locks to your song. Bars are numbered from the first bar of the track."},
   {sel:"#tl",t:"The timeline",b:"Your track as a waveform with a beat grid. Click to move the playhead — it snaps to the Snap menu's resolution (whole note by default, then ½, ¼/beat, ⅛, 1⁄16). Drag to select a span. Drag the bar under the timeline to make it taller."},
   {sel:".regionstrip",t:"Arrangement region tags",b:"Same tags as the lyric editor, shown on the grid. Teal = a region with lyrics; amber = an arrangement-only region (no lyrics, e.g. an instrumental break). Drag to reorder (an insert line shows where it lands), double-click to rename, Alt+Click (or click the tag in the lyrics) for the menu: bar length, rename, delete."},
   {sel:"#ideaGo",t:"Generate",b:"Write matching bars with the AI engine you choose — free, or your own key. Overrides can force a vowel or syllable count for special cases."},
@@ -1848,7 +1852,7 @@ window.addEventListener("keydown",e=>{if(e.key==="Escape"&&$("tourOvl").classLis
 window.addEventListener("resize",()=>{if($("tourOvl").classList.contains("on"))tourShow();});
 if(!localStorage.getItem("ams.tour.seen"))setTimeout(()=>{try{tourStart();}catch(e){}},800);   // first visit → auto-run
 </script>
-<script src="lyric-core.js?v=126"></script>
+<script src="lyric-core.js?v=127"></script>
 <!-- Cloud sign-in (magic link) -->
 <div id="authPanel" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10000;align-items:center;justify-content:center">
   <div style="background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px;width:350px;max-width:92vw;box-shadow:0 14px 44px rgba(0,0,0,.55)">
@@ -1860,7 +1864,7 @@ if(!localStorage.getItem("ams.tour.seen"))setTimeout(()=>{try{tourStart();}catch
   </div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script src="songflow-cloud.js?v=126"></script>
+<script src="songflow-cloud.js?v=127"></script>
 <!-- BUG REPORTER markup lives inside .lyx (the lyric processor); this just wires it. -->
 <script>
 (function(){

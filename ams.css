@@ -188,7 +188,7 @@ body{padding-bottom:46px}
 .ruler{position:relative}
 .ruler .loopfill{position:absolute;top:0;bottom:0;background:rgba(255,92,106,.34);border-left:1px solid var(--danger);border-right:1px solid var(--danger);pointer-events:none;z-index:0}
 .ruler .tick{position:absolute;top:0;bottom:0;border-left:1px solid #20222e;font-size:9px;color:#5c6076;padding:2px 0 0 3px}
-.ruler .tick.negt{color:#3a3d4d;font-style:italic;border-left-color:#191b24}   /* bars before the anchor */
+.ruler .tick.negt{color:#3a3d4d;font-style:italic;border-left-color:#191b24}   /* a partial pickup bar before bar 1 */
 .tlclock{font-size:10.5px;color:var(--accent2);font-variant-numeric:tabular-nums;margin-left:auto}
 .tlbar .playtl{background:var(--grad);color:#0c0d12;border:0;font-weight:800}
 .tool.on{background:var(--grad);color:#0c0d12;border:0}

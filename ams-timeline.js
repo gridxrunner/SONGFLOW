@@ -208,7 +208,9 @@ class AMSTimeline {
       for (let k = lo; k <= hi; k++) if (this.regions[k]) rs.push(this.regions[k]);
       if (rs.length) return { start: Math.min(...rs.map(r => r.start)), end: Math.max(...rs.map(r => r.end)) };
     }
-    return this.sel;                                     // fallback: a custom dragged region
+    const s = this.sel;                                  // fallback: a custom dragged span
+    if (s && s.audio) { const go = this.gridOffset || 0; return { start: s.start - go, end: s.end - go }; }
+    return s;
   }
 
   /* index of the region whose span sits under the pointer (clamped to ends) */
@@ -499,6 +501,12 @@ class AMSTimeline {
 
   /* ---- geometry ---- */
   _secPerBar() { return (60 / this.bpm) * this.beatsPerBar; }
+  /* BAR NUMBERS: bar 1 is the first whole bar of the TRACK (audio 0, with the same quarter-bar
+     tolerance sections pack from). The anchor only decides where bar lines fall and Slip nudges
+     from it; it never decides the numbering. barLabel() turns a bar-space index (0 = the anchor's
+     bar) into the number shown on the ruler, in the lyric gutter and in readouts. */
+  barOrigin() { return Math.ceil(-(this.gridOffset || 0) / this._secPerBar() - 0.25); }
+  barLabel(barIdx) { return barIdx - this.barOrigin() + 1; }
   /* VIRTUAL EXTENT: the timeline is as long as the audio OR the arrangement, whichever runs
      further. Lyrics longer than the track extend the grid past the waveform's end (plus four
      bars of room to drag into); the waveform itself still stops where the audio stops. */
@@ -599,7 +607,7 @@ class AMSTimeline {
       this.opts.onDeleteRegions && this.opts.onDeleteRegions([...this.selRegions].sort((a, b) => a - b));
       return;
     }
-    if (op === "selectall") { this.sel = { start: 0, end: this.duration }; this.render(); return; }
+    if (op === "selectall") { this.sel = { start: 0, end: this.duration, audio: true }; this.render(); return; }
     if (op === "copy") {
       if (!this.sel || !this.selectedLane) { toast("Drag a selection on a lane first."); return; }
       this.clip = { lane: this.selectedLane, label: this.selectedLane.label, ...this.sel };
@@ -675,16 +683,20 @@ class AMSTimeline {
           ${this.beats
             ? Array.from({ length: Math.ceil(this.beats.length / this.beatsPerBar / every) }, (_, k) => {
                 const t = this.beats[k * every * this.beatsPerBar];
+                const lab = (this.beatsStartBar != null ? this.beatsStartBar - this.barOrigin() : 0) + k * every + 1;
                 return t === undefined ? "" :
-                  `<div class="tick" style="left:${(t / this.duration) * w}px">${k * every + 1}</div>`;
+                  `<div class="tick${lab < 1 ? " negt" : ""}" style="left:${(t / this.duration) * w}px">${lab}</div>`;
               }).join("")
-            : (() => {                                     // numbered bars, INCLUDING negative bars left of the anchor
-                const start = Math.floor(Math.floor((0 - this.gridOffset) / spb) / every) * every;
+            : (() => {                                     // bar 1 = the track's first whole bar; ticks every N from there
+                const o = this.barOrigin(), first = Math.floor((0 - this.gridOffset) / spb);
+                const start = o + Math.floor((first - o) / every) * every;
+                const last = Math.ceil((this.duration - this.gridOffset) / spb);
                 const out = [];
-                for (let bar = start; bar <= bars; bar += every) {
+                for (let bar = start; bar <= last; bar += every) {
                   const x = this._xo(bar * spb) - this.LBL;
                   if (x < -24 || x > w + 24) continue;
-                  out.push(`<div class="tick${bar < 0 ? " negt" : ""}" style="left:${x}px">${bar >= 0 ? bar + 1 : bar}</div>`);   // anchor=1; left of it counts -1,-2,… (no bar 0)
+                  const lab = bar - o + 1;                   // a partial pickup bar before bar 1 reads 0, dimmed
+                  out.push(`<div class="tick${lab < 1 ? " negt" : ""}" style="left:${x}px">${lab}</div>`);
                 }
                 return out.join("");
               })()}
@@ -802,7 +814,7 @@ class AMSTimeline {
         if (!press.moved && Math.abs(e.clientX - press.x0) < 4) return;   // ignore sub-4px jitter
         press.moved = true;
         const t = this._tAtClientX(e.clientX);
-        this.sel = { start: this._snapGrid(Math.min(press.t0, t)), end: this._snapGrid(Math.max(press.t0, t)) };
+        this.sel = { start: this._snapGrid(Math.min(press.t0, t)), end: this._snapGrid(Math.max(press.t0, t)), audio: true };
         this._paintSel(); this._selText();
       };
       tlEl.onmouseup = e => {
@@ -824,7 +836,7 @@ class AMSTimeline {
           this.selectedLane = l;
           const end = l.buffer ? l.buffer.duration
                     : (l.peaks && l.peaks.duration_s) ? l.peaks.duration_s : this.duration;
-          this.sel = { start: 0, end: Math.min(end, this.duration) || this.duration };
+          this.sel = { start: 0, end: Math.min(end, this.duration) || this.duration, audio: true };
           this.render(); return;
         }
         this.opts.onToggle && this.opts.onToggle(l, b.dataset.tg);
@@ -916,10 +928,11 @@ class AMSTimeline {
     // the last-clicked one — otherwise a multi-section loop reads as a single region
     const seg = (this.loop && this.getLoop()) || this.sel;
     if (!seg) { this.selInfo.textContent = ""; return; }
-    const spb = this._secPerBar();
+    const spb = this._secPerBar(), go = this.gridOffset || 0, o = this.barOrigin();
+    const b0 = seg.audio ? seg.start - go : seg.start, b1 = seg.audio ? seg.end - go : seg.end;   // a drag span is audio time; regions are bar-space
     this.selInfo.textContent =
-      `bars ${(seg.start / spb + 1).toFixed(1)}–${(seg.end / spb + 1).toFixed(1)}` +
-      ` (${fmt(seg.start)}–${fmt(seg.end)})${this.loop ? " · looping" : ""}`;
+      `bars ${(b0 / spb - o + 1).toFixed(1)}–${(b1 / spb - o + 1).toFixed(1)}` +
+      ` (${fmt(b0 + go)}–${fmt(b1 + go)})${this.loop ? " · looping" : ""}`;
   }
   /* ---- bar-length dropdown (4/8/16/32/custom) on a region's bars chip ---- */
   _closeBarsMenu() {
