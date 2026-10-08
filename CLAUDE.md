@@ -62,3 +62,10 @@ sections must update both the same way (see applyArrange, deleteSections, the ta
 the `.songflow` file). When the tag count changes by hand, `tagRegions()` carries both across with the same match.
 `tagLinks` holds the names linked by the tag menu's "All <name> tags" box; `tagRegions()` gives every tag with a
 linked name that color.
+
+## Scratch pad (the composite lane)
+
+Clips dragged or pasted onto the Scratch pad are copies of the track audio, kept per project in IndexedDB under
+`scratch:<project id>` (store "audio", next to the project's own audio blob). The page owns the clips (`scratch` in
+studio.html); `ams-timeline.js` only draws them and reports drops, clicks and drags (`onScratch*` options). They
+play with the track while the pad is open, scheduled on the same AudioContext as the music (`scratchTick`).

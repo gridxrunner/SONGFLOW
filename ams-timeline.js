@@ -249,10 +249,38 @@ class AMSTimeline {
       this.render();
       return;
     }
+    if (this._cdrag) {                                       // moving a clip along the scratch pad (beat-snapped)
+      const c = this._cdrag, dx = e.clientX - c.x0;
+      if (!c.moved && Math.abs(dx) < 4) return;
+      c.moved = true;
+      const seg = this.compositeSegs[c.i]; if (!seg) return;
+      seg.start = Math.max(0, this._snapGrid(c.start0 + dx / (this._width() / (this.duration || 1))));
+      this._redrawComposite();
+      return;
+    }
+    if (this._sdrag) {                                       // dragging a selected waveform span → drop it on the scratch pad
+      const d = this._sdrag;
+      if (!d.moved && Math.abs(e.clientX - d.x0) < 4 && Math.abs(e.clientY - d.y0) < 4) return;
+      d.moved = true;
+      d.at = this._overScratch(e) ? this._scratchGhost(e, d.span.end - d.span.start, d.grab) : null;
+      if (d.at == null) this._clearScratchGhost();
+      return;
+    }
     if (this._adrag) {
       const dxpx = e.clientX - this._adrag.x0;
-      if (!this._adrag.moved && Math.abs(dxpx) < 4) return;
+      if (!this._adrag.moved && Math.abs(dxpx) < 4 && !(this.showComposite && Math.abs(e.clientY - (this._adrag.y0 || e.clientY)) >= 6)) return;
+      if (!this._adrag.moved && this._adrag.fill) {          // Ctrl/Shift drag of a spread selection → it moves as one block
+        this.selRegions = [...this._adrag.set].sort((x, y) => x - y);
+      }
       this._adrag.moved = true;
+      // dragged DOWN onto the scratch pad → copy that audio there instead of rearranging
+      if (this._overScratch(e)) {
+        const a = this._adrag, sp = this._dragSpan(a);
+        this.regions = a.orig.map(r => ({ ...r })); this._layoutRegions(); this._clearDropIndicator();
+        a.scratchAt = this._scratchGhost(e, sp.end - sp.start, a.t0 - sp.start);
+        return;
+      }
+      this._adrag.scratchAt = null; this._clearScratchGhost();
       const orig = this._adrag.orig, anchor = orig[this._adrag.i];
       const pxPerSec = this._width() / (this.duration || 1);
       const dt = this._snapT(anchor.start + dxpx / pxPerSec) - anchor.start;   // beat-snapped delta
@@ -413,8 +441,34 @@ class AMSTimeline {
       this.opts.onSlipDrag && this.opts.onSlipDrag(off);     // updates the Slip readout (relative to anchor) + saves
       this.render(); return;
     }
+    if (this._cdrag) {
+      const c = this._cdrag; this._cdrag = null;
+      if (c.moved && this.opts.onScratchMove) this.opts.onScratchMove(c.i, this.compositeSegs[c.i] ? this.compositeSegs[c.i].start : c.start0);
+      return;
+    }
+    if (this._sdrag) {
+      const d = this._sdrag; this._sdrag = null; this._clearScratchGhost();
+      if (d.moved && d.at != null) { this.sel = null; this.opts.onScratchDrop && this.opts.onScratchDrop({ start: d.span.start, end: d.span.end, at: d.at, label: "Clip" }); this.render(); return; }
+      if (!d.moved) {                                            // a plain click inside the span → seek, as before
+        this.sel = null; this.opts.onSeek && this.opts.onSeek(this._snapGrid(this._tAtClientX(e.clientX)));
+      }
+      this.render(); return;
+    }
     if (this._adrag) {
-      const a = this._adrag; this._adrag = null; this._clearDropIndicator();
+      const a = this._adrag; this._adrag = null; this._clearDropIndicator(); this._clearScratchGhost();
+      if (a.moved && a.scratchAt != null) {                      // dropped on the scratch pad → copy there; the arrangement is untouched
+        const sp = this._dragSpan(a);
+        this.regions = a.orig; this.selRegions = []; this.selRegion = -1; this.sel = null; this.render();   // the pad has the focus now
+        this.opts.onScratchDrop && this.opts.onScratchDrop({ start: sp.start, end: sp.end, at: a.scratchAt, label: sp.label });
+        return;
+      }
+      if (!a.moved && a.mod) {                                   // Ctrl/Shift click without a drag: just the selection change
+        if (a.toggleOff) { const p = this.selRegions.indexOf(a.i); if (p >= 0) this.selRegions.splice(p, 1); }
+        this.selRegion = this.selRegions.length ? this.selRegions[this.selRegions.length - 1] : -1;
+        this.sel = this.selRegion >= 0 && this.regions[this.selRegion] ? { ...this.regions[this.selRegion] } : null;
+        this.opts.onSelectRegions && this.opts.onSelectRegions(this.selRegions.map(k => this.regions[k]).filter(Boolean));
+        this.render(); return;
+      }
       if (!a.moved) {                                            // no drag → select the single section
         this.selRegions = [a.i]; this.selRegion = a.i; this.sel = { ...this.regions[a.i] };
         this.opts.onSelectRegions && this.opts.onSelectRegions([this.regions[a.i]]);
@@ -572,6 +626,7 @@ class AMSTimeline {
     const go = this.reorderable ? (this.gridOffset || 0) : 0, spb = this._secPerBar();
     let lastEnd = 0;
     for (const r of (this.regions || [])) if (r && (r.end + go) > lastEnd) lastEnd = r.end + go;
+    if (this.showComposite) for (const s of (this.compositeSegs || [])) if (s.start + s.dur > lastEnd) lastEnd = s.start + s.dur;
     const a = this.audioDur || 0;
     const d = (lastEnd > 0 && lastEnd > a + 0.001) ? lastEnd + spb * 4 : a;
     const changed = Math.abs(d - (this.duration || 0)) > 0.01;
@@ -702,7 +757,7 @@ class AMSTimeline {
     const all = [...this.lanes];
     if (this.showComposite)
       all.push({ id: "__composite", label: "Scratch pad", color: "#19d3c5", composite: true,
-                 armed: !!this.compositeArmed });
+                 armed: !!this.compositeArmed, solo: !!this.compositeSolo, muted: !!this.compositeMuted });
 
     this.scrollEl.style.width = (this.LBL + w) + "px";
     this.host.style.setProperty("--tlvis", this.area.clientWidth + "px");   // the visible width, for anything pinned in view while scrolled
@@ -793,12 +848,14 @@ class AMSTimeline {
       }
       if (regEl) {
         const i = +regEl.dataset.ri;
-        if (this.reorderable && (e.ctrlKey || e.metaKey)) {   // Ctrl/Cmd+Click → toggle in the multi-selection
-          const p = this.selRegions.indexOf(i);
-          if (p >= 0) this.selRegions.splice(p, 1); else this.selRegions.push(i);
+        if (this.reorderable && (e.ctrlKey || e.metaKey)) {   // Ctrl/Cmd+Click → toggle in the multi-selection; Ctrl+drag moves the selection
+          const had = this.selRegions.includes(i);
+          if (!had) this.selRegions.push(i);                  // a selected one is dropped on release, unless it gets dragged
           this.selRegion = i; this.sel = this.regions[i] ? { ...this.regions[i] } : null;
           this.opts.onSelectRegions && this.opts.onSelectRegions(this.selRegions.map(k => this.regions[k]));
-          this.render(); return;
+          this.render();
+          this._armRegionDrag(e, i, { toggleOff: had });
+          e.preventDefault(); return;
         }
         if (e.shiftKey) {                    // shift+click: ADD the range (anchor → here) to the existing selection
           const anchor = (this.selRegion != null && this.selRegion >= 0) ? this.selRegion
@@ -807,7 +864,9 @@ class AMSTimeline {
           for (let k = lo; k <= hi; k++) if (!this.selRegions.includes(k)) this.selRegions.push(k);   // union, keep prior picks
           this.selRegion = i; this.sel = this.regions[i] ? { ...this.regions[i] } : null;
           this.opts.onSelectRegions && this.opts.onSelectRegions(this.selRegions.map(k => this.regions[k]));
-          this.render(); return;
+          this.render();
+          if (this.reorderable) { this._armRegionDrag(e, i, {}); e.preventDefault(); }   // Shift+drag moves the selection
+          return;
         }
         if (this.reorderable) {
           // BLOCK if this section is part of a multi-selection; else ALIGN a single one
@@ -818,7 +877,7 @@ class AMSTimeline {
             this.selRegions = []; for (let k = lo; k <= hi; k++) this.selRegions.push(k);
             set = new Set(this.selRegions);
           } else { this.selRegions = [i]; this.selRegion = i; this.sel = { ...this.regions[i] }; set = new Set([i]); }
-          this._adrag = { i, x0: e.clientX, moved: false, mode: block ? 2 : 1, set, orig: this.regions.map(r => ({ ...r })) };
+          this._adrag = { i, x0: e.clientX, y0: e.clientY, t0: this._tAtClientX(e.clientX), moved: false, mode: block ? 2 : 1, set, orig: this.regions.map(r => ({ ...r })) };
           e.preventDefault(); return;
         }
         // non-reorderable tabs: arm the ripple body-drag (click-vs-drag resolved on move/up)
@@ -851,6 +910,22 @@ class AMSTimeline {
       let press = null;
       tlEl.onmousedown = e => {
         if (this._anchorArm) { e.preventDefault(); e.stopPropagation(); this.setAnchorAt(e.clientX); return; }
+        if (e.button !== 0) return;
+        if (l.composite) { this._scratchDown(e); return; }
+        // with sections selected, Ctrl/Shift+drag on the waveform MOVES them (never starts a new span)
+        if ((e.ctrlKey || e.metaKey || e.shiftKey) && this.reorderable && this.selRegions.length) {
+          e.preventDefault();
+          const ri = this._regionIndexAtClientX(e.clientX);
+          this._armRegionDrag(e, this.selRegions.includes(ri) ? ri : (this.selRegions.includes(this.selRegion) ? this.selRegion : this.selRegions[0]), {});
+          return;
+        }
+        // grabbing a selected span while the scratch pad is open → drag it down onto the pad
+        const tp = this._tAtClientX(e.clientX);
+        if (this.showComposite && this.sel && this.sel.audio && tp >= this.sel.start && tp <= this.sel.end) {
+          e.preventDefault();
+          this._sdrag = { x0: e.clientX, y0: e.clientY, grab: tp - this.sel.start, span: { start: this.sel.start, end: this.sel.end }, moved: false, at: null };
+          return;
+        }
         press = { x0: e.clientX, t0: this._tAtClientX(e.clientX), moved: false };
         this.selectedLane = l;
       };
@@ -874,6 +949,7 @@ class AMSTimeline {
         e.stopPropagation();
         if (b.dataset.tg === "closecomp") {
           this.showComposite = false;
+          this.opts.onCompositeClose && this.opts.onCompositeClose();
           sessionStorage.setItem("ams.composite." + location.pathname, "closed");
           this.render(); return;
         }
@@ -914,13 +990,11 @@ class AMSTimeline {
       <div class="glabel"><span class="dot" style="background:${l.color || "#7c5cff"}"></span>
         <span class="nm" title="${l.label}">${l.label}</span>
         ${l.composite
-          ? `<span class="sm">${this.opts.armable ? `<button class="arm ${l.armed ? "on" : ""}" data-tg="arm" title="arm composite for edit">&#9678;</button>` : ""}<button data-tg="csolo" title="solo composite" class="solo ${l.solo ? "on" : ""}">S</button>
-             <button data-tg="cmute" title="mute composite" class="mute ${l.muted ? "on" : ""}">M</button>
-             <button data-tg="cselect" title="select entire composite">&#9635;</button>
-             <button data-tg="cload" title="load a track into the composite">&#10133;</button>
-             <button data-tg="cclear" title="clear composite clips">&#128465;</button>
-             <button data-tg="cmidi" title="convert to MIDI (planned)">&#9836;</button>
-             <button data-tg="closecomp" title="close composite">&#10005;</button></span>`
+          ? `<span class="sm">${this.opts.armable ? `<button class="arm ${l.armed ? "on" : ""}" data-tg="arm" title="arm composite for edit">&#9678;</button>` : ""}<button data-tg="csolo" title="Solo: hear only the Scratch pad" class="solo ${l.solo ? "on" : ""}">S</button>
+             <button data-tg="cmute" title="Mute the Scratch pad (the track plays alone)" class="mute ${l.muted ? "on" : ""}">M</button>
+             <button data-tg="cexport" title="Export the Scratch pad as one WAV file">&#11015;</button>
+             <button data-tg="cclear" title="Clear every clip from the Scratch pad">&#128465;</button>
+             <button data-tg="closecomp" title="Close the Scratch pad (its clips are kept)">&#10005;</button></span>`
           : `<span class="sm">
               ${this.opts.armable ? `<button class="arm ${l.armed ? "on" : ""}" data-tg="arm" title="arm for edit">&#9678;</button>` : ""}
               ${l.hasAB ? `<button class="ab ${l.abOn ? "on" : ""}" data-tg="ab">AB</button>` : ""}
@@ -929,9 +1003,8 @@ class AMSTimeline {
               <button data-tg="lselect" title="select entire track">&#9635;</button></span>${extras}`}
       </div>
       <div class="laneTL" style="width:${w}px">
-        ${l.composite && !this.compositeSegs.length
-          ? `<div class="emptyTL">Scratch pad — copy a region from a lane, then Paste here. Chop, solo, export, or send to the splitter.</div>`
-          : `<canvas></canvas>`}
+        <canvas></canvas>${l.composite && !this.compositeSegs.length
+          ? `<div class="emptyTL">Drag a section tag (or a selected stretch of waveform) down here &mdash; or Copy, click here, then Paste.</div>` : ""}
       </div></div>`;
   }
 
@@ -950,6 +1023,7 @@ class AMSTimeline {
       rects = [[this._x(this.sel.start), this._x(this.sel.end)]];   // free drag-selection (audio time)
     } else return;
     this.scrollEl.querySelectorAll(".lane").forEach(row => {
+      if (row.classList.contains("composite")) return;               // the scratch pad shows its own clips, not the track's selection
       if (!regionSel && !this.allLanes && !row.classList.contains("seltgt")) return;
       const tl = row.querySelector(".laneTL");
       rects.forEach(([a, b]) => {
@@ -1064,16 +1138,79 @@ class AMSTimeline {
     }
   }
 
+  /* ---- SCRATCH PAD (the composite lane). The page owns the clips; this draws them and reports
+     clicks, clip drags and drops (onScratchSelect / onScratchTarget / onScratchMove / onScratchDrop). */
+  _overScratch(e) {
+    if (!this.showComposite) return false;
+    const el = document.elementFromPoint(e.clientX, e.clientY);
+    return !!(el && el.closest && el.closest(".lane.composite"));
+  }
+  // drop preview on the pad for a span of dur seconds grabbed grab seconds in; returns the snapped landing time
+  _scratchGhost(e, dur, grab) {
+    const lane = this.scrollEl.querySelector(".lane.composite .laneTL"); if (!lane) return null;
+    const at = Math.max(0, this._snapGrid(this._tAtClientX(e.clientX) - (grab || 0)));
+    let g = lane.querySelector(".scrghost");
+    if (!g) { g = document.createElement("div"); g.className = "scrghost"; lane.appendChild(g); }
+    g.style.left = (this._x(at) - this.LBL) + "px";
+    g.style.width = Math.max(4, this._x(at + dur) - this._x(at)) + "px";
+    return at;
+  }
+  _clearScratchGhost() { this.scrollEl.querySelectorAll(".scrghost").forEach(g => g.remove()); }
+  // the audio-time span (and a label) of what a tag drag is carrying
+  _dragSpan(a) {
+    const go = this.gridOffset || 0, idx = a.mode === 2 ? [...a.set].sort((x, y) => x - y) : [a.i];
+    const rs = idx.map(k => a.orig[k]).filter(Boolean);
+    if (!rs.length) return { start: 0, end: 0, label: "Clip" };
+    return { start: Math.min(...rs.map(r => r.start)) + go, end: Math.max(...rs.map(r => r.end)) + go,
+             label: rs.length > 1 ? `${rs[0].label} – ${rs[rs.length - 1].label}` : rs[0].label };
+  }
+  // Ctrl/Shift drag: move whatever is selected (a spread selection moves as one block)
+  _armRegionDrag(e, i, extra) {
+    const sel = this.selRegions.length ? this.selRegions : [i];
+    const anchor = sel.includes(i) ? i : sel[0], block = sel.length > 1, set = new Set();
+    if (block) for (let k = Math.min(...sel); k <= Math.max(...sel); k++) set.add(k); else set.add(anchor);
+    this._adrag = { i: anchor, x0: e.clientX, y0: e.clientY, t0: this._tAtClientX(e.clientX), moved: false, mode: block ? 2 : 1,
+                    set, orig: this.regions.map(r => ({ ...r })), mod: true, fill: block, ...(extra || {}) };
+  }
+  _scratchDown(e) {
+    e.preventDefault();
+    const t = this._tAtClientX(e.clientX), segs = this.compositeSegs || [];
+    let hit = -1;
+    for (let k = segs.length - 1; k >= 0; k--) if (t >= segs[k].start && t <= segs[k].start + segs[k].dur) { hit = k; break; }
+    this.selRegions = []; this.selRegion = -1; this.sel = null;      // the pad is the focus now (Delete acts on its clips)
+    if (hit >= 0) {
+      this._cdrag = { i: hit, x0: e.clientX, start0: segs[hit].start, moved: false };
+      this.opts.onScratchSelect && this.opts.onScratchSelect(hit);
+    } else this.opts.onScratchTarget && this.opts.onScratchTarget(this._snapGrid(t));
+  }
+  _redrawComposite() { const el = this.scrollEl.querySelector(".lane.composite .laneTL"); if (el) this._drawComposite(el); }
   _drawComposite(tlEl) {
     const c = tlEl.querySelector("canvas"); if (!c) return;
     const w = c.width = tlEl.clientWidth, h = c.height = tlEl.clientHeight;
     const g = c.getContext("2d");
-    for (const seg of this.compositeSegs) {
-      const x1 = (seg.start / this.duration) * w, x2 = ((seg.start + seg.dur) / this.duration) * w;
-      g.fillStyle = "#19d3c533"; g.fillRect(x1, 3, Math.max(2, x2 - x1), h - 6);
-      g.strokeStyle = "#19d3c5"; g.strokeRect(x1 + .5, 3.5, Math.max(2, x2 - x1) - 1, h - 7);
-      g.fillStyle = "#19d3c5"; g.font = "9px Inter, sans-serif";
-      g.fillText(seg.label || "", x1 + 4, 14);
+    for (const seg of (this.compositeSegs || [])) {
+      const x1 = (seg.start / this.duration) * w, cw = Math.max(2, ((seg.start + seg.dur) / this.duration) * w - x1);
+      const col = seg.color || "#19d3c5";
+      g.globalAlpha = 1; g.fillStyle = col + (seg.sel ? "55" : "2a"); g.fillRect(x1, 2, cw, h - 4);
+      const p = seg.peaks;                                   // the clip's waveform (min/max per 256 samples)
+      if (p && p.max && p.max.length) {
+        const n = p.max.length, mid = h / 2 + 4, amp = Math.max(4, (h - 18) / 2);
+        g.strokeStyle = col; g.globalAlpha = .85; g.lineWidth = 1; g.beginPath();
+        for (let x = 0; x < cw; x++) {
+          const a = Math.floor((x / cw) * n), b = Math.max(a + 1, Math.floor(((x + 1) / cw) * n));
+          let lo = 0, hi = 0; for (let k = a; k < b && k < n; k++) { if (p.min[k] < lo) lo = p.min[k]; if (p.max[k] > hi) hi = p.max[k]; }
+          g.moveTo(x1 + x + .5, mid - hi * amp); g.lineTo(x1 + x + .5, mid - lo * amp + 1);
+        }
+        g.stroke();
+      }
+      g.globalAlpha = 1; g.lineWidth = seg.sel ? 2 : 1; g.strokeStyle = seg.sel ? "#fff" : col;
+      g.strokeRect(x1 + .5, 2.5, cw - 1, h - 5); g.lineWidth = 1;
+      g.fillStyle = seg.sel ? "#fff" : col; g.font = "600 9px Inter, sans-serif";
+      g.save(); g.beginPath(); g.rect(x1, 0, cw - 3, h); g.clip(); g.fillText(seg.label || "", x1 + 4, 12); g.restore();
+    }
+    if (this.compositeCursor != null && this.duration) {     // where Paste will land
+      const x = (this.compositeCursor / this.duration) * w;
+      g.fillStyle = "#ffd43b"; g.fillRect(Math.round(x) - 1, 0, 2, h);
     }
   }
 }

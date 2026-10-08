@@ -617,6 +617,7 @@ function _undoSnap(){return {
   caret:(typeof caretOffset==="function")?caretOffset():null,   // keep the cursor near where it was (don't jump to top)
   manualBars:(typeof manualBars!=="undefined"&&manualBars)?manualBars.slice():null,
   secColors:(typeof secColors!=="undefined"&&secColors)?secColors.slice():null,
+  scratch:(typeof scratch!=="undefined")?scratch.map(c=>({...c})):undefined,     // the Scratch pad's clips (buffers shared, never mutated)
   tagLinks:(typeof tagLinks!=="undefined")?[...tagLinks]:undefined,
   ga:(typeof gridAnchor!=="undefined")?gridAnchor:undefined, gs:(typeof gridSlip!=="undefined")?gridSlip:undefined,
   warp:(typeof warpMarkers!=="undefined"&&warpMarkers)?warpMarkers.slice():undefined,
@@ -628,6 +629,10 @@ function _undoRestore(s){
   if(typeof manualBars!=="undefined")manualBars=s.manualBars?s.manualBars.slice():null;
   if(typeof secColors!=="undefined")secColors=s.secColors?s.secColors.slice():null;
   if(s.tagLinks!==undefined&&typeof tagLinks!=="undefined")tagLinks=new Map(s.tagLinks);
+  if(s.scratch!==undefined&&typeof scratch!=="undefined"){
+    const same=s.scratch.length===scratch.length&&s.scratch.every((c,k)=>c.id===scratch[k].id&&c.at===scratch[k].at);
+    if(!same){scratch=s.scratch.map(c=>({...c}));scratchSel=-1;scratchChanged();}
+  }
   if(typeof _droppedPos!=="undefined")_droppedPos.length=0;   // the restored layout is the truth -- stale remembered positions must not override it
   if(s.bpm!==undefined&&typeof tl!=="undefined"&&tl.bpm!==s.bpm){tl.setTempo(s.bpm);if(typeof detectedBpm!=="undefined")detectedBpm=s.bpm;if(typeof renderBpmReadout==="function")renderBpmReadout();}
   if(s.ga!==undefined&&typeof gridAnchor!=="undefined"){gridAnchor=s.ga;gridSlip=s.gs;}
@@ -1741,13 +1746,29 @@ function aiSyncUI(){
   if($("aiModelRow"))$("aiModelRow").style.display=free?"none":"flex";
   if($("aiKey"))$("aiKey").style.display=free?"none":"";
   if(!free&&$("aiModel"))$("aiModel").value=aiModelOf(p);
+  // included credits = the plain card; your own key = the Advanced block (open while in use)
+  const adv=!free||_engAdvOpen;
+  if($("engFree"))$("engFree").style.display=free?"flex":"none";
+  if($("engAdv"))$("engAdv").style.display=adv?"block":"none";
+  const tog=$("engAdvTog");
+  if(tog)tog.textContent=!free?"Back to included credits (no key)":(adv?"Hide advanced options":"Advanced: use your own AI account");
   const note=$("ideaNote");
   if(note){
-    if(free)note.innerHTML="<b>Included credits</b> — no key needed. Just <b>sign in</b> (top-right) and generate; each project draws from your balance.";
-    else note.innerHTML=aiKeyOf(p)?`Using your <b>${prov.label}</b> key (stored only in this browser).`:`Add your <b>${prov.label}</b> API key with the &#128273; Key button — stored only in this browser, you pay ${prov.label} directly.`;
+    if(free)note.innerHTML="<b>Included credits</b>: no key, no setup. Just sign in (top right) and generate.";
+    else{const nm=prov.label.replace(/\s*\(.*\)\s*$/,"");   // "OpenRouter (any model)" -> "OpenRouter"
+      note.innerHTML=aiKeyOf(p)?`Using your own <b>${nm}</b> account (key stored only in this browser).`:`Paste your <b>${nm}</b> API key with the &#128273; Key button. It stays in this browser, and ${nm} bills you directly.`;}
   }
   if(typeof renderCredits==="function")renderCredits();
 }
+var _engAdvOpen=false;   // var: aiSyncUI can run before this line
+// founder 2026-10-08: included credits are THE default. Everyone starts back on them once; saved keys are kept.
+try{if(!localStorage.getItem("ams.ai.mig.free2")){localStorage.setItem(AI_PROV_LS,"free");localStorage.setItem("ams.ai.mig.free2","1");}}catch(e){}
+if($("engAdvTog"))$("engAdvTog").onclick=ev=>{
+  ev.preventDefault();const sel=$("aiProvider");if(!sel)return;
+  if(sel.value!=="free"){sel.value="free";localStorage.setItem(AI_PROV_LS,"free");_engAdvOpen=false;toast("Back on Songflow AI with your included credits.");}
+  else _engAdvOpen=!_engAdvOpen;
+  aiSyncUI();
+};
 if($("aiProvider")){
   $("aiProvider").value=localStorage.getItem(AI_PROV_LS)||"free";   // included credits are the default experience now that the proxy is live
   $("aiProvider").onchange=()=>{localStorage.setItem(AI_PROV_LS,$("aiProvider").value);aiSyncUI();};

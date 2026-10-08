@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Songflow — Lyric Studio</title>
-<link rel="stylesheet" href="ams.css?v=135">
-<script src="songflow-scope.js?v=135"></script>
+<link rel="stylesheet" href="ams.css?v=137">
+<script src="songflow-scope.js?v=137"></script>
 <script>/* last ~25 browser errors, attached to bug reports (see the Report bug wiring at the end) */
 window.__sfErrs=[];(function(){function add(k,m){try{var a=window.__sfErrs;a.push({t:new Date().toISOString(),k:k,m:String(m).slice(0,400)});if(a.length>25)a.shift();}catch(e){}}
 window.addEventListener("error",function(e){add("error",(e.message||"")+(e.filename?" @"+String(e.filename).split("/").pop()+":"+e.lineno:""));});
@@ -59,6 +59,14 @@ var ce=console.error;console.error=function(){try{add("console",[].slice.call(ar
   .splitgap:hover::before{opacity:.8;background:var(--accent2)}
   .splitgap.on::before{opacity:1;background:var(--accent2);width:3px;left:4px}
   /* primary generate button — polished gradient with depth + hover */
+  .engcard{display:flex;align-items:center;gap:9px;padding:9px 11px;border-radius:10px;background:var(--panel2);border:1px solid var(--line)}
+  .engcard .engdot{flex:none;width:9px;height:9px;border-radius:50%;background:var(--accent2);box-shadow:0 0 0 3px rgba(25,211,197,.18)}
+  .engcard .engtx{display:flex;flex-direction:column;line-height:1.25;min-width:0}
+  .engcard .engtx b{font-size:12.5px;color:var(--txt)}
+  .engcard .engtx span{font-size:11px;color:var(--mut)}
+  .engexp{font-size:11px;line-height:1.45;color:var(--mut);margin:0 0 7px;padding:7px 9px;border-left:2px solid var(--line);background:rgba(255,255,255,.02);border-radius:0 6px 6px 0}
+  .engadv{display:inline-block;width:fit-content;align-self:flex-start;margin-top:7px;font-size:11px;color:var(--mut);text-decoration:none;border-bottom:1px dotted var(--mut)}
+  .engadv:hover{color:var(--txt);border-bottom-color:var(--txt)}
   .genbtn{width:100%;margin-top:9px;padding:12px 16px;border:none;border-radius:11px;background:var(--grad);color:#fff;font-weight:700;font-size:13.5px;letter-spacing:.3px;cursor:pointer;box-shadow:0 6px 18px rgba(124,92,255,.30),inset 0 1px 0 rgba(255,255,255,.18);transition:transform .09s ease,box-shadow .2s ease,filter .2s ease}
   .genbtn:hover{transform:translateY(-1px);box-shadow:0 9px 24px rgba(124,92,255,.42),inset 0 1px 0 rgba(255,255,255,.22);filter:brightness(1.06)}
   .genbtn:active{transform:translateY(0);box-shadow:0 3px 10px rgba(124,92,255,.30),inset 0 1px 0 rgba(255,255,255,.12)}
@@ -155,7 +163,9 @@ var ce=console.error;console.error=function(){try{add("console",[].slice.call(ar
   /* its controls and the paste hint stay in the VISIBLE part of the timeline (--tlvis, set by the
      timeline) however far it's zoomed or scrolled; before, they sat off-screen at the far ends */
   #tl .lane.composite .glabel{display:flex;flex:0 0 auto;position:sticky;left:0;width:var(--tlvis,auto);box-sizing:border-box;border-right:0;border-bottom:1px solid var(--line);padding:3px 7px;gap:6px;background:#141226;z-index:2}
-  #tl .lane.composite .emptyTL{position:sticky;left:0;width:var(--tlvis,auto);box-sizing:border-box}
+  #tl .lane.composite .emptyTL{position:sticky;left:0;width:var(--tlvis,auto);box-sizing:border-box;pointer-events:none}
+  #tl .lane.composite .laneTL canvas{position:absolute;inset:0;width:100%;height:100%}
+  #tl .lane.composite .laneTL{cursor:default}
   #scratchBtn.on{background:var(--accent2);color:#0c0d12;border-color:var(--accent2)}
   /* playback-only: drop the track-options column so the waveform fills the width
      (this was reading as the start of the waveform being "cut off") */
@@ -453,23 +463,30 @@ var ce=console.error;console.error=function(){try{add("console",[].slice.call(ar
         <div class="frow" style="margin-top:8px"><button class="toggle" id="sylForceTog" title="Off = match the prior bars (default). On = force this many syllables per generated bar (also flags overs in orange while you write)."><span class="k"></span></button><span class="muted" style="flex:1">Force syllables / bar <span style="opacity:.6">(else match)</span></span><input id="sylTarget" class="numv" type="number" min="1" max="32" placeholder="—" disabled></div>
         </div>
         <div class="lab" style="margin-top:9px;display:flex;align-items:center;gap:6px"><span style="flex:1">Engine</span><span id="credMeter" class="rangeval" style="display:none"></span></div>
-        <div style="display:flex;gap:7px;align-items:center">
-          <select class="inp" id="aiProvider" style="flex:1" title="Which AI writes the lyrics. Free uses a hosted open model; the others use YOUR own API key (stored only in this browser, you pay your provider).">
-            <option value="free">Songflow — included credits</option>
-            <option value="groq">Groq — your key (free tier · fast)</option>
-            <option value="openrouter">OpenRouter — your key (any model)</option>
-            <option value="anthropic">Anthropic — your key</option>
-            <option value="openai">OpenAI — your key</option>
-            <option value="google">Google Gemini — your key</option>
-          </select>
-          <button class="tbtn" id="aiKey" style="width:auto;padding:0 9px;font-size:11px" title="set or replace this provider's API key (stored only in this browser)">&#128273; Key</button>
-        </div>
-        <div style="display:flex;gap:7px;margin-top:6px" id="aiModelRow">
-          <input class="inp numv" id="aiModel" list="aiModelList" style="flex:1;width:auto;text-align:left" placeholder="model id" title="model id — pick a suggestion or type any model your key can use">
-          <datalist id="aiModelList"></datalist>
+        <!-- the default: Songflow's own AI on the included credits, nothing to set up -->
+        <div class="engcard" id="engFree"><span class="engdot"></span><div class="engtx"><b>Songflow AI</b><span>Included credits &middot; nothing to set up</span></div></div>
+        <!-- ADVANCED: bring your own AI account (an API key). Hidden unless opened or in use. -->
+        <div id="engAdv" style="display:none">
+          <div class="engexp">An <b>API key</b> is a private code from an AI company that lets Songflow use <i>your</i> account there; that company bills you directly. Most people don't need this.</div>
+          <div style="display:flex;gap:7px;align-items:center">
+            <select class="inp" id="aiProvider" style="flex:1" title="Which AI writes the lyrics. Songflow AI uses your included credits; the others use YOUR own API key (stored only in this browser, you pay that company).">
+              <option value="free">Songflow AI (included credits)</option>
+              <option value="openrouter">OpenRouter: one key, any model</option>
+              <option value="anthropic">Anthropic (Claude)</option>
+              <option value="openai">OpenAI (GPT)</option>
+              <option value="google">Google Gemini</option>
+              <option value="groq">Groq (free tier, fast)</option>
+            </select>
+            <button class="tbtn" id="aiKey" style="width:auto;padding:0 9px;font-size:11px" title="set or replace this provider's API key (stored only in this browser)">&#128273; Key</button>
+          </div>
+          <div style="display:flex;gap:7px;margin-top:6px" id="aiModelRow">
+            <input class="inp numv" id="aiModel" list="aiModelList" style="flex:1;width:auto;text-align:left" placeholder="model id" title="model id — pick a suggestion or type any model your key can use">
+            <datalist id="aiModelList"></datalist>
+          </div>
         </div>
         <button class="genbtn" id="ideaGo">&#10024; Generate lyrics</button>
-        <div class="muted" id="ideaNote" style="margin-top:4px">Pick an engine. <b>Free</b> needs no key; <b>Anthropic / OpenAI / Google</b> use your own API key (stored only in this browser — you pay your provider).</div>
+        <div class="muted" id="ideaNote" style="margin-top:4px"><b>Included credits</b>: no key, no setup. Just sign in (top right) and generate.</div>
+        <a href="#" class="engadv" id="engAdvTog">Advanced: use your own AI account</a>
         <div class="lab" style="margin-top:12px">Conform <span class="meta" style="opacity:.7;text-transform:none;letter-spacing:0">— raw text → crafted lyrics</span></div>
         <textarea class="inp" id="conformText" rows="6" style="width:100%;min-height:130px;resize:vertical;font-family:inherit;line-height:1.45" placeholder="Paste any raw text — notes, a poem, a rant, a paragraph. Songflow finds your message + voice and crafts it into lyrics on these rules, then hit Conform."></textarea>
         <button class="tbtn" id="conformGo" style="width:100%;margin-top:6px;padding:10px;font-weight:700;justify-content:center" title="Discern your message + audience-aware voice from the text above, then write lyrics that deliver it on the rhythm & rhyme rules (uses the bars / pattern table / genre / planner set above).">&#8627; Conform</button>
@@ -599,7 +616,7 @@ var ce=console.error;console.error=function(){try{add("console",[].slice.call(ar
           <li><b>Region colors.</b> A region that contains lyrics shows bright <b style="color:var(--accent2)">teal</b>; an arrangement-only region with no lyrics (e.g. <code>[Instrumental break]</code>) shows a <b style="color:#62a6a3">muted teal</b>.</li>
           <li><b>Drag</b> a region to reorder it &mdash; an insert line shows where it lands. <b>Ctrl+Click</b> several, or <b>Shift+Click</b> to add a whole range, then drag to move them as a <b>block</b>. Regions never overlap and never slide before the start of the track. If your sections run longer than the track, the timeline keeps going past the end of the waveform so you can still place and move them.</li>
           <li><b>&#128257; Loop selected</b> loops the highlighted regions &mdash; or a span you dragged on the waveform &mdash; seamlessly, with no gap between passes. <b>&#128465; Delete region</b> (or the Delete key) removes one; lyric-bearing regions warn first, and <b>Ctrl+Z</b> undoes it.</li>
-          <li><b>&#9635; Scratch pad:</b> a composite lane for chopping audio &mdash; closed by default. Hit <b>&#9635; Scratch</b> to open it, copy a waveform span, and paste it in to audition or export.</li>
+          <li><b>&#9635; Scratch pad:</b> a sketch lane under the track, closed by default. Hit <b>&#9635; Scratch</b> to open it, then <b>drag a section tag</b> (or a selected stretch of waveform) <b>down onto it</b>, or Copy, click the pad, and Paste. Clips are copies, so the song is untouched. Drag clips along the pad; Delete removes the selected one. They play along with the track: <b>M</b> mutes the pad, <b>S</b> plays only the pad, and <b>&#11015;</b> exports it as one WAV.</li>
           <li><b>Resize:</b> drag the handle just under the timeline to make the waveform taller. <b>&#128276; Click</b> = metronome. <b>&#9776; Auto sections</b> detects sections from a loaded track. <b>&#12316; Warp</b> is coming soon: it will bend the grid for a track that drifts off a constant tempo.</li>
         </ul>
 
@@ -618,7 +635,7 @@ var ce=console.error;console.error=function(){try{add("console",[].slice.call(ar
           <li><b>Genre preset</b> moves the <b>Lyrics Pattern Table</b> to that genre's sweet spot. The table itself: left&harr;right is packed &harr; sustained phrasing; up&harr;down is stay on-theme &harr; let the sound lead the meter (looser meaning buys tighter rhythm).</li>
           <li><b>Rhyme planner</b> (on by default) chooses the rhyme sounds up front, from your own rhyme palette, before writing a word. It is what stops the AI riding one vowel for eight bars or burying the rhyme in a pickup.</li>
           <li><b>&#8627; Conform</b> turns raw text into lyrics. Paste anything &mdash; notes, a rant, a poem, a voice-memo transcript &mdash; and it works out what you are trying to say, keeps your voice and slang, and rewrites it as bars that obey the rhythm and rhyme rules above.</li>
-          <li><b>Engine.</b> Signed in, you generate on your <b>included credits</b> with no key and no setup; the meter shows what is left, or your waitlist place if tester spots are full. The note after each generation names the AI model that wrote it. You can instead bring your own <b>OpenRouter / Anthropic / OpenAI / Google</b> key &mdash; it is stored only in this browser and you pay that provider directly.</li>
+          <li><b>Engine.</b> Signed in, you generate on your <b>included credits</b> with no key and no setup; the meter shows what is left, or your waitlist place if tester spots are full. The note after each generation names the AI model that wrote it. If you already pay an AI company for API access, <b>Advanced: use your own AI account</b> (under Generate) lets you paste that key instead (OpenRouter, Anthropic, OpenAI, Google); it stays in this browser and that company bills you directly.</li>
           <li><b>Highlight bars &rarr; Replace</b> rewrites just those bars to the same rhythm and rhyme skeleton, with dials for how strictly to match.</li>
         </ul>
 
@@ -684,11 +701,11 @@ $("helpClose").onclick=()=>showHelp(false);
 $("helpModal").addEventListener("click",e=>{if(e.target===$("helpModal"))showHelp(false);});
 document.addEventListener("keydown",e=>{if(e.key==="Escape")showHelp(false);});
 </script>
-<script src="ams-timeline.js?v=135"></script>
-<script src="ams-vowels.js?v=135"></script>
-<script src="ams-pron.js?v=135"></script>
-<script src="ams-bpm.js?v=135"></script>
-<script src="ams-sections.js?v=135"></script>
+<script src="ams-timeline.js?v=137"></script>
+<script src="ams-vowels.js?v=137"></script>
+<script src="ams-pron.js?v=137"></script>
+<script src="ams-bpm.js?v=137"></script>
+<script src="ams-sections.js?v=137"></script>
 <script>
 const doc=$("doc"),gut=$("gut");
 // keep the gutter (line #, syllables, rhyme vowel) locked to the lyric scroll — they share the
@@ -849,8 +866,8 @@ function _caretFromTime(t){
 const tl=new AMSTimeline($("tl"),{
   onPlayPause:(returnOnStop)=>transport(!!returnOnStop),
   spaceWantsTimeline:()=>activePanel==="timeline",   // Space plays only when the timeline is the active panel (editor active → Space types)
-  onSelectSpan:(span)=>highlightLyricsForSpan(span),   // manual waveform span → highlight the lyrics in that time range (type to replace)
-  onSeek:t=>setCueAt(t,{fromTimeline:true}),   // a timeline click places the static cue + moves the lyric cursor to that bar
+  onSelectSpan:(span)=>{scratchBlur();highlightLyricsForSpan(span);},   // manual waveform span → highlight the lyrics in that time range (type to replace)
+  onSeek:t=>{scratchBlur();setCueAt(t,{fromTimeline:true});},   // a timeline click places the static cue + moves the lyric cursor to that bar
   onAnchor:(t,oldGo)=>{gridAnchor=Math.max(0,t);gridSlip=0;applyGrid();keepArrangementOnRegrid(oldGo!=null?oldGo:tl.gridOffset||0);},   // (legacy click-to-anchor path; the timeline passes the offset it replaced)
   onSlipDrag:eff=>{gridSlip=eff-gridAnchor;updateSlipReadout();try{tagRegions();}catch(e){}if(typeof saveProjectState==="function")saveProjectState();}, // ruler drag → adjust slip (re-lay: the track-start floor moves with the grid)
   onRegions:()=>{regionsFromAudio=true;},   // any manual region edit (drag/create) locks them from tag re-mapping
@@ -864,7 +881,22 @@ const tl=new AMSTimeline($("tl"),{
   onWarpAdd:t=>{warpMarkers.push(t);warpMarkers.sort((a,b)=>a-b);applyWarp();toast("Warp pin dropped — the grid bends to it. Drop more on the downbeats that drift.");},
   onWarpMove:(idx,t,commit)=>{warpMarkers[idx]=t;if(commit){warpMarkers.sort((a,b)=>a-b);applyWarp();}else{applyWarp(false,true);}},
   onWarpRemove:idx=>{warpMarkers.splice(idx,1);applyWarp();toast("Warp pin removed.");},
-  onToggle:()=>{},
+  onSelectRegions:()=>scratchBlur(),
+  // Scratch pad: drops, clip clicks and drags, its S / M / export / clear / close buttons
+  onScratchDrop:d=>scratchDrop(d),
+  onScratchSelect:i=>{scratchSel=i;scratchTarget=true;scratchCursor=null;scratchSync();},
+  onScratchTarget:t=>{scratchSel=-1;scratchTarget=true;scratchCursor=t;scratchSync();},
+  onScratchMove:(i,at)=>{if(!scratch[i])return;if(typeof pushUndo==="function")pushUndo();scratch[i].at=Math.max(0,at);scratchChanged();},
+  onCompositeClose:()=>{$("scratchBtn").classList.remove("on");scratchTarget=false;scratchSel=-1;if(typeof window.tlFitHeight==="function")window.tlFitHeight();},
+  onToggle:(l,tg)=>{
+    if(!l||!l.composite)return;
+    if(tg==="csolo"){scratchSolo=!scratchSolo;if(scratchSolo){scratchMute=false;ensureMetroGraph();}scratchSync();scratchMix();
+      toast(scratchSolo?"Solo: you'll hear only the Scratch pad.":"Solo off: the track plays again.");}
+    else if(tg==="cmute"){scratchMute=!scratchMute;if(scratchMute)scratchSolo=false;scratchSync();scratchRestart();scratchMix();
+      toast(scratchMute?"Scratch pad muted: the track plays alone.":"Scratch pad unmuted: its clips play with the track.");}
+    else if(tg==="cexport")scratchExport();
+    else if(tg==="cclear")scratchClear();
+  },
 });
 _pl.addEventListener("timeupdate",()=>{
   if(!isCur()||lp.src)return;                            // loop engine owns the clock while engaged
@@ -1223,7 +1255,7 @@ if(warpBtnEl)warpBtnEl.onclick=()=>{
 /* ---- metronome: a click on every beat at the project BPM. Reads tl.bpm live, so it
    follows tempo changes. Locked to playback when a track is playing (accent on the
    downbeat of each bar); free-runs as a practice click when no track is loaded. ---- */
-let metroOn=false,metroCtx=null,metroTimer=null,metroBeat=0,metroFreeNext=0,metroFreeIdx=0,metroSrc=null;
+let metroOn=false,metroCtx=null,metroTimer=null,metroBeat=0,metroFreeNext=0,metroFreeIdx=0,metroSrc=null,mainGain=null;
 // click-timing offset (seconds): + = click EARLIER, − = click LATER. Adjustable on-screen with the
 // Sync ◀ ▶ buttons (compensates your device's audio-output latency); persisted per browser.
 let metroLead=(()=>{const v=parseFloat(localStorage.getItem("ams.metroLead"));return isNaN(v)?0:v;})();
@@ -1236,7 +1268,7 @@ function ensureMetroGraph(){
   if(!metroCtx)metroCtx=new (window.AudioContext||window.webkitAudioContext)();
   if(metroCtx.state!=="running"){try{metroCtx.resume();}catch(e){}}
   if(!metroSrc){
-    try{metroSrc=metroCtx.createMediaElementSource(_pl);metroSrc.connect(metroCtx.destination);}
+    try{metroSrc=metroCtx.createMediaElementSource(_pl);mainGain=metroCtx.createGain();metroSrc.connect(mainGain);mainGain.connect(metroCtx.destination);}   // mainGain: the Scratch pad's Solo silences the track here
     catch(e){metroSrc=null;}   // can't route → use the Sync dial to line it up by ear
   }
 }
@@ -1312,10 +1344,10 @@ $("metro").onclick=()=>{
 };
 /* Scratch pad (composite lane) — closed by default; this button opens/closes it. */
 tl.showComposite=false;
-$("scratchBtn").onclick=()=>{tl.showComposite=!tl.showComposite;$("scratchBtn").classList.toggle("on",tl.showComposite);
+$("scratchBtn").onclick=()=>{tl.showComposite=!tl.showComposite;$("scratchBtn").classList.toggle("on",tl.showComposite);if(!tl.showComposite){scratchTarget=false;scratchSel=-1;}
   if(typeof window.tlFitHeight==="function")window.tlFitHeight();   // make room for the Scratch lane (a resized timeline only fit one lane)
   tl.render();
-  toast(tl.showComposite?"Scratch pad open — copy a waveform span, then Paste into it.":"Scratch pad closed.");};
+  toast(tl.showComposite?"Scratch pad open. Drag a section tag (or a selected stretch of waveform) down onto it.":"Scratch pad closed. Its clips are kept.");};
 /* metronome timing is AUTO-synced (music + click share one audio path); these discreet ‹ › nudges
    fine-tune any residual offset by ear. + metroLead = earlier, − = later. */
 function setMetroLead(v){metroLead=Math.max(-0.3,Math.min(0.3,Math.round(v*1000)/1000));try{localStorage.setItem("ams.metroLead",metroLead);}catch(e){}$("metroOff").textContent=Math.round(metroLead*1000);}
@@ -1421,12 +1453,14 @@ function selSpanAudio(){                                   // current selection 
   return null;
 }
 function audioCopy(){
+  if(scratchTarget&&scratchSel>=0&&scratch[scratchSel]){audioClip=scratch[scratchSel].buf;toast(`Copied “${scratch[scratchSel].label}”. Paste puts a copy right after it.`);return true;}
   if(!curBuf){toast("Load a track first.");return false;}
   const s=selSpanAudio();if(!s){toast("Drag a span on the waveform (or select a section) to copy.");return false;}
   audioClip=copyRange(curBuf,Math.max(0,s.start),Math.min(curBuf.duration,s.end));
   toast(`Copied ${fmt(s.end-s.start)} of audio — paste lands at the playhead.`);return true;
 }
 function audioDelete(){
+  if(scratchTarget&&scratchSel>=0&&tl.showComposite){scratchDelete(scratchSel);return;}
   if(!curBuf)return;const s=selSpanAudio();if(!s){toast("Drag a span on the waveform to delete.");return;}
   const a=Math.max(0,s.start),len=Math.min(curBuf.duration,s.end)-a;
   if(typeof pushUndo==="function")pushUndo();         // audio cut/delete is undoable
@@ -1436,6 +1470,9 @@ function audioDelete(){
 function audioCut(){ if(audioCopy())audioDelete(); }
 function audioPaste(){
   if(!audioClip){toast("Nothing copied yet — Copy a region first.");return;}
+  if(scratchTarget&&tl.showComposite){                       // the pad was clicked last → the copy lands there
+    const sc=scratch[scratchSel];
+    scratchAdd(audioClip,sc?sc.at+sc.buf.duration:(scratchCursor!=null?scratchCursor:(tl.playhead||0)),null);return;}
   if(!curBuf){toast("Load a track first.");return;}
   let at,removeLen;
   if(tl.sel && tl.sel.end>tl.sel.start){ at=tl.sel.start; removeLen=tl.sel.end-tl.sel.start; }   // into a highlighted span → replace it
@@ -1453,6 +1490,126 @@ document.addEventListener("keydown",e=>{                   // Ctrl+C/X/V on the 
   if(k==="c"){e.preventDefault();audioCopy();}
   else if(k==="x"){e.preventDefault();audioCut();}
   else if(k==="v"){e.preventDefault();audioPaste();}
+});
+
+/* ================= SCRATCH PAD (the composite lane under the track) =================
+   Drag a section tag (or a selected waveform span) down onto the pad, or Copy, click the pad and
+   Paste: that audio lands there as a CLIP. It is a copy; the song itself is untouched. Clips can be
+   dragged along the pad (beat-snapped), deleted, heard with the track (M mutes the pad, S plays only
+   the pad) and exported as one WAV. They are kept per project in IndexedDB ("scratch:<project id>"). */
+let scratch=[], scratchSel=-1, scratchCursor=null, scratchTarget=false, scratchMute=false, scratchSolo=false, _scrN=0;
+function scratchPeaks(buf){                                // min/max per 256 samples, for drawing
+  const per=256,n=Math.max(1,Math.ceil(buf.length/per)),mn=new Float32Array(n),mx=new Float32Array(n);
+  for(let c=0;c<buf.numberOfChannels;c++){const d=buf.getChannelData(c);
+    for(let i=0;i<n;i++){let lo=mn[i],hi=mx[i];const e=Math.min(d.length,(i+1)*per);
+      for(let k=i*per;k<e;k++){const v=d[k];if(v<lo)lo=v;else if(v>hi)hi=v;}mn[i]=lo;mx[i]=hi;}}
+  return {min:mn,max:mx};
+}
+function scratchSync(){
+  tl.compositeCursor=(scratchTarget&&scratchSel<0)?scratchCursor:null;
+  tl.compositeSolo=scratchSolo;tl.compositeMuted=scratchMute;
+  tl.setComposite(scratch.map((c,i)=>({label:c.label,start:c.at,dur:c.buf.duration,peaks:c.peaks,sel:scratchTarget&&i===scratchSel})));
+}
+function scratchChanged(){scratchSync();scratchRestart();scratchSave();}
+function scratchOpen(){
+  if(tl.showComposite)return;
+  tl.showComposite=true;$("scratchBtn").classList.add("on");
+  if(typeof window.tlFitHeight==="function")window.tlFitHeight();
+}
+function scratchBlur(){if(scratchTarget||scratchSel>=0){scratchTarget=false;scratchSel=-1;scratchSync();}}   // focus went back to the track
+function scratchAdd(buf,at,label){
+  if(!buf||!(buf.duration>0.02))return;
+  if(typeof pushUndo==="function")pushUndo();
+  label=String(label||("Clip "+(scratch.length+1))).slice(0,60);
+  scratch.push({id:++_scrN,buf,at:Math.max(0,at),label,peaks:scratchPeaks(buf)});
+  scratchSel=scratch.length-1;scratchTarget=true;scratchCursor=null;
+  scratchOpen();scratchChanged();
+  toast(`“${label}” is on the Scratch pad (a copy; the song is unchanged). Drag it along the pad to place it.`);
+}
+function scratchDrop(d){                                   // a tag or a span was dropped on the pad
+  if(!curBuf){toast("Load a track first; the Scratch pad copies audio from it.");return;}
+  const s=Math.max(0,d.start),e=Math.min(curBuf.duration,d.end);
+  if(!(e-s>0.02)){toast("That part is past the end of the audio, so there's nothing to copy.");return;}
+  scratchAdd(copyRange(curBuf,s,e),d.at+(s-d.start),d.label==="Clip"?null:d.label);
+}
+function scratchDelete(i){
+  if(!scratch[i])return;
+  if(typeof pushUndo==="function")pushUndo();
+  const lb=scratch[i].label;scratch.splice(i,1);scratchSel=-1;scratchChanged();
+  toast(`Removed “${lb}” from the Scratch pad.`);
+}
+function scratchClear(){
+  if(!scratch.length){toast("The Scratch pad is already empty.");return;}
+  if(!confirm(`Clear all ${scratch.length} clip${scratch.length>1?"s":""} from the Scratch pad? You can undo with Ctrl+Z.`))return;
+  if(typeof pushUndo==="function")pushUndo();
+  scratch=[];scratchSel=-1;scratchChanged();
+}
+async function scratchExport(){
+  if(!scratch.length){toast("The Scratch pad is empty. Drag a section down onto it first.");return;}
+  try{
+    const t0=Math.min(...scratch.map(c=>c.at)),t1=Math.max(...scratch.map(c=>c.at+c.buf.duration));
+    const sr=scratch[0].buf.sampleRate,chs=Math.max(...scratch.map(c=>c.buf.numberOfChannels));
+    const oc=new OfflineAudioContext(chs,Math.max(1,Math.ceil((t1-t0)*sr)),sr);
+    scratch.forEach(c=>{const s=oc.createBufferSource();s.buffer=c.buf;s.connect(oc.destination);s.start(c.at-t0);});
+    const out=await oc.startRendering();
+    const base=((cur&&cur.name)?cur.name.replace(/\.[^.]+$/,""):"songflow")+"-scratch";
+    const a=document.createElement("a");a.href=URL.createObjectURL(bufferToWav(out));
+    a.download=base.replace(/[^a-z0-9\-_ ]/gi,"_")+".wav";a.click();
+    setTimeout(()=>URL.revokeObjectURL(a.href),2000);
+    toast("Exported "+a.download);
+  }catch(e){toast("Couldn't export the Scratch pad: "+e.message);}
+}
+/* playback: clips play with the track while the pad is open (scheduled ~0.4 s ahead on the same audio
+   context as the music); a seek or a loop wrap re-schedules. Solo silences the track itself. */
+let _scrSrcs=[],_scrDone=new Set(),_scrLast=null,_scrGain=null;
+function scratchRestart(){_scrSrcs.forEach(s=>{try{s.stop();}catch(e){}try{s.disconnect();}catch(e){}});_scrSrcs=[];_scrDone.clear();}
+function scratchMix(){
+  const solo=scratchSolo&&tl.showComposite&&scratch.length>0;
+  if(mainGain)mainGain.gain.value=solo?0:1;
+  else if(solo!==!!_pl.dataset.scrMuted){_pl.muted=solo;if(solo)_pl.dataset.scrMuted="1";else delete _pl.dataset.scrMuted;}   // track not routed yet: mute the element instead (only ever undoing our own mute)
+  if(lp.gain)lp.gain.gain.value=solo?0:((_pl.volume!=null)?_pl.volume:0.9);
+}
+function scratchTick(){
+  scratchMix();
+  if(!tl.showComposite||scratchMute||!scratch.length||!tpPlaying()){if(_scrSrcs.length||_scrDone.size)scratchRestart();_scrLast=null;return;}
+  ensureMetroGraph();const ctx=metroCtx;if(!ctx)return;
+  const now=tpTime();
+  if(_scrLast!=null&&(now<_scrLast-0.05||now>_scrLast+1.5))scratchRestart();   // the position jumped: a seek or a loop wrap
+  _scrLast=now;
+  if(!_scrGain){_scrGain=ctx.createGain();_scrGain.gain.value=0.9;_scrGain.connect(ctx.destination);}
+  for(const c of scratch){
+    if(_scrDone.has(c.id))continue;
+    const end=c.at+c.buf.duration;if(end<=now||c.at>now+0.4)continue;
+    const src=ctx.createBufferSource();src.buffer=c.buf;src.connect(_scrGain);
+    try{src.start(ctx.currentTime+Math.max(0,c.at-now),Math.max(0,now-c.at));}catch(e){continue;}
+    _scrSrcs.push(src);_scrDone.add(c.id);
+  }
+}
+setInterval(scratchTick,100);
+/* saved per project; the save is a snapshot of THIS project's clips, so switching projects mid-save is safe */
+let _scrSaveT=null,_scrLoadTok=0;
+function scratchSave(){
+  const id=(typeof activeDocId==="function")&&activeDocId(),snap=scratch.slice();
+  clearTimeout(_scrSaveT);
+  _scrSaveT=setTimeout(async()=>{try{if(id)await idbPut("scratch:"+id,{v:1,clips:snap.map(c=>({at:c.at,label:c.label,sr:c.buf.sampleRate,
+    ch:Array.from({length:c.buf.numberOfChannels},(_,k)=>c.buf.getChannelData(k))}))});}catch(e){}},400);
+}
+async function scratchLoad(){
+  const tok=++_scrLoadTok;
+  scratchRestart();scratch=[];scratchSel=-1;scratchTarget=false;scratchCursor=null;
+  let rec=null;try{const id=(typeof activeDocId==="function")&&activeDocId();if(id)rec=await idbGet("scratch:"+id);}catch(e){}
+  if(tok!==_scrLoadTok)return;                             // another project was opened meanwhile
+  if(rec&&Array.isArray(rec.clips))rec.clips.forEach(c=>{try{
+    const b=makeBuffer(c.ch.length,c.ch[0].length,c.sr);c.ch.forEach((d,k)=>b.getChannelData(k).set(d));
+    scratch.push({id:++_scrN,buf:b,at:Math.max(0,+c.at||0),label:String(c.label||"Clip").slice(0,60),peaks:scratchPeaks(b)});
+  }catch(e){}});
+  scratchSync();
+}
+document.addEventListener("keydown",e=>{                   // Delete removes the selected clip; Esc leaves the pad
+  if(/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)||document.activeElement.isContentEditable)return;
+  if(!scratchTarget||!tl.showComposite)return;
+  if((e.key==="Delete"||e.key==="Backspace")&&scratchSel>=0){e.preventDefault();scratchDelete(scratchSel);}
+  else if(e.key==="Escape")scratchBlur();
 });
 
 /* ================= per-project persistence =================
@@ -1540,6 +1697,7 @@ async function restoreProjectState(){
     tl.setLanes([{idx:0,label:cur.name,color:"#ffd43b",buffer:curBuf}]);
   }catch(e){curBuf=null;}}
   try{tagRegions();}catch(e){}
+  try{await scratchLoad();}catch(e){}
 }
 
 /* ================= project file (.songflow): save / open =================
@@ -1897,7 +2055,7 @@ window.addEventListener("keydown",e=>{if(e.key==="Escape"&&$("tourOvl").classLis
 window.addEventListener("resize",()=>{if($("tourOvl").classList.contains("on"))tourShow();});
 if(!localStorage.getItem("ams.tour.seen"))setTimeout(()=>{try{tourStart();}catch(e){}},800);   // first visit → auto-run
 </script>
-<script src="lyric-core.js?v=135"></script>
+<script src="lyric-core.js?v=137"></script>
 <!-- Sign-in: Google (shown once the provider is switched on in Supabase) or a magic link by email -->
 <div id="authPanel" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10000;align-items:center;justify-content:center">
   <div style="background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px;width:350px;max-width:92vw;box-shadow:0 14px 44px rgba(0,0,0,.55)">
@@ -1911,7 +2069,7 @@ if(!localStorage.getItem("ams.tour.seen"))setTimeout(()=>{try{tourStart();}catch
   </div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script src="songflow-cloud.js?v=135"></script>
+<script src="songflow-cloud.js?v=137"></script>
 <!-- BUG REPORTER markup lives inside .lyx (the lyric processor); this just wires it. -->
 <script>
 (function(){

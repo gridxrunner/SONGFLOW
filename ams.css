@@ -148,6 +148,8 @@ body{padding-bottom:46px}
 .region.colored.nolyr .rlbl{opacity:.78}
 .region.colored.on{background:var(--rcs)}
 .regtint{position:absolute;top:0;bottom:0;pointer-events:none}
+/* scratch pad: the drop preview while a section or span is dragged onto it */
+.scrghost{position:absolute;top:2px;bottom:2px;border:1.5px dashed #ffd43b;background:rgba(255,212,59,.16);border-radius:4px;pointer-events:none;z-index:3}
 .region .rlbl{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1 1 auto;min-width:0}
 .region .rbars{flex:0 0 auto;background:rgba(0,0,0,.35);border-radius:3px;padding:0 3px;font-weight:800;font-variant-numeric:tabular-nums;cursor:pointer}
 .region .rbars:hover{background:var(--accent2);color:#0c0d12}
