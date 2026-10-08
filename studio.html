@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Songflow — Lyric Studio</title>
-<link rel="stylesheet" href="ams.css?v=130">
-<script src="songflow-scope.js?v=130"></script>
+<link rel="stylesheet" href="ams.css?v=131">
+<script src="songflow-scope.js?v=131"></script>
 <script>/* last ~25 browser errors, attached to bug reports (see the Report bug wiring at the end) */
 window.__sfErrs=[];(function(){function add(k,m){try{var a=window.__sfErrs;a.push({t:new Date().toISOString(),k:k,m:String(m).slice(0,400)});if(a.length>25)a.shift();}catch(e){}}
 window.addEventListener("error",function(e){add("error",(e.message||"")+(e.filename?" @"+String(e.filename).split("/").pop()+":"+e.lineno:""));});
@@ -562,15 +562,16 @@ var ce=console.error;console.error=function(){try{add("console",[].slice.call(ar
 
         <h4>Getting started</h4>
         <ul>
-          <li><b>Projects.</b> The start screen lists your projects, a <b>Real Crews demo</b> (a finished song made with this exact workflow &mdash; open it to see how a project is put together), and <b>&#65291; New project</b>. Everything autosaves in this browser as you work.</li>
+          <li><b>Projects.</b> The start screen lists your projects, a <b>Real Crews demo</b> (a finished song made with this exact workflow &mdash; open it to see how a project is put together), and <b>&#65291; New project</b>. Everything autosaves in this browser as you work, filed under the account you're signed in with: signed in, you see your own projects; signed out, only the ones made while signed out. The first time you sign in on a computer, the projects you made there while signed out move into your account.</li>
           <li><b>&#128190; Save project / &#128194; Open project.</b> Saves one <code>.songflow</code> file holding the audio, lyrics, arrangement and every setting &mdash; a real backup you can move between computers or send to someone.</li>
-          <li><b>Sign in</b> (top right) is optional. Continue with Google, or get a one-tap link by email &mdash; no password. It carries your <b>included AI credits</b>. Your projects are saved in this browser; use <b>&#128190; Save project</b> to move one to another computer.</li>
+          <li><b>Sign in</b> (top right, on the start screen or here) is optional. Continue with Google, or get a one-tap link by email &mdash; no password. It carries your <b>included AI credits</b>. Click your name for your <b>account menu</b>: your credits or waitlist place, and <b>Sign out</b>. Projects stay in this browser; use <b>&#128190; Save project</b> to move one to another computer.</li>
+          <li><b>Tester spots.</b> Each spot comes with $5 of included AI credits, and there are only so many. When they're full, you can <b>join the waitlist</b> from the account menu or the credit meter under Generate &mdash; your credits open as spots free up. Use up your $5 and you can join the waitlist for more. While you wait, you can still write, and generate with your own key.</li>
           <li><b>&#128030; Report bug</b> (bottom right of the editor) &mdash; hit it the moment something breaks or confuses you. Your note goes straight to us with the page, version and any error messages attached.</li>
         </ul>
 
         <h4>Writing</h4>
         <ul>
-          <li><b>Gutter (left numbers):</b> each line shows <code>bar &#8470; &#9474; syllables  VOWEL</code> &mdash; the vowel is that line's ending rhyme sound. A <code>&middot;</code> instead of a count means an <b>empty bar</b>.</li>
+          <li><b>Gutter (left numbers):</b> each line shows <code>bar &#8470; &#9474; syllables  VOWEL</code> &mdash; the vowel is that line's ending rhyme sound. The bar numbers match the timeline ruler, gaps between sections included. A <code>&middot;</code> instead of a count means an <b>empty bar</b>.</li>
           <li><b>Bars and empty bars.</b> Inside a region with a bar count (e.g. <code>[Chorus - 8 bars]</code>) <b>every line is a bar</b>, including blank ones. Leave bars 5&ndash;7 blank and start a pickup on bar 8 and that is exactly where it lands. Type past the count and the tag updates itself. In a region with <em>no</em> count, bars are just your written lines and blank lines are only spacing.</li>
           <li><b>Fold a region:</b> <b>right-click its tag</b> to collapse everything under it (the tag shows how many bars are hidden); right-click again to expand. Nothing is deleted &mdash; it only clears clutter on a long song.</li>
           <li><b>Cross-rhyme (ABAB):</b> a rhyme need not answer the very next bar. Set vowel <em>A</em> on bar 1, <em>B</em> on bar 2, then answer <em>A</em> on bar 3 and <em>B</em> on bar 4 &mdash; the pair lands every other bar. Because the pattern repeats, even a loose / <em>family</em> rhyme reads as deliberate. The scheme map rings the every-other-bar pair in white.</li>
@@ -587,8 +588,8 @@ var ce=console.error;console.error=function(){try{add("console",[].slice.call(ar
           <li><b>Slip</b> is an offset <em>relative to the anchor</em> (neutral 0 = right on it). Nudge with <b>◀ ▶</b> (±10ms, Shift = ±1ms); for a big shift, toggle the <b>⇄ slip-drag</b> button and drag the numbered ruler. Click the readout to reset to neutral.</li>
           <li><b>Snap.</b> The playhead and selections snap to the grid. Pick the resolution next to the <b>Snap</b> toggle: <b>whole note (default) / ½ / ¼ (beat) / ⅛ / 1⁄16</b>.</li>
           <li><b>Region colors.</b> A region that contains lyrics shows bright <b style="color:var(--accent2)">teal</b>; an arrangement-only region with no lyrics (e.g. <code>[Instrumental break]</code>) shows a <b style="color:#62a6a3">muted teal</b>.</li>
-          <li><b>Drag</b> a region to reorder it &mdash; an insert line shows where it lands. <b>Ctrl+Click</b> several, or <b>Shift+Click</b> to add a whole range, then drag to move them as a <b>block</b>. Regions never overlap and never slide before the start of the track.</li>
-          <li><b>&#128257; Loop selected</b> loops the highlighted regions. <b>&#128465; Delete region</b> (or the Delete key) removes one; lyric-bearing regions warn first, and <b>Ctrl+Z</b> undoes it.</li>
+          <li><b>Drag</b> a region to reorder it &mdash; an insert line shows where it lands. <b>Ctrl+Click</b> several, or <b>Shift+Click</b> to add a whole range, then drag to move them as a <b>block</b>. Regions never overlap and never slide before the start of the track. If your sections run longer than the track, the timeline keeps going past the end of the waveform so you can still place and move them.</li>
+          <li><b>&#128257; Loop selected</b> loops the highlighted regions &mdash; or a span you dragged on the waveform &mdash; seamlessly, with no gap between passes. <b>&#128465; Delete region</b> (or the Delete key) removes one; lyric-bearing regions warn first, and <b>Ctrl+Z</b> undoes it.</li>
           <li><b>&#9635; Scratch pad:</b> a composite lane for chopping audio &mdash; closed by default. Hit <b>&#9635; Scratch</b> to open it, copy a waveform span, and paste it in to audition or export.</li>
           <li><b>Resize:</b> drag the handle just under the timeline to make the waveform taller. <b>&#128276; Click</b> = metronome. <b>&#9776; Auto sections</b> detects sections from a loaded track. <b>&#12316; Warp</b> drops pins to bend the grid for a track that drifts off a constant tempo.</li>
         </ul>
@@ -608,7 +609,7 @@ var ce=console.error;console.error=function(){try{add("console",[].slice.call(ar
           <li><b>Genre preset</b> moves the <b>Lyrics Pattern Table</b> to that genre's sweet spot. The table itself: left&harr;right is packed &harr; sustained phrasing; up&harr;down is stay on-theme &harr; let the sound lead the meter (looser meaning buys tighter rhythm).</li>
           <li><b>Rhyme planner</b> (on by default) chooses the rhyme sounds up front, from your own rhyme palette, before writing a word. It is what stops the AI riding one vowel for eight bars or burying the rhyme in a pickup.</li>
           <li><b>&#8627; Conform</b> turns raw text into lyrics. Paste anything &mdash; notes, a rant, a poem, a voice-memo transcript &mdash; and it works out what you are trying to say, keeps your voice and slang, and rewrites it as bars that obey the rhythm and rhyme rules above.</li>
-          <li><b>Engine.</b> Signed in, you generate on your <b>included credits</b> with no key and no setup; the meter shows what is left. You can instead bring your own <b>OpenRouter / Anthropic / OpenAI / Google</b> key &mdash; it is stored only in this browser and you pay that provider directly.</li>
+          <li><b>Engine.</b> Signed in, you generate on your <b>included credits</b> with no key and no setup; the meter shows what is left, or your waitlist place if tester spots are full. The note after each generation names the AI model that wrote it. You can instead bring your own <b>OpenRouter / Anthropic / OpenAI / Google</b> key &mdash; it is stored only in this browser and you pay that provider directly.</li>
           <li><b>Highlight bars &rarr; Replace</b> rewrites just those bars to the same rhythm and rhyme skeleton, with dials for how strictly to match.</li>
         </ul>
 
@@ -674,11 +675,11 @@ $("helpClose").onclick=()=>showHelp(false);
 $("helpModal").addEventListener("click",e=>{if(e.target===$("helpModal"))showHelp(false);});
 document.addEventListener("keydown",e=>{if(e.key==="Escape")showHelp(false);});
 </script>
-<script src="ams-timeline.js?v=130"></script>
-<script src="ams-vowels.js?v=130"></script>
-<script src="ams-pron.js?v=130"></script>
-<script src="ams-bpm.js?v=130"></script>
-<script src="ams-sections.js?v=130"></script>
+<script src="ams-timeline.js?v=131"></script>
+<script src="ams-vowels.js?v=131"></script>
+<script src="ams-pron.js?v=131"></script>
+<script src="ams-bpm.js?v=131"></script>
+<script src="ams-sections.js?v=131"></script>
 <script>
 const doc=$("doc"),gut=$("gut");
 // keep the gutter (line #, syllables, rhyme vowel) locked to the lyric scroll — they share the
@@ -1813,15 +1814,16 @@ function tagRegions(){
 /* ================= guided coach-marks tour ================= */
 const TOUR=[
   {sel:"#doc",t:"Write your lyrics",b:"Type here — every line is one bar. A tag like [Verse] sits on its own line (type \"[\" for the menu). With lyrics under it, it's a Lyrics Region tag; the SAME tag appears on the timeline as an arrangement region tag. A tag can also have no lyrics (e.g. an instrumental break) — then you just give it a bar length."},
-  {sel:"#gut",t:"The gutter",b:"Each bar shows its number, syllable count, and the rhyme vowel you land on."},
+  {sel:"#gut",t:"The gutter",b:"Each bar shows its number (the same as the timeline ruler), syllable count, and the rhyme vowel you land on."},
   {sel:"#thisBar",t:"Your live writing coach",b:"For the bar your cursor is on, this tells you which vowel completes the rhyme — a couplet, or a cross-rhyme (ABAB)."},
   {sel:"#rhymeList",t:"Rhyme words",b:"Words that rhyme with your current line. Click to drop one at the cursor; Shift-click to copy."},
   {sel:"#schemeMap",t:"Scheme map",b:"One colored dot per bar shows your rhyme pattern. A white ring marks a cross-rhyme (ABAB) pair."},
   {sel:".gridctl",t:"Tempo & beat grid",b:"Drag the BPM numbers to fine-tune the tempo. Hit Anchor, then click the first downbeat anywhere on the timeline — the beat grid snaps there and locks to your song. Bars are numbered from the first bar of the track."},
   {sel:"#tl",t:"The timeline",b:"Your track as a waveform with a beat grid. Click to move the playhead — it snaps to the Snap menu's resolution (whole note by default, then ½, ¼/beat, ⅛, 1⁄16). Drag to select a span. Drag the bar under the timeline to make it taller."},
-  {sel:".regionstrip",t:"Arrangement region tags",b:"Same tags as the lyric editor, shown on the grid. Teal = a region with lyrics; amber = an arrangement-only region (no lyrics, e.g. an instrumental break). Drag to reorder (an insert line shows where it lands), double-click to rename, Alt+Click (or click the tag in the lyrics) for the menu: bar length, rename, delete."},
-  {sel:"#ideaGo",t:"Generate",b:"Write matching bars with the AI engine you choose — free, or your own key. Overrides can force a vowel or syllable count for special cases."},
-  {sel:"#lExport",t:"Export & save",b:"Save your lyrics as text, or export the edited audio. Everything autosaves in your browser as you go."}
+  {sel:".regionstrip",t:"Arrangement region tags",b:"Same tags as the lyric editor, shown on the grid. Bright teal = a region with lyrics; muted teal = an arrangement-only region (no lyrics, e.g. an instrumental break). Drag to reorder (an insert line shows where it lands), double-click to rename, Alt+Click (or click the tag in the lyrics) for the menu: bar length, rename, delete."},
+  {sel:"#ideaGo",t:"Generate",b:"Write matching bars with the AI. Signed in, it runs on your included credits; or pick another engine and use your own key. Overrides can force a vowel or syllable count for special cases."},
+  {sel:"#lExport",t:"Export & save",b:"Save your lyrics as text, or export the edited audio. Everything autosaves in your browser as you go."},
+  {sel:"#authBtn",t:"Your account",b:"Sign in with Google or an email link to use your included AI credits. Once you're in, click your name for your credits, the waitlist, and Sign out. Your projects are filed under your account in this browser."}
 ];
 let tourI=0;
 function tourStepEl(){const el=document.querySelector(TOUR[tourI].sel);return (el&&el.getBoundingClientRect().width>2)?el:null;}
@@ -1853,7 +1855,7 @@ window.addEventListener("keydown",e=>{if(e.key==="Escape"&&$("tourOvl").classLis
 window.addEventListener("resize",()=>{if($("tourOvl").classList.contains("on"))tourShow();});
 if(!localStorage.getItem("ams.tour.seen"))setTimeout(()=>{try{tourStart();}catch(e){}},800);   // first visit → auto-run
 </script>
-<script src="lyric-core.js?v=130"></script>
+<script src="lyric-core.js?v=131"></script>
 <!-- Sign-in: Google (shown once the provider is switched on in Supabase) or a magic link by email -->
 <div id="authPanel" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10000;align-items:center;justify-content:center">
   <div style="background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px;width:350px;max-width:92vw;box-shadow:0 14px 44px rgba(0,0,0,.55)">
@@ -1867,7 +1869,7 @@ if(!localStorage.getItem("ams.tour.seen"))setTimeout(()=>{try{tourStart();}catch
   </div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script src="songflow-cloud.js?v=130"></script>
+<script src="songflow-cloud.js?v=131"></script>
 <!-- BUG REPORTER markup lives inside .lyx (the lyric processor); this just wires it. -->
 <script>
 (function(){
