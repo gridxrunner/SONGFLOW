@@ -69,3 +69,17 @@ Clips dragged or pasted onto the Scratch pad are copies of the track audio, kept
 `scratch:<project id>` (store "audio", next to the project's own audio blob). The page owns the clips (`scratch` in
 studio.html); `ams-timeline.js` only draws them and reports drops, clicks and drags (`onScratch*` options). They
 play with the track while the pad is open, scheduled on the same AudioContext as the music (`scratchTick`).
+
+## Preview first, publish when the founder says so
+
+Ship changes to the `preview` branch, not `main`. Cloudflare builds that branch at https://preview.songflow.pages.dev
+(an unlisted URL; the repo itself is public). The founder tests it inside the live site: signed in as an admin,
+account menu → **Preview mode**. That gets a signed HttpOnly cookie from `/api/preview` (admins only), and
+`functions/preview/[[path]].js` then serves the preview build at `songflow.pages.dev/preview/...`. Same origin, so
+the same sign-in and the same saved projects. Without the cookie, `/preview/...` redirects to the published page.
+
+- Publish only when asked: `git checkout main && git merge --ff-only preview && git push`, then bring `preview`
+  back level with `main`. Bump the `?v=` cache-busters on preview builds as usual.
+- `/api/*` calls from preview pages go to the LIVE functions, so server-function changes can't be previewed this way.
+- Preview shares the browser's saved projects with the live site: a data migration in preview code changes the
+  real data. Make migrations safe to run on both versions.

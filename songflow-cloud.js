@@ -93,6 +93,36 @@
     toast("Signed out.");
   }
 
+  /* ---- PREVIEW MODE (admin only): the unpublished `preview` build, served by the live site at /preview/
+     so it keeps this window's sign-in and projects (functions/preview/[[path]].js). /api/preview gives
+     the admin's browser the pass; leaving needs none. ---- */
+  const IN_PREVIEW = /^\/preview(\/|$)/.test(location.pathname);
+  function previewPath(on) {
+    const p = location.pathname.replace(/^\/preview(?=\/|$)/, "") || "/";
+    return (on ? "/preview" + p : p) + location.search + location.hash;
+  }
+  async function setPreview(on) {
+    try { if (typeof window.autosaveNow === "function") window.autosaveNow(); } catch (e) {}
+    const headers = { "content-type": "application/json" };
+    if (on && sb) { const { data } = await sb.auth.getSession(); const tok = data && data.session && data.session.access_token; if (tok) headers.Authorization = "Bearer " + tok; }
+    try {
+      const r = await fetch("/api/preview", { method: "POST", headers, body: JSON.stringify({ on }) });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) { toast(d.error || "Couldn't switch preview mode."); return false; }
+    } catch (e) { toast("Couldn't reach Songflow — check your connection."); return false; }
+    location.href = previewPath(on);
+    return true;
+  }
+  function previewBadge() {
+    if (!IN_PREVIEW || $("sfPreviewBadge") || !document.body) return;
+    const b = el("div", "position:fixed;left:12px;bottom:58px;z-index:10002;display:flex;align-items:center;gap:8px;padding:4px 4px 4px 11px;border-radius:999px;background:#ffb020;color:#0c0d12;font:800 11px/1 Inter,system-ui,sans-serif;letter-spacing:.3px;box-shadow:0 6px 20px rgba(0,0,0,.45)");
+    b.id = "sfPreviewBadge"; b.title = "You're on the unpublished version. Testers still see the published one.";
+    const x = el("button", "border:0;border-radius:999px;padding:5px 10px;background:#0c0d12;color:#ffb020;font:800 10.5px/1 Inter,system-ui,sans-serif;cursor:pointer", "Exit preview");
+    x.onclick = () => { x.disabled = true; setPreview(false).then(ok => { if (!ok) x.disabled = false; }); };
+    b.append(el("span", "", "PREVIEW · unpublished"), x);
+    document.body.append(b);
+  }
+
   /* tester access: spot / credits / waitlist (functions/api/access.js) */
   async function checkAccess(action) {
     try {
@@ -120,7 +150,16 @@
     else if (d.status === "used_up") { box.append("You've used your included credits."); box.append(joinBtn("Join the waitlist for more")); }
     else { box.append("Tester spots are full right now."); box.append(joinBtn("Join the waitlist")); }
     adminSlot.textContent = "";
-    if (d.admin) { const a = el("a", "display:block;color:var(--accent2);font-weight:700;text-decoration:none;margin-bottom:10px", "Tester access & waitlist →"); a.href = "admin"; adminSlot.append(a); }
+    if (d.admin) {
+      const a = el("a", "display:block;color:var(--accent2);font-weight:700;text-decoration:none;margin-bottom:10px", "Tester access & waitlist →"); a.href = "admin"; adminSlot.append(a);
+      // preview mode: just for the admin; testers keep the published version
+      const row = el("label", "display:flex;align-items:flex-start;gap:8px;margin:0 0 10px;padding:8px 9px;border-radius:9px;border:1px solid " + (IN_PREVIEW ? "#ffb020" : "var(--line)") + ";cursor:pointer");
+      const cb = document.createElement("input"); cb.type = "checkbox"; cb.checked = IN_PREVIEW; cb.style.cssText = "accent-color:#ffb020;margin:2px 0 0;cursor:pointer";
+      cb.onchange = () => { cb.disabled = true; setPreview(cb.checked).then(ok => { if (!ok) { cb.disabled = false; cb.checked = IN_PREVIEW; } }); };
+      const tx = el("span", "display:flex;flex-direction:column;gap:2px");
+      tx.append(el("b", "font-size:12px", "Preview mode"), el("span", "font-size:11px;color:var(--mut)", "Try the unpublished version in this window. Only you see it."));
+      row.append(cb, tx); adminSlot.append(row);
+    }
   }
   function toggleMenu() {
     if ($("acctMenu")) { closeMenu(); return; }
@@ -150,6 +189,7 @@
     const p = $("authPanel"); if (p) p.addEventListener("click", e => { if (e.target === p) closePanel(); });
   }
 
+  if (document.body) previewBadge(); else document.addEventListener("DOMContentLoaded", previewBadge);
   if (document.readyState !== "loading") init();
   else document.addEventListener("DOMContentLoaded", init);
 })();
