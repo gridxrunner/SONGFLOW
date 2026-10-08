@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Songflow — Tester Access</title>
+<meta name="robots" content="noindex">
+<link rel="stylesheet" href="ams.css?v=27">
+<style>
+  body{margin:0;background:radial-gradient(1100px 560px at 50% -12%,rgba(124,92,255,.14),transparent),var(--bg);color:var(--txt);font-size:14px;line-height:1.55}
+  .wrap{width:min(860px,100%);margin:0 auto;padding:28px 18px 64px;box-sizing:border-box;display:flex;flex-direction:column;gap:18px}
+  .top{display:flex;align-items:center;gap:12px}
+  .brand{display:inline-flex;align-items:center;gap:9px;font-weight:800;font-size:19px;letter-spacing:-.3px;color:var(--txt);text-decoration:none;flex:1}
+  .brand .mk{width:22px;height:22px;border-radius:7px;background:var(--grad)}
+  .brand .pipe{color:var(--accent2)}
+  .brand small{font-weight:600;font-size:12px;color:var(--mut);letter-spacing:0;margin-left:4px}
+  .inp{background:var(--panel2);border:1px solid var(--line);color:var(--txt);border-radius:9px;padding:8px 10px;font-size:13px;outline:none}
+  .inp:focus-visible,button:focus-visible{outline:2px solid var(--accent2);outline-offset:2px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 18px}
+  .card h2{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--mut);margin:0 0 10px;font-weight:700}
+  .stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+  .stat{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+  .stat .v{font-size:20px;font-weight:800;font-variant-numeric:tabular-nums}
+  .stat .l{font-size:11px;color:var(--mut)}
+  .stat.hi .v{color:var(--accent2)}
+  .row{display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--line)}
+  .row:first-of-type{border-top:0}
+  .row .who{flex:1;min-width:0}
+  .row .em{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .row .sub{font-size:11.5px;color:var(--mut)}
+  .tag{font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;border-radius:4px;padding:2px 6px;border:1px solid var(--line);color:var(--mut)}
+  .tag.new{color:var(--accent2);border-color:rgba(25,211,197,.5)}
+  .tag.more{color:#ffd43b;border-color:rgba(255,212,59,.5)}
+  .grant{background:var(--accent2);color:#0c0d12;border:0;border-radius:8px;padding:7px 12px;font-weight:800;font-size:12px;cursor:pointer;white-space:nowrap}
+  .grant:disabled{background:var(--panel2);color:var(--mut);cursor:not-allowed}
+  .ghost{background:var(--panel2);color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:7px 12px;font-weight:700;font-size:12px;cursor:pointer}
+  .pool{display:flex;gap:8px;align-items:center;margin-top:12px;flex-wrap:wrap}
+  .muted{color:var(--mut)}
+  .empty{color:var(--mut);font-size:13px;padding:6px 0}
+  #msg{min-height:18px;font-size:12.5px}
+  @media (max-width:640px){.stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <a class="brand" href="./"><span class="mk"></span><span>Song<span class="pipe">|</span>Flow</span><small>Tester access</small></a>
+    <button class="tbtn" id="authBtn" style="width:auto;padding:0 11px;background:var(--accent2);color:#0c0d12;border-color:var(--accent2);font-weight:700">Sign in</button>
+  </div>
+
+  <div class="card" id="gate"><span class="muted">Checking your sign-in…</span></div>
+
+  <div id="panel" style="display:none;flex-direction:column;gap:18px">
+    <div class="card">
+      <h2>Credit pool</h2>
+      <div class="stats">
+        <div class="stat"><div class="v" id="sBal">—</div><div class="l">left in the pool</div></div>
+        <div class="stat"><div class="v" id="sRes">—</div><div class="l">reserved for testers</div></div>
+        <div class="stat"><div class="v" id="sFree">—</div><div class="l">free to grant</div></div>
+        <div class="stat hi"><div class="v" id="sSpots">—</div><div class="l">open $5 spots</div></div>
+      </div>
+      <div class="pool">
+        <span class="muted" style="font-size:12.5px">Raise the pool by $</span>
+        <input class="inp" id="poolAmt" type="number" min="1" max="1000" step="1" value="25" style="width:90px">
+        <button class="ghost" id="poolBtn">Add to pool</button>
+        <span class="muted" style="font-size:11.5px;flex-basis:100%">Do this after you add the same amount to your OpenRouter account — the pool is the most Songflow will ever spend.</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Waitlist <span id="wCount" class="muted"></span></h2>
+      <div id="waitlist"></div>
+    </div>
+
+    <div class="card">
+      <h2>Testers with credits <span id="tCount" class="muted"></span></h2>
+      <div id="testers"></div>
+    </div>
+    <div id="msg" class="muted"></div>
+  </div>
+</div>
+<!-- Sign-in: Google (shown once the provider is switched on in Supabase) or a magic link by email -->
+<div id="authPanel" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10000;align-items:center;justify-content:center">
+  <div style="background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px;width:350px;max-width:92vw;box-shadow:0 14px 44px rgba(0,0,0,.55)">
+    <div style="display:flex;align-items:center;margin-bottom:8px"><b style="flex:1">Sign in to Songflow</b><button class="tbtn" id="authClose" style="width:auto;padding:0 8px">&#10005;</button></div>
+    <div class="muted" style="font-size:11.5px;margin-bottom:10px;line-height:1.45">Sign in to use your included AI credits — no password needed. Your projects stay saved in this browser.</div>
+    <button id="authGoogle" style="display:none;width:100%;padding:10px;border:1px solid #dadce0;border-radius:8px;background:#fff;color:#1f1f1f;font-weight:600;font-size:13px;cursor:pointer;align-items:center;justify-content:center;gap:10px"><svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>Continue with Google</button>
+    <div id="authOr" class="muted" style="display:none;text-align:center;font-size:11px;margin:10px 0 8px">or get a one-tap link by email</div>
+    <input class="inp" id="authEmail" type="email" placeholder="you@email.com" style="width:100%" autocomplete="email">
+    <button class="go" id="authSend" style="width:100%;margin-top:8px;padding:11px;border:none;border-radius:8px;background:var(--accent2);color:#0c0d12;font-weight:700;cursor:pointer">Send sign-in link</button>
+    <div class="muted" id="authNote" style="margin-top:8px;min-height:14px;font-size:11.5px"></div>
+  </div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="songflow-cloud.js?v=129"></script>
+<script>
+/* Tester access admin: the pool, the waitlist (grant $5), testers (+$5), raise the pool.
+   Everything goes through /api/admin, which checks the signed-in email against public.admins. */
+(function(){
+  const $=id=>document.getElementById(id);
+  const money=v=>"$"+(Number(v)||0).toFixed(2);
+  const day=t=>t?new Date(t).toLocaleDateString(undefined,{month:"short",day:"numeric"}):"";
+  window.toast=m=>{$("msg").textContent=m;};
+  async function token(){
+    if(!window.SBClient)return null;
+    const {data}=await window.SBClient.auth.getSession();
+    return data&&data.session&&data.session.access_token;
+  }
+  async function call(body){
+    const tok=await token();
+    if(!tok){gate("signedout");return null;}
+    const r=await fetch("/api/admin",{method:"POST",headers:{"content-type":"application/json",Authorization:"Bearer "+tok},body:JSON.stringify(body||{action:"overview"})});
+    const d=await r.json().catch(()=>({}));
+    if(r.status===401){gate("signedout");return null;}
+    if(r.status===403){gate("notadmin");return null;}
+    if(!r.ok){$("msg").textContent=d.error||"Something went wrong — try again.";return null;}
+    return d;
+  }
+  function gate(kind){
+    $("panel").style.display="none";
+    const g=$("gate");g.style.display="";g.textContent="";
+    if(kind==="signedout"){
+      g.append("Sign in with the account that runs Songflow to manage tester access. ");
+      const b=document.createElement("button");b.className="ghost";b.textContent="Sign in";b.style.marginLeft="8px";b.onclick=()=>$("authBtn").click();g.append(b);
+    }else{
+      g.append("This page is only for Songflow's admin. ");
+      const a=document.createElement("a");a.href="./";a.textContent="Back to Songflow";a.style.color="var(--accent2)";g.append(a);
+    }
+  }
+  function personRow(p,sub,tag,btnLabel,btnClass,canGrant){
+    const row=document.createElement("div");row.className="row";
+    const who=document.createElement("div");who.className="who";
+    const em=document.createElement("div");em.className="em";em.textContent=p.email||"(no email)";
+    const s=document.createElement("div");s.className="sub";s.textContent=sub;
+    who.append(em,s);row.append(who);
+    if(tag){const t=document.createElement("span");t.className="tag "+tag.cls;t.textContent=tag.text;row.append(t);}
+    const b=document.createElement("button");b.className=btnClass;b.textContent=btnLabel;
+    if(!canGrant){b.disabled=true;b.title="Raise the pool first — there isn't $5 free to reserve.";}
+    b.onclick=async()=>{b.disabled=true;$("msg").textContent="Granting…";
+      const d=await call({action:"grant",user_id:p.user_id,amount:5});
+      if(d){render(d);$("msg").textContent=d.result==="granted"?`Granted $5 to ${p.email}. They'll see it next time they open Songflow.`
+        :d.result==="no_funds"?"Not enough free in the pool — raise it first.":"Couldn't grant that.";}};
+    row.append(b);return row;
+  }
+  function render(d){
+    $("gate").style.display="none";$("panel").style.display="flex";
+    const bal=Number(d.pool&&d.pool.balance)||0, free=Number(d.free)||0;
+    $("sBal").textContent=money(bal);$("sRes").textContent=money(Math.max(0,bal-free));
+    $("sFree").textContent=money(free);$("sSpots").textContent=Math.max(0,Math.floor(free/5+1e-9));
+    const canGrant=free>=5-1e-9, people=d.people||[];
+    const waiting=people.filter(p=>p.waitlisted_at);
+    const testers=people.filter(p=>p.allowed&&!p.waitlisted_at);
+    const notJoined=people.filter(p=>!p.allowed&&!p.waitlisted_at&&p.claimed_at);
+    $("wCount").textContent=waiting.length?"· "+waiting.length:"";
+    $("tCount").textContent=testers.length?"· "+testers.length:"";
+    const W=$("waitlist");W.textContent="";
+    waiting.forEach((p,i)=>W.append(personRow(p,`#${i+1} · waiting since ${day(p.waitlisted_at)}`,
+      p.granted_at?{cls:"more",text:"Wants more"}:{cls:"new",text:"New tester"},"Grant $5","grant",canGrant)));
+    if(!waiting.length){const e=document.createElement("div");e.className="empty";e.textContent="Nobody is waiting.";W.append(e);}
+    if(notJoined.length){const e=document.createElement("div");e.className="empty";
+      e.textContent=`${notJoined.length} more signed in while spots were full but haven't joined the waitlist.`;W.append(e);}
+    const T=$("testers");T.textContent="";
+    testers.forEach(p=>T.append(personRow(p,`used ${money(p.spent)} of ${money(p.cap)} · since ${day(p.granted_at||p.claimed_at||p.created_at)}`,null,"+ $5","ghost",canGrant)));
+    if(!testers.length){const e=document.createElement("div");e.className="empty";e.textContent="No testers yet.";T.append(e);}
+  }
+  $("poolBtn").onclick=async()=>{
+    const amt=Number($("poolAmt").value);
+    if(!(amt>0&&amt<=1000)){$("msg").textContent="Enter an amount between $1 and $1,000.";return;}
+    $("poolBtn").disabled=true;$("msg").textContent="Adding…";
+    const d=await call({action:"pool",amount:amt});
+    $("poolBtn").disabled=false;
+    if(d){render(d);$("msg").textContent=`Pool raised by ${money(amt)}.`;}
+  };
+  async function load(){const d=await call({action:"overview"});if(d)render(d);}
+  window.addEventListener("sf-auth",()=>setTimeout(load,200));
+  (function wait(n){ if(window.SBClient)load(); else if(n<60)setTimeout(()=>wait(n+1),150); else $("gate").textContent="Couldn't load sign-in — check your connection."; })(0);
+})();
+</script>
+</body>
+</html>

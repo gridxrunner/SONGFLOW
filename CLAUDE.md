@@ -29,3 +29,18 @@ To work the queue:
 Free-plan Supabase projects pause after about 7 days without traffic, which stops sign-in, credits, AI
 generation and bug intake. `.github/workflows/supabase-keepalive.yml` pings it daily. If sign-in fails with a
 network error, check the project's status in Supabase first and restore it if it's paused.
+
+## Tester spots, waitlist and admin
+
+Included credits are limited by spots: each active tester's unspent allowance ($5 by default) is reserved
+from the shared pool (`public.credit_pool.balance`). When the pool can't reserve another full allowance,
+new sign-ins are offered the waitlist. The logic lives in Supabase functions: `claim_access` (decides a
+newcomer's spot once), `join_waitlist`, `grant_credits`, `add_to_pool`, `credit_free`, `admin_overview`,
+`waitlist_position`. They are callable only by the server (execute revoked from browser roles).
+
+- `/api/access` (functions/api/access.js): the studio calls it on sign-in; returns status
+  (active | used_up | waitlist | full), balance, waitlist position and whether the person is an admin.
+- `/api/generate` checks `claim_access` first and refuses with a status-specific message and `code`.
+- `/admin` (admin.html + functions/api/admin.js): for emails in `public.admins` only. Shows the pool,
+  the waitlist (Grant $5) and testers (+$5), and raises the pool. Raise it only after the founder adds
+  the same money to OpenRouter: the pool is the most Songflow will ever spend.

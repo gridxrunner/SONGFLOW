@@ -1544,7 +1544,7 @@ async function callLLM({provider,model,system,user,maxTokens=600}){
       headers:{"content-type":"application/json",Authorization:"Bearer "+tok},
       body:JSON.stringify({system,user,maxTokens})});
     let d={};try{d=await res.json();}catch(e){}
-    if(!res.ok)throw new Error(d.error||`Generation failed (${res.status}).`);
+    if(!res.ok){const e=new Error(d.error||`Generation failed (${res.status}).`);e.code=d.code||null;if(e.code)refreshCredits();throw e;}
     if(d.balance!=null&&typeof renderCredits==="function")renderCredits(d.balance);
     if(d.model)window._sfLastModel=d.model;                       // shown in the "Generated" note
     return (d.text||"").trim();
@@ -1572,42 +1572,92 @@ window.addEventListener("sf-auth",e=>{
   if(!_sfUser)_pendingGen=null;
 });
 /* credit meter — reads the user's own row (RLS lets them see only their balance) */
-let _credBal=null;
+let _credBal=null, _access=null;   // _access = {status, balance, position, admin} from /api/access
+/* the included-credits meter: balance for testers with a spot; otherwise the waitlist state.
+   Tester spots: each $5 allowance is reserved from the shared pool. When the pool can't reserve
+   another, newcomers are offered the waitlist and the founder grants access from /admin. */
 function renderCredits(bal){
   if(bal!=null)_credBal=Number(bal);
   const el=$("credMeter");if(!el)return;
+  renderAdminLink();
   const isFree=(($("aiProvider")&&$("aiProvider").value)||"free")==="free";
   if(!isFree){el.style.display="none";return;}
-  if(_credBal==null){                                   // no balance yet: signed out → say so (don't hide the state); signed in → still loading
-    if(_sfUser){el.style.display="none";return;}
+  el.onclick=null;el.style.cursor="";
+  if(!_sfUser&&_credBal==null){                        // signed out: say so (don't hide the state)
     el.style.display="";
     el.innerHTML=`<a href="#" style="color:var(--accent2);text-decoration:none;font-weight:700">Sign in to use credits</a>`;
     el.title="Included credits need a sign-in (top right) so we know whose balance to draw from.";
-    el.onclick=ev=>{ev.preventDefault();if(!_sfUser){const b=$("authBtn");if(b)b.click();}};
+    el.onclick=ev=>{ev.preventDefault();const b=$("authBtn");if(b)b.click();};
     return;
   }
-  el.onclick=null;
+  const st=_access&&_access.status;
+  if(st==="full"||st==="used_up"){                     // offer the waitlist
+    el.style.display="";el.style.cursor="pointer";
+    el.innerHTML=`<a href="#" style="color:#ffd43b;text-decoration:none;font-weight:700">${st==="full"?"Spots full":"Credits used"} · join the waitlist</a>`;
+    el.title=st==="full"?"Songflow's tester spots are full right now. Join the waitlist and we'll open your included credits as spots free up."
+      :"You've used your included credits. Join the waitlist for more.";
+    el.onclick=ev=>{ev.preventDefault();joinWaitlist();};
+    return;
+  }
+  if(st==="waitlist"){
+    el.style.display="";
+    el.innerHTML=`<span style="opacity:.75">On the waitlist${_access.position?` · #${_access.position}`:""}</span>`;
+    el.title="We'll open your included credits as spots free up. Meanwhile you can generate with your own key (pick another engine).";
+    return;
+  }
+  if(_credBal==null){el.style.display="none";return;}  // signed in, still loading
   el.style.display="";
   const low=_credBal<=0.5;
   el.innerHTML=`<span style="opacity:.7">Credits</span> <b style="color:${_credBal<=0?"var(--danger)":low?"#ffd43b":"var(--accent2)"}">$${_credBal.toFixed(2)}</b>`;
-  el.title=_credBal<=0?"Out of credits — add your own key with another engine to keep going."
+  el.title=_credBal<=0?"Out of credits — join the waitlist for more, or add your own key with another engine."
     :"Your included Songflow credits. Generations draw from this.";
+}
+/* the Admin link next to Sign in, only for Songflow's admin */
+function renderAdminLink(){
+  const btn=$("authBtn");if(!btn)return;
+  let a=$("adminLink");
+  if(!(_access&&_access.admin&&_sfUser)){if(a)a.remove();return;}
+  if(!a){a=document.createElement("a");a.id="adminLink";a.href="admin";a.textContent="Admin";a.title="Tester spots & waitlist";
+    a.style.cssText="color:var(--mut);font-size:11px;font-weight:700;text-decoration:none;margin-right:8px;align-self:center";
+    btn.parentNode.insertBefore(a,btn);}
+}
+async function accessCall(action){
+  if(!window.SBClient)return null;
+  const {data}=await window.SBClient.auth.getSession();
+  const tok=data&&data.session&&data.session.access_token;
+  if(!tok)return null;
+  const r=await fetch("/api/access",{method:"POST",headers:{"content-type":"application/json",Authorization:"Bearer "+tok},body:JSON.stringify(action?{action}:{})});
+  const d=await r.json().catch(()=>({}));
+  return r.ok?d:null;
 }
 async function refreshCredits(){
   try{
     if(!window.SBClient)return;
     const {data}=await window.SBClient.auth.getSession();
-    const uid=data&&data.session&&data.session.user&&data.session.user.id;
-    if(!uid){_credBal=null;renderCredits();return;}
-    // read OUR OWN row (RLS guarantees only ours): allowance = cap - spent.
-    // The shared-pool ceiling is enforced server-side; the proxy returns the authoritative
-    // figure after each generation, so the meter self-corrects if the pool runs low.
-    const {data:rows}=await window.SBClient.from("credits").select("cap,spent,allowed").eq("user_id",uid).limit(1);
-    if(!rows||!rows.length){renderCredits(0);return;}
-    const r=rows[0];
-    renderCredits(r.allowed===false?0:Math.max(0,(Number(r.cap)||0)-(Number(r.spent)||0)));
+    if(!(data&&data.session)){_credBal=null;_access=null;renderCredits();return;}
+    const prev=_access&&_access.status;
+    const d=await accessCall();                       // first call after sign-in decides the tester spot
+    if(!d)return;
+    _access=d;renderCredits(d.balance);
+    if(d.status!==prev&&prev!==undefined){            // tell them once, when their access changes
+      const key="sf.accessSeen."+((_sfUser&&_sfUser.id)||"")+"."+d.status;   // once per person per state, not every page load
+      let seen=true;try{seen=!!localStorage.getItem(key);if(!seen)localStorage.setItem(key,"1");}catch(e){}
+      if(!seen){
+        if(d.status==="active"&&d.balance>0)toast(`You're in — $${d.balance.toFixed(2)} of included AI credits.`);
+        else if(d.status==="full")toast("Tester spots are full right now — click “join the waitlist” under Generate.");}}
   }catch(e){}
 }
+async function joinWaitlist(){
+  try{
+    const d=await accessCall("join");
+    if(!d){toast("Couldn't join the waitlist — try again in a moment.");return;}
+    _access=d;renderCredits(d.balance);
+    if(d.status==="active")toast(`Good news — a spot was free. You have $${d.balance.toFixed(2)} of included credits.`);
+    else toast(`You're on the waitlist${d.position?` (#${d.position})`:""}. We'll open your credits as spots free up.`);
+    const note=$("ideaNote");if(note&&/waitlist/i.test(note.textContent)){note.style.color="";note.textContent=d.status==="active"?"You have a spot now — hit Generate.":"You're on the waitlist. Meanwhile you can generate with your own key (pick another engine).";}
+  }catch(e){toast("Couldn't join the waitlist — try again in a moment.");}
+}
+window.joinWaitlist=joinWaitlist;
 window.addEventListener("sf-auth",()=>{setTimeout(refreshCredits,300);});   // login/logout → re-read
 setTimeout(refreshCredits,1200);                                            // initial load
 /* engine selector UI wiring */
@@ -1918,7 +1968,9 @@ OUTPUT FORMAT (STRICT): output ONLY the ${n} new lyric ${n>1?"bars":"bar"}, one 
       const vDrift=!endsOk(bars), mDrift=!matchOk(bars), lDrift=leadInRhyme(bars);
       note.style.color="";note.textContent=`Generated ${bars.length} bar(s)${window._sfLastModel?" with "+prettyModel(window._sfLastModel):""}.`+(vDrift?" Couldn't fully lock the forced vowel — tweak as needed.":lDrift?" A rhyme may still be sitting in a lead-in — move it to the bar's last word.":mDrift?" A bar's length is still a little off — tweak as needed.":" Edit freely — they're in your document.");
     }
-  }catch(err){if(_genSeq===myGen){genCancelSlot(slot);note.className="muted";note.style.color="var(--danger)";note.textContent="Generation failed: "+err.message;}}
+  }catch(err){if(_genSeq===myGen){genCancelSlot(slot);note.className="muted";note.style.color="var(--danger)";note.textContent="Generation failed: "+err.message;
+    if(err.code==="full"||err.code==="used_up"){note.textContent=err.message+" ";const j=document.createElement("a");j.href="#";j.textContent="Join the waitlist";j.style.cssText="color:#ffd43b;font-weight:700";j.onclick=ev=>{ev.preventDefault();joinWaitlist();};note.appendChild(j);}
+    else if(err.code==="waitlist"||err.code==="pool_empty"){note.textContent=err.message;}}}
   if(_genSeq===myGen){genGlowHide();btn.disabled=false;}
 }
 function insertBarsAtCaret(bars){

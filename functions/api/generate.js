@@ -15,6 +15,8 @@
  *   SF_MAX_TOKENS         - hard per-request output cap (default 2000)
  */
 
+import { ACCESS_MESSAGES } from "../_lib/sb.js";
+
 const DEFAULT_MODEL = "deepseek/deepseek-v4.1-flash";   // newest DeepSeek Flash (Sep 2026)
 const FALLBACK_MODEL = "deepseek/deepseek-v4-flash";    // the previous default, used only if the newer one fails
 const HARD_TOKEN_CAP = 2000;
@@ -63,16 +65,21 @@ export async function onRequestPost({ request, env }) {
   };
 
   // ---- allowance check BEFORE spending the founder's money ----
-  // remaining = min(this user's cap - what they've spent, the shared pool balance).
-  // The pool is the hard ceiling: total spend can never exceed what was funded,
-  // no matter how many accounts sign up.
-  let balance = 0;
+  // remaining = min(this user's cap - what they've spent, the shared pool balance), and only for
+  // people who hold a tester spot. claim_access decides a newcomer's spot once (a spot = a $5
+  // allowance the pool can still reserve); without one they're offered the waitlist.
+  let balance = 0, status = "active";
   try {
     // make sure the user has a row (in case the signup trigger didn't fire)
     await fetch(`${env.SUPABASE_URL}/rest/v1/credits`, {
       method: "POST", headers: { ...sbHeaders, Prefer: "resolution=ignore-duplicates" },
       body: JSON.stringify({ user_id: userId, email })
     });
+    const c = await fetch(`${env.SUPABASE_URL}/rest/v1/rpc/claim_access`, {
+      method: "POST", headers: sbHeaders, body: JSON.stringify({ p_user: userId })
+    });
+    if (!c.ok) return json({ error: "Couldn't read your credit balance. Try again." }, 503);
+    status = String(await c.json());
     const r = await fetch(`${env.SUPABASE_URL}/rest/v1/rpc/credit_remaining`, {
       method: "POST", headers: sbHeaders, body: JSON.stringify({ p_user: userId })
     });
@@ -81,8 +88,10 @@ export async function onRequestPost({ request, env }) {
   } catch (e) {
     return json({ error: "Couldn't read your credit balance. Try again." }, 503);
   }
-  if (balance <= 0)
-    return json({ error: "You've used all your Songflow credits. Add your own OpenRouter key in the Engine box to keep generating.", balance: 0 }, 402);
+  if (balance <= 0) {
+    const code = status === "active" ? "pool_empty" : status;
+    return json({ error: ACCESS_MESSAGES[code] || ACCESS_MESSAGES.full, code, balance: 0 }, 402);
+  }
 
   // ---- generate: the current model first; if it errors or comes back empty, the previous one ----
   const models = [...new Set([env.SF_MODEL || DEFAULT_MODEL, FALLBACK_MODEL])];
