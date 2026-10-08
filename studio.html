@@ -3,7 +3,8 @@
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Songflow — Lyric Studio</title>
-<link rel="stylesheet" href="ams.css?v=129">
+<link rel="stylesheet" href="ams.css?v=130">
+<script src="songflow-scope.js?v=130"></script>
 <script>/* last ~25 browser errors, attached to bug reports (see the Report bug wiring at the end) */
 window.__sfErrs=[];(function(){function add(k,m){try{var a=window.__sfErrs;a.push({t:new Date().toISOString(),k:k,m:String(m).slice(0,400)});if(a.length>25)a.shift();}catch(e){}}
 window.addEventListener("error",function(e){add("error",(e.message||"")+(e.filename?" @"+String(e.filename).split("/").pop()+":"+e.lineno:""));});
@@ -673,11 +674,11 @@ $("helpClose").onclick=()=>showHelp(false);
 $("helpModal").addEventListener("click",e=>{if(e.target===$("helpModal"))showHelp(false);});
 document.addEventListener("keydown",e=>{if(e.key==="Escape")showHelp(false);});
 </script>
-<script src="ams-timeline.js?v=129"></script>
-<script src="ams-vowels.js?v=129"></script>
-<script src="ams-pron.js?v=129"></script>
-<script src="ams-bpm.js?v=129"></script>
-<script src="ams-sections.js?v=129"></script>
+<script src="ams-timeline.js?v=130"></script>
+<script src="ams-vowels.js?v=130"></script>
+<script src="ams-pron.js?v=130"></script>
+<script src="ams-bpm.js?v=130"></script>
+<script src="ams-sections.js?v=130"></script>
 <script>
 const doc=$("doc"),gut=$("gut");
 // keep the gutter (line #, syllables, rhyme vowel) locked to the lyric scroll — they share the
@@ -1852,7 +1853,7 @@ window.addEventListener("keydown",e=>{if(e.key==="Escape"&&$("tourOvl").classLis
 window.addEventListener("resize",()=>{if($("tourOvl").classList.contains("on"))tourShow();});
 if(!localStorage.getItem("ams.tour.seen"))setTimeout(()=>{try{tourStart();}catch(e){}},800);   // first visit → auto-run
 </script>
-<script src="lyric-core.js?v=129"></script>
+<script src="lyric-core.js?v=130"></script>
 <!-- Sign-in: Google (shown once the provider is switched on in Supabase) or a magic link by email -->
 <div id="authPanel" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10000;align-items:center;justify-content:center">
   <div style="background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px;width:350px;max-width:92vw;box-shadow:0 14px 44px rgba(0,0,0,.55)">
@@ -1866,7 +1867,7 @@ if(!localStorage.getItem("ams.tour.seen"))setTimeout(()=>{try{tourStart();}catch
   </div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script src="songflow-cloud.js?v=129"></script>
+<script src="songflow-cloud.js?v=130"></script>
 <!-- BUG REPORTER markup lives inside .lyx (the lyric processor); this just wires it. -->
 <script>
 (function(){
@@ -1874,7 +1875,7 @@ if(!localStorage.getItem("ams.tour.seen"))setTimeout(()=>{try{tourStart();}catch
       x=document.getElementById('bugX'),send=document.getElementById('bugSend'),ta=document.getElementById('bugText');
   if(!fab)return;
   var ver=((document.querySelector('script[src*="lyric-core"]')||{}).src||'').split('?v=')[1]||'';
-  function projName(){try{var d=JSON.parse(localStorage.getItem('ams.lyrics.docs')||'null');return d&&d.docs?((d.docs[d.active]||{}).name||''):''}catch(e){return''}}
+  function projName(){try{var d=JSON.parse(localStorage.getItem((window.SF_SCOPE&&SF_SCOPE.docsKey)||'ams.lyrics.docs')||'null');return d&&d.docs?((d.docs[d.active]||{}).name||''):''}catch(e){return''}}
   fab.onclick=function(){panel.classList.toggle('on');if(panel.classList.contains('on'))setTimeout(function(){ta.focus();},30);};
   x.onclick=function(){panel.classList.remove('on');};
   function context(){

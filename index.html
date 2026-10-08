@@ -4,6 +4,7 @@
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Songflow — start</title>
 <link rel="stylesheet" href="ams.css?v=27">
+<script src="songflow-scope.js?v=130"></script>
 <style>
   body{display:flex;min-height:100dvh;align-items:center;justify-content:center;margin:0;
     background:radial-gradient(1100px 560px at 50% -12%,rgba(124,92,255,.16),transparent),var(--bg);color:var(--txt)}
@@ -111,12 +112,12 @@
   document.getElementById("lnkYt").href=YT_URL;
   document.getElementById("lnkDc").href=DISCORD_URL;
 
-  const KEY="ams.lyrics.docs", DEMO_NAME="Real Crews (demo)";
+  const KEY=(window.SF_SCOPE&&SF_SCOPE.docsKey)||"ams.lyrics.docs", TEXT_KEY=(window.SF_SCOPE&&SF_SCOPE.textKey)||"ams.lyrics", DEMO_NAME="Real Crews (demo)";   // projects are filed per signed-in account
   const newId=()=>"p"+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
   function load(){try{const d=JSON.parse(localStorage.getItem(KEY));if(d&&Array.isArray(d.docs))return d;}catch(e){}return {active:0,docs:[]};}
   function save(d){localStorage.setItem(KEY,JSON.stringify(d));}
   function go(d){ // keep the legacy single-doc key in sync so the studio opens the right text
-    const t=(d.docs[d.active]||{}).text||"";localStorage.setItem("ams.lyrics",t);location.href="studio.html";
+    const t=(d.docs[d.active]||{}).text||"";localStorage.setItem(TEXT_KEY,t);location.href="studio.html";
   }
   function busy(on,msg){const b=document.getElementById("busy");b.style.display=on?"block":"none";if(msg)b.textContent=msg;}
 
@@ -232,6 +233,6 @@
   </div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script src="songflow-cloud.js?v=129"></script>
+<script src="songflow-cloud.js?v=130"></script>
 </body>
 </html>

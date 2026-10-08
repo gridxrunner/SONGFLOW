@@ -4,18 +4,19 @@
 
 /* ---- document management (localStorage; multi-doc) ---- */
 const DEFAULT=`[Verse 1]\nType your lyrics here\nEvery line shows its syllables\nLine-end rhymes light up in color\nSo your scheme stays clear\n\n[Chorus]\n...`;
-const DOCS_KEY="ams.lyrics.docs",TKEY="ams.lyrics.syltarget";
+// projects are filed per signed-in account (songflow-scope.js); signed out = the signed-out list
+const DOCS_KEY=(window.SF_SCOPE&&SF_SCOPE.docsKey)||"ams.lyrics.docs",TEXT_KEY=(window.SF_SCOPE&&SF_SCOPE.textKey)||"ams.lyrics",TKEY="ams.lyrics.syltarget";
 function loadDocs(){
   try{
     const d=JSON.parse(localStorage.getItem(DOCS_KEY));
     if(d&&Array.isArray(d.docs)&&d.docs.length){
       d.active=Math.min(Math.max(+d.active||0,0),d.docs.length-1);
-      const t=localStorage.getItem("ams.lyrics");
+      const t=localStorage.getItem(TEXT_KEY);
       if(t!==null)d.docs[d.active].text=t;
       return d;
     }
   }catch{}
-  return {active:0,docs:[{name:"Lyrics 1",text:localStorage.getItem("ams.lyrics")||DEFAULT,updated:0}]};
+  return {active:0,docs:[{name:"Lyrics 1",text:localStorage.getItem(TEXT_KEY)||DEFAULT,updated:0}]};
 }
 let docsState=loadDocs();
 function saveDocs(){localStorage.setItem(DOCS_KEY,JSON.stringify(docsState));}
@@ -257,7 +258,7 @@ function update(){
   try{normalizeDoc();}catch(e){}                          // flatten any block structure BEFORE reading lines
   const lines=doc.innerText.split("\n");
   renderGutter();
-  localStorage.setItem("ams.lyrics",doc.innerText);
+  localStorage.setItem(TEXT_KEY,doc.innerText);
   const d=docsState.docs[docsState.active];d.text=doc.innerText;saveDocs();
   renderStats();renderSchemeMap();refreshLinePanels();
   try{updateFlowHud();}catch{}
@@ -1657,7 +1658,7 @@ async function joinWaitlist(){
     const note=$("ideaNote");if(note&&/waitlist/i.test(note.textContent)){note.style.color="";note.textContent=d.status==="active"?"You have a spot now — hit Generate.":"You're on the waitlist. Meanwhile you can generate with your own key (pick another engine).";}
   }catch(e){toast("Couldn't join the waitlist — try again in a moment.");}
 }
-window.joinWaitlist=joinWaitlist;
+window.joinWaitlist=joinWaitlist;window.refreshCredits=refreshCredits;
 window.addEventListener("sf-auth",()=>{setTimeout(refreshCredits,300);});   // login/logout → re-read
 setTimeout(refreshCredits,1200);                                            // initial load
 /* engine selector UI wiring */

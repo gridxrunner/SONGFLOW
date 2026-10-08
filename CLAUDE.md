@@ -44,3 +44,12 @@ newcomer's spot once), `join_waitlist`, `grant_credits`, `add_to_pool`, `credit_
 - `/admin` (admin.html + functions/api/admin.js): for emails in `public.admins` only. Shows the pool,
   the waitlist (Grant $5) and testers (+$5), and raises the pool. Raise it only after the founder adds
   the same money to OpenRouter: the pool is the most Songflow will ever spend.
+
+## Projects are filed per account (in the browser)
+
+Projects are still stored only in the browser, but under the signed-in account: `ams.lyrics.docs@<user id>`
+(and `ams.lyrics@<user id>` for the open text). Signed out uses the plain `ams.lyrics.docs`. `songflow-scope.js`
+runs first on index.html and studio.html, reads the account from Supabase's saved session
+(`sb-stwlawvkrcoxosuimrzh-auth-token`) and exposes `SF_SCOPE.docsKey` / `SF_SCOPE.textKey`. The first sign-in in
+a browser takes over the signed-out projects. `songflow-cloud.js` reloads the page when the signed-in account
+changes, and owns the account menu (credits/waitlist, Admin link, Sign out).
