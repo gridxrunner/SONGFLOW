@@ -179,9 +179,21 @@ body{padding-bottom:46px}
 .tagopts .toc.on{border-color:#fff;box-shadow:0 0 0 1px #0c0d12 inset}
 .tagopts .toc.cust{background:conic-gradient(#ff5c6a,#ffd43b,#51cf66,#4cc9f0,#5b8cff,#ff6ec7,#ff5c6a)}
 .tagopts .toc.cust input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;border:0;padding:0}
-.tagopts .toall{display:flex;align-items:center;gap:6px;padding:1px 6px 6px;font-size:11px;color:var(--txt);cursor:pointer;user-select:none}
-.tagopts .toall span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:190px}
-.tagopts .toall input{margin:0;accent-color:var(--accent2);cursor:pointer}
+/* "All <name> tags": a link switch row; lit in the tag's colour (--lk, set by the menu) while linked */
+.tagopts .toall{position:relative;display:flex;align-items:center;gap:7px;margin:0 4px 6px;padding:6px 8px;border-radius:8px;background:var(--panel2);border:1px solid var(--line);font-size:11.5px;color:var(--mut);cursor:pointer;user-select:none;transition:border-color .15s,background .15s,color .15s}
+.tagopts .toall:hover{color:var(--txt);border-color:#3a3d4d}
+.tagopts .toall input{position:absolute;opacity:0;width:1px;height:1px;margin:0;pointer-events:none}
+.tagopts .toall .lki{flex:0 0 auto;width:13px;height:13px;opacity:.6;transition:opacity .15s,color .15s}
+.tagopts .toall .lkt{flex:1 1 auto;display:flex;gap:4px;min-width:0;max-width:160px;white-space:nowrap}
+.tagopts .toall .lkt span{flex:none}
+.tagopts .toall .lkt b{min-width:0;overflow:hidden;text-overflow:ellipsis;color:var(--txt);font-weight:700}   /* a long name shortens; "tags" stays */
+.tagopts .toall .sw{flex:0 0 auto;position:relative;width:26px;height:15px;border-radius:999px;background:#2a2d3a;box-shadow:inset 0 0 0 1px rgba(255,255,255,.07);transition:background .15s}
+.tagopts .toall .sw::after{content:"";position:absolute;top:2px;left:2px;width:11px;height:11px;border-radius:50%;background:#8a90a4;transition:transform .15s ease,background .15s}
+.tagopts .toall.on{color:var(--txt);border-color:var(--lk);background:var(--lkbg)}
+.tagopts .toall.on .lki{opacity:1;color:var(--lk)}
+.tagopts .toall.on .sw{background:var(--lk)}
+.tagopts .toall.on .sw::after{transform:translateX(11px);background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.4)}
+.tagopts .toall:has(input:focus-visible){outline:2px solid var(--accent);outline-offset:1px}
 .tagopts .toopt.danger{color:#ff8a8a}.tagopts .toopt.danger:hover{background:rgba(255,92,106,.14)}
 .region.dragging{transition:none;opacity:.92;z-index:7;box-shadow:0 3px 10px rgba(0,0,0,.55);cursor:grabbing}
 /* landing marker shown while reordering a section */

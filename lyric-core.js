@@ -899,7 +899,9 @@ function openTagOpts(sectionIdx,x,y){
     `<div class="tol">Color</div>`+
     `<div class="tocols">`+TAG_PALETTE.map(([h,t])=>`<span class="toc" data-c="${h}" title="${t}" style="background:${h}"></span>`).join("")+
     `<label class="toc cust" title="Custom color…"><input type="color" value="#19d3c5"></label></div>`+
-    `<label class="toall" title="Link every &ldquo;${esc(name)}&rdquo; tag to one color: change any of them and they all change, and new ones match"><input type="checkbox"${linked?" checked":""}><span>All &ldquo;${esc(name)}&rdquo; tags</span></label>`+
+    `<label class="toall" title="Link every &ldquo;${esc(name)}&rdquo; tag to one color: change any of them and they all change, and new ones match"><input type="checkbox"${linked?" checked":""}>`+
+      `<svg class="lki" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.07 0l3-3a5 5 0 0 0-7.07-7.07l-1.5 1.5"/><path d="M14 11a5 5 0 0 0-7.07 0l-3 3a5 5 0 0 0 7.07 7.07l1.5-1.5"/></svg>`+
+      `<span class="lkt"><span>All</span><b>${esc(name)}</b><span>tags</span></span><span class="sw"></span></label>`+
     `<div class="toopt" data-act="rename">&#9998; Rename…</div>`+
     `<div class="toopt danger" data-act="delete">&#128465; Delete section</div>`;
   document.body.appendChild(m);
@@ -908,7 +910,9 @@ function openTagOpts(sectionIdx,x,y){
   const allBox=m.querySelector(".toall input"),cust=m.querySelector(".toc.cust"),custIn=cust.querySelector("input");
   const showColor=()=>{const c=colorOf(),isCust=!!c&&!TAG_PALETTE.some(p=>p[0]===c);
     m.querySelectorAll(".toc[data-c]").forEach(el=>el.classList.toggle("on",(c||TAG_PALETTE[0][0])===el.dataset.c));
-    cust.classList.toggle("on",isCust);cust.style.background=isCust?c:"";if(c)custIn.value=c;};
+    cust.classList.toggle("on",isCust);cust.style.background=isCust?c:"";if(c)custIn.value=c;
+    const lk=c||TAG_PALETTE[0][0],row=allBox.parentNode;                     // the link switch lights up in the tag's colour
+    row.classList.toggle("on",allBox.checked);row.style.setProperty("--lk",lk);row.style.setProperty("--lkbg",tagRgba(lk,.13));};
   showColor();
   const pick=c=>{applyTagColor(sectionIdx,c);showColor();};
   m.querySelectorAll(".toc[data-c]").forEach(el=>el.onmousedown=ev=>{ev.preventDefault();ev.stopPropagation();pick(el.dataset.c);});

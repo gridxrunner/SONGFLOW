@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Songflow — Lyric Studio</title>
-<link rel="stylesheet" href="ams.css?v=133">
-<script src="songflow-scope.js?v=133"></script>
+<link rel="stylesheet" href="ams.css?v=135">
+<script src="songflow-scope.js?v=135"></script>
 <script>/* last ~25 browser errors, attached to bug reports (see the Report bug wiring at the end) */
 window.__sfErrs=[];(function(){function add(k,m){try{var a=window.__sfErrs;a.push({t:new Date().toISOString(),k:k,m:String(m).slice(0,400)});if(a.length>25)a.shift();}catch(e){}}
 window.addEventListener("error",function(e){add("error",(e.message||"")+(e.filename?" @"+String(e.filename).split("/").pop()+":"+e.lineno:""));});
@@ -115,6 +115,8 @@ var ce=console.error;console.error=function(){try{add("console",[].slice.call(ar
   .gcanchor{height:25px;padding:0 11px;border:1px solid var(--line);background:var(--panel);color:var(--txt);border-radius:7px;font-size:11px;cursor:pointer;white-space:nowrap}
   .gcanchor:hover{border-color:#ffb020;color:#ffb020}
   .gcanchor.on{background:#ffb020;color:#0c0d12;border-color:#ffb020}
+  .gcanchor.soon{color:var(--mut)}
+  .gcanchor .soonb{margin-left:3px;padding:1px 4px;border-radius:4px;background:var(--panel2);border:1px solid var(--line);font-size:8.5px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;color:var(--mut);vertical-align:1px}
   .miniToggle{background:var(--panel2);border:1px solid var(--line);color:var(--mut);border-radius:7px;padding:2px 8px;font-size:10px;font-weight:700;cursor:pointer;text-transform:none;letter-spacing:0}
   .miniToggle.on{background:var(--accent);color:#fff;border-color:var(--accent)}
   /* reusable styled modal (replaces native prompt) */
@@ -149,8 +151,11 @@ var ce=console.error;console.error=function(){try{add("console",[].slice.call(ar
   #tl [data-op="heal"],#tl [data-op="slip"],#tl [data-op="midi"],#tl [data-op="selectall"],#tl [data-op="alllanes"],#tl .compreopen{display:none}
   /* composite scratch pad: hidden until opened with the Scratch button. When shown, stack
      its controls ABOVE a full-width lane so the waveform stays aligned to the beat grid. */
-  #tl .lane.composite{display:flex;flex-direction:column}
-  #tl .lane.composite .glabel{display:flex;width:auto;border-right:0;border-bottom:1px solid var(--line);padding:3px 7px;gap:6px}
+  #tl .lane.composite{display:flex;flex-direction:column;height:64px}
+  /* its controls and the paste hint stay in the VISIBLE part of the timeline (--tlvis, set by the
+     timeline) however far it's zoomed or scrolled; before, they sat off-screen at the far ends */
+  #tl .lane.composite .glabel{display:flex;flex:0 0 auto;position:sticky;left:0;width:var(--tlvis,auto);box-sizing:border-box;border-right:0;border-bottom:1px solid var(--line);padding:3px 7px;gap:6px;background:#141226;z-index:2}
+  #tl .lane.composite .emptyTL{position:sticky;left:0;width:var(--tlvis,auto);box-sizing:border-box}
   #scratchBtn.on{background:var(--accent2);color:#0c0d12;border-color:var(--accent2)}
   /* playback-only: drop the track-options column so the waveform fills the width
      (this was reading as the start of the waveform being "cut off") */
@@ -298,7 +303,7 @@ var ce=console.error;console.error=function(){try{add("console",[].slice.call(ar
           <button class="gcstep" id="slipDragTog" title="Slip-drag: turn ON, then drag the numbered ruler left/right to shove the whole beat grid by a large amount. Turn OFF to lock it.">&#8644;</button>
         </div>
         <span class="gcdiv"></span>
-        <button class="gcanchor" id="warpBtn" title="Warp — when the metronome drifts off a song that isn't perfectly metronomic, turn this ON (&quot;warping vision&quot;) and click each downbeat that has drifted to drop a pin. The grid bends to pass through every pin and the metronome follows the bend. Drag a pin to move it, click a pin to remove it. Turn OFF to hide the pins — the bend stays in effect.">&#12316; Warp</button>
+        <button class="gcanchor soon" id="warpBtn" title="Warp — coming soon: pin the downbeats of a track that drifts off a constant tempo, and the beat grid and metronome bend to follow it.">&#12316; Warp <span class="soonb">soon</span></button>
       </div>
       <button class="tbtn" id="secAuto" title="detect arrangement sections from the audio (offline, approximate — double-click a region to rename)" style="width:auto;padding:0 9px;font-size:11px">&#9776; Auto sections</button>
       <button class="tbtn" id="metro" title="metronome — clicks on every beat at the project BPM (accent on the downbeat)" style="width:auto;padding:0 9px;font-size:11px">&#128276; Click</button>
@@ -595,7 +600,7 @@ var ce=console.error;console.error=function(){try{add("console",[].slice.call(ar
           <li><b>Drag</b> a region to reorder it &mdash; an insert line shows where it lands. <b>Ctrl+Click</b> several, or <b>Shift+Click</b> to add a whole range, then drag to move them as a <b>block</b>. Regions never overlap and never slide before the start of the track. If your sections run longer than the track, the timeline keeps going past the end of the waveform so you can still place and move them.</li>
           <li><b>&#128257; Loop selected</b> loops the highlighted regions &mdash; or a span you dragged on the waveform &mdash; seamlessly, with no gap between passes. <b>&#128465; Delete region</b> (or the Delete key) removes one; lyric-bearing regions warn first, and <b>Ctrl+Z</b> undoes it.</li>
           <li><b>&#9635; Scratch pad:</b> a composite lane for chopping audio &mdash; closed by default. Hit <b>&#9635; Scratch</b> to open it, copy a waveform span, and paste it in to audition or export.</li>
-          <li><b>Resize:</b> drag the handle just under the timeline to make the waveform taller. <b>&#128276; Click</b> = metronome. <b>&#9776; Auto sections</b> detects sections from a loaded track. <b>&#12316; Warp</b> drops pins to bend the grid for a track that drifts off a constant tempo.</li>
+          <li><b>Resize:</b> drag the handle just under the timeline to make the waveform taller. <b>&#128276; Click</b> = metronome. <b>&#9776; Auto sections</b> detects sections from a loaded track. <b>&#12316; Warp</b> is coming soon: it will bend the grid for a track that drifts off a constant tempo.</li>
         </ul>
 
         <h4>Playing back</h4>
@@ -679,11 +684,11 @@ $("helpClose").onclick=()=>showHelp(false);
 $("helpModal").addEventListener("click",e=>{if(e.target===$("helpModal"))showHelp(false);});
 document.addEventListener("keydown",e=>{if(e.key==="Escape")showHelp(false);});
 </script>
-<script src="ams-timeline.js?v=133"></script>
-<script src="ams-vowels.js?v=133"></script>
-<script src="ams-pron.js?v=133"></script>
-<script src="ams-bpm.js?v=133"></script>
-<script src="ams-sections.js?v=133"></script>
+<script src="ams-timeline.js?v=135"></script>
+<script src="ams-vowels.js?v=135"></script>
+<script src="ams-pron.js?v=135"></script>
+<script src="ams-bpm.js?v=135"></script>
+<script src="ams-sections.js?v=135"></script>
 <script>
 const doc=$("doc"),gut=$("gut");
 // keep the gutter (line #, syllables, rhyme vowel) locked to the lyric scroll — they share the
@@ -1170,7 +1175,11 @@ $("anchorBtn").onclick=()=>{
    "Warping vision" (warpShow) just shows/hides + arms the pins for editing — the bend itself
    stays in effect whether or not the pins are visible. */
 let warpMarkers=[], warpShow=false;
+// WARP IS PARKED (founder 2026-10-08: "coming soon"). The button only says so; pins saved in a project
+// are kept but have no effect (buildWarpBeats) and can't be shown. Set WARP_READY to bring it back.
+var WARP_READY=false;
 function buildWarpBeats(){
+  if(!WARP_READY)return null;   // parked: a straight grid, whatever pins are saved
   if(!warpMarkers.length||!tl.duration)return null;
   const bpb=tl.beatsPerBar||4, basePer=60/(tl.bpm||120);
   const go=gridAnchor+gridSlip;                       // beat 0 (a downbeat) sits on the anchor
@@ -1204,6 +1213,7 @@ function applyWarp(save,silent){
 }
 const warpBtnEl=$("warpBtn");
 if(warpBtnEl)warpBtnEl.onclick=()=>{
+  if(!WARP_READY){toast("Warp is coming soon — it will bend the beat grid to follow a track that drifts off a steady tempo.");return;}
   warpShow=!warpShow; warpBtnEl.classList.toggle("on",warpShow); tl.armWarp(warpShow);
   toast(warpShow
     ? "Warping vision ON — pins are visible. Click a downbeat to pin it; drag to move; click a pin to remove it. The beat grid + metronome bend to the pins; section tags stay on the straight grid."
@@ -1302,7 +1312,9 @@ $("metro").onclick=()=>{
 };
 /* Scratch pad (composite lane) — closed by default; this button opens/closes it. */
 tl.showComposite=false;
-$("scratchBtn").onclick=()=>{tl.showComposite=!tl.showComposite;$("scratchBtn").classList.toggle("on",tl.showComposite);tl.render();
+$("scratchBtn").onclick=()=>{tl.showComposite=!tl.showComposite;$("scratchBtn").classList.toggle("on",tl.showComposite);
+  if(typeof window.tlFitHeight==="function")window.tlFitHeight();   // make room for the Scratch lane (a resized timeline only fit one lane)
+  tl.render();
   toast(tl.showComposite?"Scratch pad open — copy a waveform span, then Paste into it.":"Scratch pad closed.");};
 /* metronome timing is AUTO-synced (music + click share one audio path); these discreet ‹ › nudges
    fine-tune any residual offset by ear. + metroLead = earlier, − = later. */
@@ -1475,7 +1487,7 @@ async function restoreProjectState(){
   if(d){
     if(d.bpm){detectedBpm=d.bpm;tl.setTempo(d.bpm);if(typeof renderBpmReadout==="function")renderBpmReadout();}
     // restore warp pins BEFORE applyGrid — applyGrid rebuilds the (bent or constant) beat grid from them
-    warpMarkers=(d.warp&&d.warp.length)?d.warp.slice():[]; warpShow=!!d.warpShow;
+    warpMarkers=(d.warp&&d.warp.length)?d.warp.slice():[]; warpShow=!!d.warpShow&&WARP_READY;
     gridAnchor=(d.anchor!=null)?d.anchor:0; gridSlip=(d.slip!=null)?d.slip:0;
     if(typeof applyWarp==="function")applyWarp(false); else applyGrid(false);
     if($("warpBtn"))$("warpBtn").classList.toggle("on",warpShow); tl.armWarp(warpShow);
@@ -1824,7 +1836,12 @@ function tagRegions(){
 /* ================= resizable timeline height ================= */
 (function tlResizeInit(){
   const handle=$("tlResize"),host=$("tl");if(!handle||!host)return;
-  const apply=h=>{host.style.setProperty("--lane-h",h+"px");host.style.setProperty("--tlmax",(h+54)+"px");};
+  // the box fits the track lane, plus the Scratch lane (fixed 64px) while it's open. It used to fit
+  // exactly one lane, so opening Scratch pushed it out of sight and the scrollbar shifted the timeline.
+  let laneH=0;
+  const fit=()=>{if(laneH)host.style.setProperty("--tlmax",(laneH+54+(tl.showComposite?66:0))+"px");};
+  const apply=h=>{laneH=h;host.style.setProperty("--lane-h",h+"px");fit();};
+  window.tlFitHeight=fit;
   const saved=+localStorage.getItem("ams.tlh");if(saved>=52)apply(saved);
   handle.addEventListener("mousedown",e=>{e.preventDefault();
     const lane=host.querySelector(".lane");const startH=lane?lane.getBoundingClientRect().height:52,startY=e.clientY;
@@ -1880,7 +1897,7 @@ window.addEventListener("keydown",e=>{if(e.key==="Escape"&&$("tourOvl").classLis
 window.addEventListener("resize",()=>{if($("tourOvl").classList.contains("on"))tourShow();});
 if(!localStorage.getItem("ams.tour.seen"))setTimeout(()=>{try{tourStart();}catch(e){}},800);   // first visit → auto-run
 </script>
-<script src="lyric-core.js?v=133"></script>
+<script src="lyric-core.js?v=135"></script>
 <!-- Sign-in: Google (shown once the provider is switched on in Supabase) or a magic link by email -->
 <div id="authPanel" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10000;align-items:center;justify-content:center">
   <div style="background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px;width:350px;max-width:92vw;box-shadow:0 14px 44px rgba(0,0,0,.55)">
@@ -1894,7 +1911,7 @@ if(!localStorage.getItem("ams.tour.seen"))setTimeout(()=>{try{tourStart();}catch
   </div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script src="songflow-cloud.js?v=133"></script>
+<script src="songflow-cloud.js?v=135"></script>
 <!-- BUG REPORTER markup lives inside .lyx (the lyric processor); this just wires it. -->
 <script>
 (function(){

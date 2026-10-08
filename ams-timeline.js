@@ -701,10 +701,11 @@ class AMSTimeline {
 
     const all = [...this.lanes];
     if (this.showComposite)
-      all.push({ id: "__composite", label: "Composite", color: "#19d3c5", composite: true,
+      all.push({ id: "__composite", label: "Scratch pad", color: "#19d3c5", composite: true,
                  armed: !!this.compositeArmed });
 
     this.scrollEl.style.width = (this.LBL + w) + "px";
+    this.host.style.setProperty("--tlvis", this.area.clientWidth + "px");   // the visible width, for anything pinned in view while scrolled
     this.scrollEl.innerHTML = `
       <div class="rulerRow">
         <div class="rcorner"><span class="muted" style="padding-left:6px">bars</span></div>
