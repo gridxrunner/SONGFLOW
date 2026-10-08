@@ -418,7 +418,15 @@ class AMSTimeline {
       if (!a.moved) {                                            // no drag → select the single section
         this.selRegions = [a.i]; this.selRegion = a.i; this.sel = { ...this.regions[a.i] };
         this.opts.onSelectRegions && this.opts.onSelectRegions([this.regions[a.i]]);
-        this.render(); return;
+        this.render();
+        if (e && e.detail === 2) { this._renameRegion(a.i); return; }   // second click of a double-click → rename
+        // ...and open the tag menu (colour / bars / rename / delete) under the tag on a single click
+        if (e && e.detail < 2 && this.opts.onRegionMenu) {
+          const el = this.scrollEl.querySelector(`.region[data-ri="${a.i}"]`);
+          const rb = el ? el.getBoundingClientRect() : null;
+          this.opts.onRegionMenu(a.i, rb ? Math.max(rb.left, Math.min(e.clientX, rb.right - 20)) : e.clientX, rb ? rb.bottom + 4 : e.clientY + 8);
+        }
+        return;
       }
       // single-region drag MOVES to the drop point (ripples overlaps); block drag shoves
       const items = a.mode === 2 ? this._arrangeBlock(a) : this._arrangeReorder(a);
@@ -443,7 +451,9 @@ class AMSTimeline {
         const i = d.di;
         this.selRegions = [i]; this.selRegion = i; this.sel = { ...this.regions[i] };
         this.opts.onSelectRegions && this.opts.onSelectRegions([this.regions[i]]);
-        this.render(); return;
+        this.render();
+        if (e && e.detail === 2) this._renameRegion(i);              // double-click → rename
+        return;
       }
       this.render(); return;                                     // ripple already mutated regions during move
     }
@@ -498,6 +508,29 @@ class AMSTimeline {
       el.style.width = Math.max(8, this._xo(r.end) - this._rx0(r)) + "px";
     });
     this._paintTints();
+  }
+  /* inline rename of region i: an input inside the tag; Enter or clicking away saves, Esc cancels */
+  _renameRegion(i) {
+    const el = this.scrollEl.querySelector(`.region[data-ri="${i}"]`), r = this.regions[i];
+    if (!el || !r || el.querySelector("input")) return;
+    this.opts.onRegionMenuClose && this.opts.onRegionMenuClose();   // the tag menu from the first click
+    el.innerHTML = `<input value="${String(r.label).replace(/&/g, "&amp;").replace(/"/g, "&quot;")}" style="width:95%;background:#101119;border:1px solid var(--accent2);color:var(--txt);border-radius:3px;font-size:8.5px;padding:0 2px">`;
+    const inp = el.querySelector("input");
+    inp.focus(); inp.select();
+    let done = false;
+    const save = () => {
+      if (done) return; done = true;
+      const v = inp.value.trim();
+      if (v) {
+        r.label = v.replace(/^\[|\]$/g, ""); r.userEdited = true;
+        // rewrite the matching [Section] header in the lyric document — the tag↔lyric bond
+        this.opts.onRenameRegion && this.opts.onRenameRegion(i, r.label);
+      }
+      this.render();
+    };
+    inp.onkeydown = ev => { if (ev.key === "Enter") save(); if (ev.key === "Escape") { done = true; this.render(); } ev.stopPropagation(); };
+    inp.onblur = save;
+    inp.onmousedown = ev => ev.stopPropagation();
   }
   /* a region's tag colour ("#rrggbb", set by the page) as rgba at alpha a; null when it has none */
   _rc(r, a) {
@@ -682,7 +715,7 @@ class AMSTimeline {
             const selected = this.selRegions.includes(i);
             const looping = selected && this.loop;           // selected + loop active => red
             const hint = this.reorderable
-              ? "drag to slide this section into an open spot; Ctrl+Click several then drag to move them as a block; Delete removes it (and its lyrics)"
+              ? "click for the tag menu (color, bars, rename, delete); drag to slide this section into an open spot; Ctrl+Click several then drag to move them as a block; Delete removes it (and its lyrics)"
               : "drag to move (ripples downstream)";
             // bar length is set from the word processor (click the [Tag]); the timeline just
             // shows the section's span — no dropdown here.
@@ -696,7 +729,7 @@ class AMSTimeline {
             const rcVars = rc ? `;--rc:${rc};--rcb:${this._rc(r, .2)};--rcs:${this._rc(r, .5)};--rcm:${this._rc(r, .09)}` : "";
             return `<div class="region ${kind} ${rc ? "colored" : ""} ${selected ? "on" : ""} ${looping ? "looping" : ""}" data-ri="${i}"
               style="left:${this._rx0(r) - this.LBL}px;width:${Math.max(8, this._xo(r.end) - this._rx0(r))}px${rcVars}"
-              title="${txt}${tip}${kindTip} — ${hint}, click to select, Shift+Click adjacent to extend, double-click to rename"><span class="rlbl">${txt}</span></div>`;
+              title="${txt}${tip}${kindTip} — ${hint}, Shift+Click adjacent to extend, double-click to rename"><span class="rlbl">${txt}</span></div>`;
           }).join("")}
         </div>
       </div>
@@ -797,25 +830,11 @@ class AMSTimeline {
       }
       this._rcreate = this._snapT(this._tAtClientX(e.clientX));   // empty strip → create (other tabs)
     };
-    // double-click a region to rename it (founder: edit the text between the brackets)
+    // double-click a region to rename it (founder: edit the text between the brackets). The release
+    // handler catches the second click itself (a click repaints the strip, so the browser's dblclick
+    // can land on a tag that was just replaced); this covers anything else.
     strip.ondblclick = e => {
-      const el = e.target.closest(".region"); if (!el) return;
-      const r = this.regions[+el.dataset.ri];
-      el.innerHTML = `<input value="${r.label.replace(/"/g, "&quot;")}" style="width:95%;background:#101119;border:1px solid var(--accent2);color:var(--txt);border-radius:3px;font-size:8.5px;padding:0 2px">`;
-      const inp = el.querySelector("input");
-      inp.focus(); inp.select();
-      const save = () => {
-        const v = inp.value.trim();
-        if (v) {
-          r.label = v.replace(/^\[|\]$/g, ""); r.userEdited = true;
-          // rewrite the matching [Section] header in the lyric document — the tag↔lyric bond
-          this.opts.onRenameRegion && this.opts.onRenameRegion(+el.dataset.ri, r.label);
-        }
-        this.render();
-      };
-      inp.onkeydown = ev => { if (ev.key === "Enter") save(); if (ev.key === "Escape") this.render(); ev.stopPropagation(); };
-      inp.onblur = save;
-      inp.onmousedown = ev => ev.stopPropagation();
+      const el = e.target.closest(".region"); if (el) this._renameRegion(+el.dataset.ri);
     };
 
     let laneIdx = -1;

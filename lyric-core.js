@@ -293,14 +293,16 @@ function materializeSlots(){
       if(N!=null){
         let last=body.length-1;while(last>=0&&!body[last].trim())last--;   // last real line
         const slots=last+1;
-        for(let k=0;k<slots;k++)out.push(body[k]);
-        if(slots<N){
-          for(let p=slots;p<N;p++)out.push("");                            // pad up to N bar slots
+        const nb=body.slice(0,slots);
+        for(let p=slots;p<N;p++)nb.push("");                               // pad up to N bar slots
+        if(j<lines.length)nb.push("");                                     // exactly one separator before the next tag
+        out.push(...nb);
+        // changed only if the region really differs: an all-blank N-bar region (an intro) used to count
+        // as changed on EVERY settle, rewriting the doc each 600ms and pushing the caret N lines down
+        if(nb.length!==body.length||nb.some((l,k)=>l!==body[k])){
           changed=true;
-          if(caretLine>=j)addedBeforeCaret+=(N-slots);
+          if(caretLine>=j)addedBeforeCaret+=nb.reduce((n,l)=>n+l.length+1,0)-body.reduce((n,l)=>n+l.length+1,0);   // net chars added above the caret
         }
-        if(j<lines.length)out.push("");                                    // exactly one separator before the next tag
-        if(body.length!==(slots+(j<lines.length?1:0)))changed=true;        // trailing-blank cleanup counts as a change
       }else{ for(const b of body)out.push(b); }
       i=j;continue;
     }
@@ -405,23 +407,30 @@ function paintRhymes(){
     // colour the RHYME ANCHOR token (last word before a trailing pickup), not necessarily the last word
     const wordToks=[];toks.forEach((w,i)=>{if(w.trim())wordToks.push(i);});
     const aIdx=rhymeAnchorIdx(wordToks.map(i=>toks[i]));const last=aIdx>=0?wordToks[aIdx]:-1;
-    return toks.map((w,i)=>{if(!w.trim())return w;const key=vowelClass(w);
+    return `<span class="ly">`+toks.map((w,i)=>{if(!w.trim())return w;const key=vowelClass(w);
       // the color IS the vowel-class color (VC) — a word, its gutter pill and its scheme-map dot always match
       if(i===last)return key&&(key in fams)?`<span class="rv" style="color:${VC[key]||"inherit"}">${esc(w)}</span>`:esc(w);
       const clean=w.toLowerCase().replace(/[^a-z]/g,"");
       if(key&&(key in fams)&&cnt[key]>=2&&clean.length>=3&&!STOP.has(clean))return `<span class="in" style="color:${VC[key]||"inherit"}">${esc(w)}</span>`;
-      return esc(w);}).join("");
+      return esc(w);}).join("")+`</span>`;   // .ly = one lyric line, so paintTagColors can tint it with its section's colour
   });
   doc.innerHTML=_applyFolds(parts,lines);update();
   paintTagColors();
 }
-/* each [Tag] in the lyrics takes its section's colour from the tag menu (index = section order) */
+/* each [Tag] in the lyrics takes its section's colour from the tag menu (index = section order), and
+   the lyric lines under it take a 50% TINT of it (the colour mixed half and half with white, solid, not
+   see-through). Rhyme-coloured words keep their rhyme colour. */
 function paintTagColors(){try{
   const c=(typeof secColors!=="undefined"&&secColors)||[];
-  doc.querySelectorAll(".sect").forEach((el,k)=>{const h=(typeof tagColor==="function")?tagColor(c[k]):null;
-    el.classList.toggle("tc",!!h);
-    if(h){el.style.setProperty("--tc",h);el.style.setProperty("--tcb",tagRgba(h,.5));el.style.setProperty("--tcg",tagRgba(h,.1));el.style.setProperty("--tch",tagRgba(h,.22));}
-    else ["--tc","--tcb","--tcg","--tch"].forEach(v=>el.style.removeProperty(v));});
+  let k=-1,h=null;
+  doc.querySelectorAll(".sect, .ly").forEach(el=>{          // document order: a tag, then its lines
+    if(el.classList.contains("sect")){
+      k++;h=(typeof tagColor==="function")?tagColor(c[k]):null;
+      el.classList.toggle("tc",!!h);
+      if(h){el.style.setProperty("--tc",h);el.style.setProperty("--tcb",tagRgba(h,.5));el.style.setProperty("--tcg",tagRgba(h,.1));el.style.setProperty("--tch",tagRgba(h,.22));}
+      else ["--tc","--tcb","--tcg","--tch"].forEach(v=>el.style.removeProperty(v));
+    }else el.style.color=h?tagTint(h,.5):"";
+  });
 }catch(e){}}
 /* right-click a region tag → fold / unfold its lines (founder: no new visual element) */
 doc.addEventListener("contextmenu",e=>{
@@ -846,7 +855,8 @@ function deleteSections(idxs){
    lives on the timeline — this is the single place to set a section's length. ---- */
 let _tagOptsEl=null;
 function _tagOptsOff(e){if(_tagOptsEl&&!_tagOptsEl.contains(e.target))closeTagOpts();}
-function closeTagOpts(){if(_tagOptsEl){_tagOptsEl.remove();_tagOptsEl=null;document.removeEventListener("mousedown",_tagOptsOff,true);}}
+function _tagOptsKey(e){if(e.key==="Escape")closeTagOpts();}
+function closeTagOpts(){if(_tagOptsEl){_tagOptsEl.remove();_tagOptsEl=null;document.removeEventListener("mousedown",_tagOptsOff,true);document.removeEventListener("keydown",_tagOptsKey,true);}}
 /* ---- tag colours: picked in the tag menu; the tag, its stretch of the timeline (fainter) and the
    [Tag] in the lyrics all wear it. Teal is the default, so picking teal clears the colour.
    "All <name> tags" LINKS that name: every tag with it shares one colour (tagLinks, enforced in
@@ -911,7 +921,7 @@ function openTagOpts(sectionIdx,x,y){
     if(act==="rename"){const nn=window.askText?await window.askText({title:"Rename section",value:name,placeholder:"Section name",okLabel:"Save"}):prompt("Rename section:",name);if(nn&&nn.trim())renameSection(sectionIdx,nn.trim());}
     else if(act==="delete")deleteSections([sectionIdx]);});
   _tagOptsEl=m;
-  setTimeout(()=>document.addEventListener("mousedown",_tagOptsOff,true),0);
+  setTimeout(()=>{if(_tagOptsEl!==m)return;document.addEventListener("mousedown",_tagOptsOff,true);document.addEventListener("keydown",_tagOptsKey,true);},0);
 }
 // left-click a tag span in the editor → open its options (rhyme-paint wraps tags in .sect)
 doc.addEventListener("click",e=>{
