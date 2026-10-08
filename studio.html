@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Songflow — Lyric Studio</title>
-<link rel="stylesheet" href="ams.css?v=140">
-<script src="songflow-scope.js?v=140"></script>
+<link rel="stylesheet" href="ams.css?v=141">
+<script src="songflow-scope.js?v=141"></script>
 <script>/* last ~25 browser errors, attached to bug reports (see the Report bug wiring at the end) */
 window.__sfErrs=[];(function(){function add(k,m){try{var a=window.__sfErrs;a.push({t:new Date().toISOString(),k:k,m:String(m).slice(0,400)});if(a.length>25)a.shift();}catch(e){}}
 window.addEventListener("error",function(e){add("error",(e.message||"")+(e.filename?" @"+String(e.filename).split("/").pop()+":"+e.lineno:""));});
@@ -23,10 +23,13 @@ var ce=console.error;console.error=function(){try{add("console",[].slice.call(ar
   #doc .sect:hover{background:rgba(25,211,197,.18);border-color:var(--accent2)}
   #doc .sect.tc{color:var(--tc);border-color:var(--tcb);background:var(--tcg)}
   #doc .sect.tc:hover{background:var(--tch);border-color:var(--tc)}
-  /* region fold (right-click a tag): the body stays in the text model (innerText keeps it) but
+  /* region fold (click a tag): the body stays in the text model (innerText keeps it) but
      renders inside a 0×0 clipped box — display:none/visibility would DROP it from innerText. */
   .foldbody{display:inline-block;width:0;height:0;overflow:hidden;vertical-align:top}
-  .sect.foldhead::after{content:" ▸ " attr(data-fold);opacity:.6;font-weight:400;font-size:10px;letter-spacing:.03em}
+  /* a folded tag says so: a ▾ in front, a dashed outline, and a "N bars hidden" chip (all in the tag's colour) */
+  #doc .sect.foldhead{border-style:dashed}
+  #doc .sect.foldhead::before{content:"▼";display:inline-block;margin-right:6px;font-size:10px;line-height:1;vertical-align:1px}
+  #doc .sect.foldhead::after{content:attr(data-fold);display:inline-block;margin-left:7px;padding:0 7px;border-radius:999px;background:rgba(255,255,255,.12);font-size:10px;font-weight:700;letter-spacing:.02em;line-height:16px;vertical-align:1px}
   .gut .over{color:var(--warn);font-weight:700}
   .gut .sch{color:#9b86ff;font-weight:700}
   .rhyhead{font-size:12.5px;font-weight:700}
@@ -701,11 +704,11 @@ $("helpClose").onclick=()=>showHelp(false);
 $("helpModal").addEventListener("click",e=>{if(e.target===$("helpModal"))showHelp(false);});
 document.addEventListener("keydown",e=>{if(e.key==="Escape")showHelp(false);});
 </script>
-<script src="ams-timeline.js?v=140"></script>
-<script src="ams-vowels.js?v=140"></script>
-<script src="ams-pron.js?v=140"></script>
-<script src="ams-bpm.js?v=140"></script>
-<script src="ams-sections.js?v=140"></script>
+<script src="ams-timeline.js?v=141"></script>
+<script src="ams-vowels.js?v=141"></script>
+<script src="ams-pron.js?v=141"></script>
+<script src="ams-bpm.js?v=141"></script>
+<script src="ams-sections.js?v=141"></script>
 <script>
 const doc=$("doc"),gut=$("gut");
 // keep the gutter (line #, syllables, rhyme vowel) locked to the lyric scroll — they share the
@@ -2055,7 +2058,7 @@ window.addEventListener("keydown",e=>{if(e.key==="Escape"&&$("tourOvl").classLis
 window.addEventListener("resize",()=>{if($("tourOvl").classList.contains("on"))tourShow();});
 if(!localStorage.getItem("ams.tour.seen"))setTimeout(()=>{try{tourStart();}catch(e){}},800);   // first visit → auto-run
 </script>
-<script src="lyric-core.js?v=140"></script>
+<script src="lyric-core.js?v=141"></script>
 <!-- Sign-in: Google (shown once the provider is switched on in Supabase) or a magic link by email -->
 <div id="authPanel" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10000;align-items:center;justify-content:center">
   <div style="background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px;width:350px;max-width:92vw;box-shadow:0 14px 44px rgba(0,0,0,.55)">
@@ -2069,7 +2072,7 @@ if(!localStorage.getItem("ams.tour.seen"))setTimeout(()=>{try{tourStart();}catch
   </div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script src="songflow-cloud.js?v=140"></script>
+<script src="songflow-cloud.js?v=141"></script>
 <!-- BUG REPORTER markup lives inside .lyx (the lyric processor); this just wires it. -->
 <script>
 (function(){

@@ -388,7 +388,7 @@ function _applyFolds(parts,lines){
         const N=(typeof parseTagBars==="function")?parseTagBars(inside).bars:null;
         let lastC=j-1;while(lastC>i&&!lines[lastC].trim())lastC--;
         const shown=(N!=null)?Math.max(N,lastC-i):Math.max(1,lastC-i);
-        out.push(parts[i].replace('class="sect"',`class="sect foldhead" data-fold="${shown} bar${shown===1?"":"s"} — click to expand"`)
+        out.push(parts[i].replace('class="sect"',`class="sect foldhead" data-fold="${shown} bar${shown===1?"":"s"} hidden" title="Folded: click to show its ${shown} bar${shown===1?"":"s"}"`)
           +`<span class="foldbody">${"\n"+parts.slice(i+1,j).join("\n")}</span>`);
         i=j-1;continue;
       }
