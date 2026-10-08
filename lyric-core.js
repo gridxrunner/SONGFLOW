@@ -413,7 +413,16 @@ function paintRhymes(){
       return esc(w);}).join("");
   });
   doc.innerHTML=_applyFolds(parts,lines);update();
+  paintTagColors();
 }
+/* each [Tag] in the lyrics takes its section's colour from the tag menu (index = section order) */
+function paintTagColors(){try{
+  const c=(typeof secColors!=="undefined"&&secColors)||[];
+  doc.querySelectorAll(".sect").forEach((el,k)=>{const h=(typeof tagColor==="function")?tagColor(c[k]):null;
+    el.classList.toggle("tc",!!h);
+    if(h){el.style.setProperty("--tc",h);el.style.setProperty("--tcb",tagRgba(h,.5));el.style.setProperty("--tcg",tagRgba(h,.1));el.style.setProperty("--tch",tagRgba(h,.22));}
+    else ["--tc","--tcb","--tcg","--tch"].forEach(v=>el.style.removeProperty(v));});
+}catch(e){}}
 /* right-click a region tag → fold / unfold its lines (founder: no new visual element) */
 doc.addEventListener("contextmenu",e=>{
   const s=e.target&&e.target.closest?e.target.closest(".sect"):null;
@@ -510,7 +519,7 @@ $("tagIns").onchange=()=>{
     const spb=(60/tl.bpm)*tl.beatsPerBar, go=tl.gridOffset||0;
     const phBar=Math.max(-go/spb, Math.round(((tl.playhead!=null?tl.playhead:0)-go)/spb));   // the play marker, in bars
     const _tagN=t=>(t.match(/^\s*\[.*\]\s*$/gm)||[]).length, shown=window._secStartBars||[];
-    if(shown.length===_tagN(text)&&_tagN(next)===_tagN(text)+1){if(typeof _droppedPos!=="undefined")_droppedPos.length=0;manualBars=shown.map((v,k)=>(manualBars&&manualBars.length===shown.length&&manualBars[k]!=null)?manualBars[k]:v);manualBars.splice(_tagN(before),0,phBar);}   // layout out of step with the text → tagRegions places the new tag after its neighbour
+    if(shown.length===_tagN(text)&&_tagN(next)===_tagN(text)+1){if(typeof _droppedPos!=="undefined")_droppedPos.length=0;manualBars=shown.map((v,k)=>(manualBars&&manualBars.length===shown.length&&manualBars[k]!=null)?manualBars[k]:v);manualBars.splice(_tagN(before),0,phBar);if(typeof secColors!=="undefined"){const c=(secColors||[]).slice(0,shown.length);while(c.length<shown.length)c.push(null);c.splice(_tagN(before),0,null);secColors=c;}}   // a linked name colours it in tagRegions   // layout out of step with the text → tagRegions places the new tag after its neighbour
   }
   doc.textContent=next;
   if(rhymeOn)paintRhymes();else update();
@@ -598,6 +607,8 @@ function _undoSnap(){return {
   text:doc.innerText,
   caret:(typeof caretOffset==="function")?caretOffset():null,   // keep the cursor near where it was (don't jump to top)
   manualBars:(typeof manualBars!=="undefined"&&manualBars)?manualBars.slice():null,
+  secColors:(typeof secColors!=="undefined"&&secColors)?secColors.slice():null,
+  tagLinks:(typeof tagLinks!=="undefined")?[...tagLinks]:undefined,
   ga:(typeof gridAnchor!=="undefined")?gridAnchor:undefined, gs:(typeof gridSlip!=="undefined")?gridSlip:undefined,
   warp:(typeof warpMarkers!=="undefined"&&warpMarkers)?warpMarkers.slice():undefined,
   bpm:(typeof tl!=="undefined"&&tl)?tl.bpm:undefined,
@@ -606,6 +617,8 @@ function _undoSnap(){return {
 function _undoRestore(s){
   doc.textContent=s.text;
   if(typeof manualBars!=="undefined")manualBars=s.manualBars?s.manualBars.slice():null;
+  if(typeof secColors!=="undefined")secColors=s.secColors?s.secColors.slice():null;
+  if(s.tagLinks!==undefined&&typeof tagLinks!=="undefined")tagLinks=new Map(s.tagLinks);
   if(typeof _droppedPos!=="undefined")_droppedPos.length=0;   // the restored layout is the truth -- stale remembered positions must not override it
   if(s.bpm!==undefined&&typeof tl!=="undefined"&&tl.bpm!==s.bpm){tl.setTempo(s.bpm);if(typeof detectedBpm!=="undefined")detectedBpm=s.bpm;if(typeof renderBpmReadout==="function")renderBpmReadout();}
   if(s.ga!==undefined&&typeof gridAnchor!=="undefined"){gridAnchor=s.ga;gridSlip=s.gs;}
@@ -682,6 +695,7 @@ function applyArrange(items){
   pushUndo();
   _writeDoc(pre, items.map(x=>blocks[x.i]));
   if(typeof manualBars!=="undefined")manualBars=items.map(x=>Math.round(x.startBar*1000)/1000); // positions, in new order (negative = before the anchor / bar 1)
+  if(typeof secColors!=="undefined")secColors=(secColors&&secColors.length===blocks.length)?items.map(x=>secColors[x.i]||null):null;
   if(typeof _droppedPos!=="undefined")_droppedPos.length=0;
   try{tagRegions();}catch{}
   if(typeof saveProjectState==="function")saveProjectState();   // persist the new region positions
@@ -819,6 +833,7 @@ function deleteSections(idxs){
   }catch(e){mb=null;}
   _writeDoc(pre, blocks.filter((_,k)=>!del.has(k)));
   if(typeof manualBars!=="undefined")manualBars=(mb&&mb.length)?mb:null;
+  if(typeof secColors!=="undefined")secColors=(secColors&&secColors.length===blocks.length&&mb&&mb.length)?secColors.filter((_,k)=>!del.has(k)):null;
   if(typeof _droppedPos!=="undefined")_droppedPos.length=0;
   try{tagRegions();}catch{}
   if(typeof tl!=="undefined"){tl.selRegions=[];tl.selRegion=-1;tl.sel=null;tl.render();}
@@ -832,20 +847,63 @@ function deleteSections(idxs){
 let _tagOptsEl=null;
 function _tagOptsOff(e){if(_tagOptsEl&&!_tagOptsEl.contains(e.target))closeTagOpts();}
 function closeTagOpts(){if(_tagOptsEl){_tagOptsEl.remove();_tagOptsEl=null;document.removeEventListener("mousedown",_tagOptsOff,true);}}
+/* ---- tag colours: picked in the tag menu; the tag, its stretch of the timeline (fainter) and the
+   [Tag] in the lyrics all wear it. Teal is the default, so picking teal clears the colour.
+   "All <name> tags" LINKS that name: every tag with it shares one colour (tagLinks, enforced in
+   tagRegions), so recolouring any of them recolours all, and a new tag of that name joins in. ---- */
+const TAG_PALETTE=[["#19d3c5","Teal (default)"],["#b57cff","Purple"],["#5b8cff","Blue"],["#4cc9f0","Sky"],["#51cf66","Green"],["#ffd43b","Yellow"],
+  ["#ff8a4c","Orange"],["#ff5c6a","Red"],["#ff6ec7","Pink"],["#9aa0b4","Gray"],["#e9ecf5","White"]];
+const _tagKey=t=>String(t||"").trim().toLowerCase();
+function applyTagColor(idx,color){
+  if(typeof secColors==="undefined"||typeof tl==="undefined")return;
+  const regs=tl.regions||[],n=regs.length;if(!regs[idx])return;
+  let c=(typeof tagColor==="function")?tagColor(color):null;if(c===TAG_PALETTE[0][0])c=null;
+  const nm=_tagKey(regs[idx].label),linked=tagLinks.has(nm);
+  const arr=(secColors&&secColors.length===n)?secColors.slice():new Array(n).fill(null);
+  if(linked?tagLinks.get(nm)===c:(arr[idx]||null)===c)return;     // nothing would change
+  pushUndo();
+  if(linked)tagLinks.set(nm,c);else{arr[idx]=c;secColors=arr;}  // a linked name recolours every tag of it (tagRegions)
+  try{tagRegions();}catch(e){}
+  if(typeof saveProjectState==="function")saveProjectState();
+}
+function linkTagColor(idx,on){                                     // tick: link this name at this tag's colour; untick: each keeps its colour, picks go one at a time again
+  if(typeof tagLinks==="undefined"||typeof tl==="undefined")return;
+  const r=(tl.regions||[])[idx];if(!r)return;
+  const nm=_tagKey(r.label);if(on===tagLinks.has(nm))return;
+  pushUndo();
+  if(on)tagLinks.set(nm,(secColors&&secColors[idx])||null);else tagLinks.delete(nm);
+  try{tagRegions();}catch(e){}
+  if(typeof saveProjectState==="function")saveProjectState();
+}
 function openTagOpts(sectionIdx,x,y){
   closeTagOpts();
   let curBars=null,name="Section";
   try{const regs=(typeof tl!=="undefined"&&tl.regions)||[];if(regs[sectionIdx]){curBars=regs[sectionIdx].bars;name=regs[sectionIdx].label||name;}}catch(e){}
+  const linked=typeof tagLinks!=="undefined"&&tagLinks.has(_tagKey(name));
+  const colorOf=()=>(typeof secColors!=="undefined"&&secColors&&secColors[sectionIdx])||null;
   const m=document.createElement("div");m.className="tagopts";
   m.innerHTML=`<div class="toh">${esc(name)}</div>`+
     `<div class="tol">Bar length</div>`+
     `<div class="tobars">`+[4,8,16,32].map(b=>`<span class="tob${b===curBars?' on':''}" data-b="${b}">${b}</span>`).join("")+
     `<span class="tob" data-b="custom">Custom…</span></div>`+
+    `<div class="tol">Color</div>`+
+    `<div class="tocols">`+TAG_PALETTE.map(([h,t])=>`<span class="toc" data-c="${h}" title="${t}" style="background:${h}"></span>`).join("")+
+    `<label class="toc cust" title="Custom color…"><input type="color" value="#19d3c5"></label></div>`+
+    `<label class="toall" title="Link every &ldquo;${esc(name)}&rdquo; tag to one color: change any of them and they all change, and new ones match"><input type="checkbox"${linked?" checked":""}><span>All &ldquo;${esc(name)}&rdquo; tags</span></label>`+
     `<div class="toopt" data-act="rename">&#9998; Rename…</div>`+
     `<div class="toopt danger" data-act="delete">&#128465; Delete section</div>`;
   document.body.appendChild(m);
-  m.style.left=Math.min(window.innerWidth-186,Math.max(6,x))+"px";
-  m.style.top=Math.min(window.innerHeight-196,y)+"px";
+  m.style.left=Math.max(6,Math.min(window.innerWidth-m.offsetWidth-6,x))+"px";
+  m.style.top=Math.max(6,Math.min(window.innerHeight-m.offsetHeight-6,y))+"px";
+  const allBox=m.querySelector(".toall input"),cust=m.querySelector(".toc.cust"),custIn=cust.querySelector("input");
+  const showColor=()=>{const c=colorOf(),isCust=!!c&&!TAG_PALETTE.some(p=>p[0]===c);
+    m.querySelectorAll(".toc[data-c]").forEach(el=>el.classList.toggle("on",(c||TAG_PALETTE[0][0])===el.dataset.c));
+    cust.classList.toggle("on",isCust);cust.style.background=isCust?c:"";if(c)custIn.value=c;};
+  showColor();
+  const pick=c=>{applyTagColor(sectionIdx,c);showColor();};
+  m.querySelectorAll(".toc[data-c]").forEach(el=>el.onmousedown=ev=>{ev.preventDefault();ev.stopPropagation();pick(el.dataset.c);});
+  custIn.onchange=()=>pick(custIn.value);
+  allBox.onchange=()=>{linkTagColor(sectionIdx,allBox.checked);showColor();};
   m.querySelectorAll(".tob").forEach(el=>el.onmousedown=ev=>{ev.preventDefault();ev.stopPropagation();const v=el.dataset.b;closeTagOpts();
     if(v==="custom"){(window.askText?window.askText({title:"Custom bar length",sub:"How many bars should this section span?",value:String(curBars||4),placeholder:"e.g. 24",okLabel:"Set bars"}):Promise.resolve(prompt("Bars:",String(curBars||4)))).then(r=>{const n=parseInt(r,10);if(n>0)setRegionBars(sectionIdx,n);});}
     else setRegionBars(sectionIdx,+v);});

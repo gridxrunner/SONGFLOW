@@ -497,6 +497,28 @@ class AMSTimeline {
       el.style.left = (this._rx0(r) - this.LBL) + "px";
       el.style.width = Math.max(8, this._xo(r.end) - this._rx0(r)) + "px";
     });
+    this._paintTints();
+  }
+  /* a region's tag colour ("#rrggbb", set by the page) as rgba at alpha a; null when it has none */
+  _rc(r, a) {
+    const h = (r && typeof r.color === "string" && /^#[0-9a-f]{6}$/i.test(r.color)) ? r.color : null;
+    if (!h) return null;
+    const n = parseInt(h.slice(1), 16);
+    return `rgba(${n >> 16},${(n >> 8) & 255},${n & 255},${a})`;
+  }
+  /* a coloured tag also tints the stretch of timeline it covers (every lane + the ruler), fainter
+     than the tag. Drawn under the waveform's selection and grid; follows a region while it's dragged. */
+  _paintTints() {
+    this.scrollEl.querySelectorAll(".regtint").forEach(t => t.remove());
+    if (!this.duration) return;
+    const spans = this.regions.map(r => [this._rc(r, .13), r]).filter(([c]) => c);
+    if (!spans.length) return;
+    this.scrollEl.querySelectorAll(".laneTL, .ruler").forEach(host => spans.forEach(([c, r]) => {
+      const a = this._rx0(r), b = this._xo(r.end);
+      const t = document.createElement("div"); t.className = "regtint";
+      t.style.left = (a - this.LBL) + "px"; t.style.width = Math.max(1, b - a) + "px"; t.style.background = c;
+      host.insertBefore(t, host.firstChild);
+    }));
   }
 
   /* ---- geometry ---- */
@@ -669,8 +691,11 @@ class AMSTimeline {
             // colour by content: lyric-bearing region vs an arrangement-only (no-lyrics) region
             const kind = (r.hasLyrics === false) ? "nolyr" : "haslyr";
             const kindTip = (r.hasLyrics === false) ? " · no lyrics (arrangement-only)" : "";
-            return `<div class="region ${kind} ${selected ? "on" : ""} ${looping ? "looping" : ""}" data-ri="${i}"
-              style="left:${this._rx0(r) - this.LBL}px;width:${Math.max(8, this._xo(r.end) - this._rx0(r))}px"
+            // a tag colour picked by the page (r.color): the tag in that colour, brighter when selected
+            const rc = this._rc(r, 1);
+            const rcVars = rc ? `;--rc:${rc};--rcb:${this._rc(r, .2)};--rcs:${this._rc(r, .5)};--rcm:${this._rc(r, .09)}` : "";
+            return `<div class="region ${kind} ${rc ? "colored" : ""} ${selected ? "on" : ""} ${looping ? "looping" : ""}" data-ri="${i}"
+              style="left:${this._rx0(r) - this.LBL}px;width:${Math.max(8, this._xo(r.end) - this._rx0(r))}px${rcVars}"
               title="${txt}${tip}${kindTip} — ${hint}, click to select, Shift+Click adjacent to extend, double-click to rename"><span class="rlbl">${txt}</span></div>`;
           }).join("")}
         </div>
@@ -849,7 +874,7 @@ class AMSTimeline {
       };
     });
     if (!this.showComposite) this._compReopen();
-    this._paintSel(); this._selText();
+    this._paintTints(); this._paintSel(); this._selText();
   }
 
   _compReopen() {

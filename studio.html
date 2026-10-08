@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Songflow — Lyric Studio</title>
-<link rel="stylesheet" href="ams.css?v=131">
-<script src="songflow-scope.js?v=131"></script>
+<link rel="stylesheet" href="ams.css?v=132">
+<script src="songflow-scope.js?v=132"></script>
 <script>/* last ~25 browser errors, attached to bug reports (see the Report bug wiring at the end) */
 window.__sfErrs=[];(function(){function add(k,m){try{var a=window.__sfErrs;a.push({t:new Date().toISOString(),k:k,m:String(m).slice(0,400)});if(a.length>25)a.shift();}catch(e){}}
 window.addEventListener("error",function(e){add("error",(e.message||"")+(e.filename?" @"+String(e.filename).split("/").pop()+":"+e.lineno:""));});
@@ -21,6 +21,8 @@ var ce=console.error;console.error=function(){try{add("console",[].slice.call(ar
   #doc .in{text-decoration:underline dotted 1px;text-underline-offset:3px;opacity:.85}
   #doc .sect{color:var(--accent2);background:rgba(25,211,197,.08);border:1px solid #1d3b3a;border-radius:6px;padding:0 6px;font-weight:700;cursor:pointer}
   #doc .sect:hover{background:rgba(25,211,197,.18);border-color:var(--accent2)}
+  #doc .sect.tc{color:var(--tc);border-color:var(--tcb);background:var(--tcg)}
+  #doc .sect.tc:hover{background:var(--tch);border-color:var(--tc)}
   /* region fold (right-click a tag): the body stays in the text model (innerText keeps it) but
      renders inside a 0×0 clipped box — display:none/visibility would DROP it from innerText. */
   .foldbody{display:inline-block;width:0;height:0;overflow:hidden;vertical-align:top}
@@ -223,6 +225,7 @@ var ce=console.error;console.error=function(){try{add("console",[].slice.call(ar
   .statpill b{color:var(--accent2);font-variant-numeric:tabular-nums}
   /* selected arrangement regions: accent outline; while looping: solid RED */
   #tl .region.on{background:rgba(124,92,255,.30);border-color:var(--accent);color:#fff}
+  #tl .region.colored.on:not(.looping){background:var(--rcs);border-color:#fff;color:#fff}
   #tl .region.looping{background:var(--danger);border-color:var(--danger);color:#fff;box-shadow:inset 0 0 0 1px #fff5}
   /* minimal bottom player */
   .player{position:fixed;left:0;right:0;bottom:0;height:46px;background:#0a0b10;border-top:1px solid var(--line);display:flex;align-items:center;gap:10px;padding:0 14px;z-index:50}
@@ -341,7 +344,7 @@ var ce=console.error;console.error=function(){try{add("console",[].slice.call(ar
           <button class="tbtn" id="aDelete" title="delete the selected waveform selection (closes the gap)" style="width:auto;padding:0 9px;font-size:11px">&#128465; Delete selection</button>
           <span class="muted" style="font-size:10.5px">drag on the waveform to select a span</span>
         </div>
-        <div class="muted" style="padding:0 2px;font-size:10.5px">Your <b>arrangement region tags</b> appear here, mirroring the lyric editor. <b>Drag</b> to reorder &middot; <b>double-click</b> to rename &middot; <b>Alt+Click</b> for the tag menu (bars / rename / delete). New here? Open <b>? Guide → ▶ Take the tour</b>.</div>
+        <div class="muted" style="padding:0 2px;font-size:10.5px">Your <b>arrangement region tags</b> appear here, mirroring the lyric editor. <b>Drag</b> to reorder &middot; <b>double-click</b> to rename &middot; <b>Alt+Click</b> for the tag menu (bars / color / rename / delete). New here? Open <b>? Guide → ▶ Take the tour</b>.</div>
         <div class="lyx">
           <div class="gut" id="gut"></div>
           <div id="doc" contenteditable="true" spellcheck="false"></div>
@@ -585,6 +588,7 @@ var ce=console.error;console.error=function(){try{add("console",[].slice.call(ar
         <ul>
           <li><b>One tag, two names.</b> A <code>[tag]</code> with lyrics under it is a <b>Lyrics Region tag</b> in the editor; the <em>same tag</em> shows on the timeline as an <b>arrangement region tag</b>. Two views of one thing. A tag can also carry <em>no lyrics</em> (e.g. <code>[Instrumental break]</code>): it still appears in the editor, you just give it a <b>bar length</b>.</li>
           <li><b>Bar length.</b> Tags <em>with</em> lyrics size themselves automatically (1 line = 1 bar). For tags <em>without</em> lyrics, set the length from the tag menu (4 / 8 / 16 / 32 / custom). Open the menu by <b>clicking the tag in the lyric editor</b>, or <b>Alt+Click the region</b> on the timeline. The menu also has Rename and Delete.</li>
+          <li><b>Tag colors.</b> The same menu has a <b>Color</b> row. The tag takes the color on the timeline, the stretch of timeline it covers gets a lighter tint, and the [tag] in your lyrics matches. The rainbow dot opens a custom color; teal is the default. Tick <b>All &ldquo;Name&rdquo; tags</b> to link every tag with that name: change any one and they all change, and a new tag with that name comes in the same color. Untick it to color them one at a time again.</li>
           <li><b>Slip</b> is an offset <em>relative to the anchor</em> (neutral 0 = right on it). Nudge with <b>◀ ▶</b> (±10ms, Shift = ±1ms); for a big shift, toggle the <b>⇄ slip-drag</b> button and drag the numbered ruler. Click the readout to reset to neutral.</li>
           <li><b>Snap.</b> The playhead and selections snap to the grid. Pick the resolution next to the <b>Snap</b> toggle: <b>whole note (default) / ½ / ¼ (beat) / ⅛ / 1⁄16</b>.</li>
           <li><b>Region colors.</b> A region that contains lyrics shows bright <b style="color:var(--accent2)">teal</b>; an arrangement-only region with no lyrics (e.g. <code>[Instrumental break]</code>) shows a <b style="color:#62a6a3">muted teal</b>.</li>
@@ -675,17 +679,22 @@ $("helpClose").onclick=()=>showHelp(false);
 $("helpModal").addEventListener("click",e=>{if(e.target===$("helpModal"))showHelp(false);});
 document.addEventListener("keydown",e=>{if(e.key==="Escape")showHelp(false);});
 </script>
-<script src="ams-timeline.js?v=131"></script>
-<script src="ams-vowels.js?v=131"></script>
-<script src="ams-pron.js?v=131"></script>
-<script src="ams-bpm.js?v=131"></script>
-<script src="ams-sections.js?v=131"></script>
+<script src="ams-timeline.js?v=132"></script>
+<script src="ams-vowels.js?v=132"></script>
+<script src="ams-pron.js?v=132"></script>
+<script src="ams-bpm.js?v=132"></script>
+<script src="ams-sections.js?v=132"></script>
 <script>
 const doc=$("doc"),gut=$("gut");
 // keep the gutter (line #, syllables, rhyme vowel) locked to the lyric scroll — they share the
 // same line-height + top padding, so matching scrollTop keeps every row aligned as you scroll.
 doc.addEventListener("scroll",()=>{gut.scrollTop=doc.scrollTop;});
 let rhymeOn=true,cur=null,curBuf=null,detectedBpm=120,curKey=null,bpmCycle=0,regionsFromAudio=false;
+let secColors=null;   // per-section tag colour ("#rrggbb", picked in the tag menu), aligned 1:1 with manualBars; null = the default teal
+let tagLinks=new Map();   // tag names LINKED by colour in the tag menu ("All <name> tags"): lowercase name -> colour (null = teal). Every tag with a linked name wears it, new ones too.
+function tagColor(c){return (typeof c==="string"&&/^#[0-9a-f]{6}$/i.test(c))?c.toLowerCase():null;}   // only a clean hex ever reaches the page
+function readTagLinks(a){return new Map((Array.isArray(a)?a:[]).filter(p=>Array.isArray(p)&&typeof p[0]==="string").map(p=>[p[0],tagColor(p[1])]));}
+function tagRgba(h,a){h=tagColor(h);if(!h)return "";const n=parseInt(h.slice(1),16);return `rgba(${n>>16},${(n>>8)&255},${n&255},${a})`;}
 let manualBars=null;   // per-section manual start (in bars) once the user slides a boundary; null entries = auto (1 line = 1 bar)
 let _prevSecNames=null, _prevSecKeys=null;   // what manualBars was last aligned to (names; names+lyrics) — lets a hand-typed tag keep everyone else's position
 let _droppedPos=[];   // positions of sections that just vanished mid-edit (kept 10 min) so a re-typed or re-pasted tag returns home
@@ -1129,7 +1138,7 @@ function keepArrangementOnRegrid(oldGo){
   if(Math.abs(newGo-oldGo)>1e-9){
     const move=b=>Math.round((Math.round(b)*spb+oldGo-newGo)/spb);   // from the bar it's SHOWN on (tagRegions rounds stored fractions)
     if(manualBars)manualBars=manualBars.map(v=>v==null?null:move(v));
-    _droppedPos.forEach(x=>{x.pos=move(x.pos);});
+    _droppedPos.forEach(x=>{if(x.pos!=null)x.pos=move(x.pos);});
   }
   try{tagRegions();}catch(e){}
   if(typeof saveProjectState==="function")saveProjectState();
@@ -1445,7 +1454,7 @@ async function idbPut(k,v){const db=await idbOpen();return new Promise((res,rej)
 async function idbGet(k){const db=await idbOpen();return new Promise((res,rej)=>{const t=db.transaction("audio","readonly");const q=t.objectStore("audio").get(k);q.onsuccess=()=>res(q.result);q.onerror=()=>rej(q.error);});}
 async function saveProjectAudio(blob){try{const id=(typeof activeDocId==="function")&&activeDocId();if(id)await idbPut(id,blob);}catch(e){}}
 function saveProjectState(){try{const d=docsState.docs[docsState.active];if(!d)return;
-  d.bpm=tl.bpm;d.anchor=gridAnchor;d.slip=gridSlip;d.warp=warpMarkers.slice();d.warpShow=warpShow;d.manualBars=manualBars;d.secNames=_prevSecNames?_prevSecNames.slice():null;d.secKeys=_prevSecKeys?_prevSecKeys.slice():null;d.trackName=cur?cur.name:null;
+  d.bpm=tl.bpm;d.anchor=gridAnchor;d.slip=gridSlip;d.warp=warpMarkers.slice();d.warpShow=warpShow;d.manualBars=manualBars;d.secColors=secColors?secColors.slice():null;d.tagLinks=[...tagLinks];d.secNames=_prevSecNames?_prevSecNames.slice():null;d.secKeys=_prevSecKeys?_prevSecKeys.slice():null;d.trackName=cur?cur.name:null;
   if(typeof doc!=="undefined")d.text=doc.innerText;saveDocs();}catch(e){}}
 /* ---- autosave: never lose progress. Text already saves on every edit; this is a safety
    net that also flushes BPM / slip / arrangement positions periodically and whenever the
@@ -1473,6 +1482,8 @@ async function restoreProjectState(){
     // layout on autosave) -- restore the section names it's aligned to so tagRegions can reconcile
     const _al=a=>(Array.isArray(a)&&manualBars&&a.length===manualBars.length)?a.slice():null;
     _prevSecNames=_al(d.secNames); _prevSecKeys=_al(d.secKeys); _droppedPos=[];
+    secColors=_al(d.secColors); if(secColors)secColors=secColors.map(tagColor);
+    tagLinks=readTagLinks(d.tagLinks);
     const tags=String(d.text||"").split("\n").map(l=>l.trim().match(/^\[(.*)\]$/)).filter(Boolean).map(m=>parseTagBars(m[1]));
     const untouched=!manualBars||manualBars.every(v=>v==null);                                   // autosave stores "untouched" as all-null entries
     // DEMO LAYOUT, once per copy: the intro starts at the very beginning of the track. The song has
@@ -1492,6 +1503,7 @@ async function restoreProjectState(){
       }else if(untouched&&tags.length===DEMO_SECS.length)                                        // re-tagged but never arranged: the layout it had before
         manualBars=(tags[0].bars===18?DEMO_LAYOUT:DEMO_LAYOUT_V1).slice();
     }
+    if(secColors&&(!manualBars||secColors.length!==manualBars.length))secColors=null;           // the demo re-lay above can change the layout's length
     // LAYOUT MODEL 2 (v126): un-positioned sections pack from the track start instead of bar 1. A
     // project saved before that keeps what its writer saw: its next tagRegions packs the old way once
     // and pins the first un-positioned section where it landed (the later ones then pack after it
@@ -1529,6 +1541,8 @@ async function saveProjectFile(){
     const meta={format:"songflow",version:1,name:d.name||"project",
       text:(typeof doc!=="undefined")?doc.innerText:(d.text||""),
       manualBars:(typeof manualBars!=="undefined")?manualBars:(d.manualBars||null),
+      secColors:(typeof secColors!=="undefined")?secColors:(d.secColors||null),
+      tagLinks:(typeof tagLinks!=="undefined")?[...tagLinks]:(d.tagLinks||null),
       secNames:(typeof _prevSecNames!=="undefined"&&_prevSecNames)?_prevSecNames:null,secKeys:(typeof _prevSecKeys!=="undefined"&&_prevSecKeys)?_prevSecKeys:null,
       bpm:tl.bpm,anchor:gridAnchor,slip:gridSlip,warp:(warpMarkers||[]).slice(),warpShow:!!warpShow,
       trackName:cur?cur.name:(d.trackName||null),layoutV:2,savedAt:Date.now()};   // layoutV: positions follow the track-start packing (see restoreProjectState)
@@ -1554,7 +1568,7 @@ async function openProjectFile(file){
     const audioStart=12+jsonLen;
     const audio=buf.byteLength>audioStart?new Uint8Array(buf,audioStart):null;
     const id=newId();                                                       // fresh id → opening twice never collides
-    docsState.docs.push({name:meta.name||"Opened project",text:meta.text||"",manualBars:meta.manualBars||null,secNames:meta.secNames||null,secKeys:meta.secKeys||null,
+    docsState.docs.push({name:meta.name||"Opened project",text:meta.text||"",manualBars:meta.manualBars||null,secColors:meta.secColors||null,tagLinks:meta.tagLinks||null,secNames:meta.secNames||null,secKeys:meta.secKeys||null,
       bpm:meta.bpm,anchor:meta.anchor,slip:meta.slip,warp:meta.warp||[],warpShow:!!meta.warpShow,
       trackName:meta.trackName||null,layoutV:meta.layoutV,updated:0,id});
     if(audio&&audio.length){await idbPut(id,new Blob([audio],{type:meta.audioType||"audio/wav"}));}
@@ -1702,8 +1716,8 @@ function tagRegions(){
   closeSec();
   if(!secs.length){                                                    // no tags → leave any audio-detected sections alone
     if(typeof regionsFromAudio!=="undefined"&&regionsFromAudio)return;
-    if(manualBars&&_prevSecNames&&_prevSecNames.length===manualBars.length){const now=Date.now();manualBars.forEach((v,i)=>{if(v!=null)_droppedPos.push({name:_prevSecNames[i],pos:v,t:now});});}
-    if(!curBuf)tl.setDuration(0); tl.reorderable=false; manualBars=null; _prevSecNames=null; _prevSecKeys=null; tl.setRegions([]); return; }
+    if(manualBars&&_prevSecNames&&_prevSecNames.length===manualBars.length){const now=Date.now(),oc=(secColors&&secColors.length===manualBars.length)?secColors:[];manualBars.forEach((v,i)=>{if(v!=null||oc[i])_droppedPos.push({name:_prevSecNames[i],pos:v,color:oc[i]||null,t:now});});}
+    if(!curBuf)tl.setDuration(0); tl.reorderable=false; manualBars=null; secColors=null; _prevSecNames=null; _prevSecKeys=null; tl.setRegions([]); return; }
   // TAGS EXIST → they ALWAYS own the timeline. The bond with the lyrics is never broken,
   // so audio-detected sections can never replace them.
   regionsFromAudio=false;
@@ -1722,6 +1736,7 @@ function tagRegions(){
     const oN=manualBars?manualBars.length:0,nN=secs.length,now=Date.now();
     const lowBar=Math.round(-(tl.gridOffset||0)/spb);
     const next=new Array(nN).fill(null),isNew=new Array(nN).fill(true);
+    const oldC=(secColors&&secColors.length===oN)?secColors:new Array(oN).fill(null),nextC=new Array(nN).fill(null);   // tag colours travel with their sections, like positions
     if(oN&&_prevSecNames&&_prevSecNames.length===oN&&_prevSecKeys&&_prevSecKeys.length===oN){
       const lcs=(a,b,i0,i1,j0,j1)=>{                     // order-preserving matched index pairs of a[i0..i1) and b[j0..j1)
         const n=i1-i0,m=j1-j0,L=Array.from({length:n+1},()=>new Array(m+1).fill(0)),out=[];
@@ -1734,9 +1749,10 @@ function tagRegions(){
         if(i<oN)pairs.push([i,j]);
         pi=i;pj=j;}
       const used=new Array(oN).fill(false);
-      pairs.forEach(([i,j])=>{next[j]=manualBars[i];isNew[j]=false;used[i]=true;});
-      manualBars.forEach((v,i)=>{if(!used[i]&&v!=null)_droppedPos.push({name:_prevSecNames[i],pos:v,t:now});});
+      pairs.forEach(([i,j])=>{next[j]=manualBars[i];nextC[j]=oldC[i]||null;isNew[j]=false;used[i]=true;});
+      manualBars.forEach((v,i)=>{if(!used[i]&&(v!=null||oldC[i]))_droppedPos.push({name:_prevSecNames[i],pos:v,color:oldC[i]||null,t:now});});
     }
+    const fresh=isNew.slice();                                   // sections with no counterpart in the old layout
     _droppedPos=_droppedPos.filter(x=>now-x.t<600000);
     // a section that vanished mid-edit (its "]" deleted, its block cut, the whole sheet cut and
     // pasted back) returns to its old bar when its tag comes back — but ONLY if that bar still
@@ -1745,15 +1761,21 @@ function tagRegions(){
       let pe=null;for(let k=j-1;k>=0;k--)if(next[k]!=null){pe=next[k]+secs[k].len;break;}
       let ns=null;for(let k=j+1;k<nN;k++)if(next[k]!=null){ns=next[k];break;}
       let d=-1;for(let q=_droppedPos.length-1;q>=0;q--){const x=_droppedPos[q];   // NEWEST first
-        if(x.name===curNames[j]&&(pe==null||x.pos>=pe-1e-6)&&(ns==null||x.pos+secs[j].len<=ns+1e-6)){d=q;break;}}
-      if(d>=0){next[j]=_droppedPos[d].pos;isNew[j]=false;_droppedPos.splice(d,1);}}
+        if(x.name===curNames[j]&&x.pos!=null&&(pe==null||x.pos>=pe-1e-6)&&(ns==null||x.pos+secs[j].len<=ns+1e-6)){d=q;break;}}
+      if(d>=0){next[j]=_droppedPos[d].pos;nextC[j]=_droppedPos[d].color||null;isNew[j]=false;fresh[j]=false;_droppedPos.splice(d,1);}}
+    // a returning section gets its colour back even when its old bar no longer fits
+    for(let j=0;j<nN;j++){if(!fresh[j])continue;
+      let q=_droppedPos.length-1;while(q>=0&&_droppedPos[q].name!==curNames[j])q--;
+      if(q>=0){const x=_droppedPos[q];nextC[j]=x.color||null;if(x.pos==null)_droppedPos.splice(q,1);else x.color=null;}}
     // brand-new sections typed ABOVE the first positioned one (a count-in over the intro) get a
     // real position ending where it starts — never bar 1, which would shove the whole song late
     const fp=next.findIndex(v=>v!=null);
     for(let k=fp-1,end=fp>0?Math.round(next[fp]):0;fp>0&&k>=0&&isNew[k];k--){next[k]=Math.max(lowBar,end-secs[k].len);end=next[k];}
-    manualBars=next;
+    manualBars=next; secColors=nextC;
   }
   _prevSecNames=curNames; _prevSecKeys=curKeys;
+  if(!secColors||secColors.length!==secs.length){const c=(secColors||[]).slice(0,secs.length);while(c.length<secs.length)c.push(null);secColors=c;}
+  if(tagLinks.size)curNames.forEach((nm,k)=>{if(tagLinks.has(nm))secColors[k]=tagLinks.get(nm);});   // linked names: every tag of that name, new ones too
   // start bar per section: manual position wins, else packed right after the previous one
   const trackBar=-(tl.gridOffset||0)/spb;                    // track start (audio 0) in bars, unrounded
   const minBar=Math.round(trackBar);                         // ...in WHOLE bars — a section may sit before the anchor but not before the track
@@ -1773,7 +1795,7 @@ function tagRegions(){
   }
   if(legacy){                                    // pin the old packing so it survives the new packing rule
     _legacyPackId=null; const f=manualBars.findIndex(v=>v==null); if(f>=0)manualBars[f]=startBar[f];
-    curDoc.manualBars=manualBars.slice(); curDoc.secNames=curNames.slice(); curDoc.secKeys=curKeys.slice(); curDoc.layoutV=2; saveDocs();
+    curDoc.manualBars=manualBars.slice(); curDoc.secColors=secColors.slice(); curDoc.secNames=curNames.slice(); curDoc.secKeys=curKeys.slice(); curDoc.layoutV=2; saveDocs();
   }
   // expose the layout (in BARS), aligned 1:1 with EVERY section header. The resize ripple +
   // the karaoke/cursor time-map read these so indices can never desync. ----
@@ -1790,9 +1812,10 @@ function tagRegions(){
   const regs=secs.map((s,k)=>({start:startBar[k]*spb,
     end:(startBar[k]+s.len)*spb,
     fromTrackStart:k===0&&startBar[0]<=packBar,
-    label:s.name,bars:s.len,explicitBars:s.explicitBars,lenBars:s.len,hasLyrics:s.lyricLines>0,userEdited:manualBars[k]!=null}));
+    label:s.name,bars:s.len,explicitBars:s.explicitBars,lenBars:s.len,hasLyrics:s.lyricLines>0,userEdited:manualBars[k]!=null,color:tagColor(secColors[k])}));
   tl.reorderable=true;                                                 // these regions are linked to the lyric blocks
   tl.setRegions(regs);
+  if(typeof paintTagColors==="function")paintTagColors();          // the [Tag]s in the lyrics wear their colour too
   if(typeof renderGutter==="function")renderGutter();                 // gutter bar numbers follow the new layout
 }
 
@@ -1820,7 +1843,7 @@ const TOUR=[
   {sel:"#schemeMap",t:"Scheme map",b:"One colored dot per bar shows your rhyme pattern. A white ring marks a cross-rhyme (ABAB) pair."},
   {sel:".gridctl",t:"Tempo & beat grid",b:"Drag the BPM numbers to fine-tune the tempo. Hit Anchor, then click the first downbeat anywhere on the timeline — the beat grid snaps there and locks to your song. Bars are numbered from the first bar of the track."},
   {sel:"#tl",t:"The timeline",b:"Your track as a waveform with a beat grid. Click to move the playhead — it snaps to the Snap menu's resolution (whole note by default, then ½, ¼/beat, ⅛, 1⁄16). Drag to select a span. Drag the bar under the timeline to make it taller."},
-  {sel:".regionstrip",t:"Arrangement region tags",b:"Same tags as the lyric editor, shown on the grid. Bright teal = a region with lyrics; muted teal = an arrangement-only region (no lyrics, e.g. an instrumental break). Drag to reorder (an insert line shows where it lands), double-click to rename, Alt+Click (or click the tag in the lyrics) for the menu: bar length, rename, delete."},
+  {sel:".regionstrip",t:"Arrangement region tags",b:"Same tags as the lyric editor, shown on the grid. Bright teal = a region with lyrics; muted teal = an arrangement-only region (no lyrics, e.g. an instrumental break). Drag to reorder (an insert line shows where it lands), double-click to rename, Alt+Click (or click the tag in the lyrics) for the menu: bar length, color, rename, delete. Tick All \"Name\" tags there to keep every tag with that name the same color."},
   {sel:"#ideaGo",t:"Generate",b:"Write matching bars with the AI. Signed in, it runs on your included credits; or pick another engine and use your own key. Overrides can force a vowel or syllable count for special cases."},
   {sel:"#lExport",t:"Export & save",b:"Save your lyrics as text, or export the edited audio. Everything autosaves in your browser as you go."},
   {sel:"#authBtn",t:"Your account",b:"Sign in with Google or an email link to use your included AI credits. Once you're in, click your name for your credits, the waitlist, and Sign out. Your projects are filed under your account in this browser."}
@@ -1855,7 +1878,7 @@ window.addEventListener("keydown",e=>{if(e.key==="Escape"&&$("tourOvl").classLis
 window.addEventListener("resize",()=>{if($("tourOvl").classList.contains("on"))tourShow();});
 if(!localStorage.getItem("ams.tour.seen"))setTimeout(()=>{try{tourStart();}catch(e){}},800);   // first visit → auto-run
 </script>
-<script src="lyric-core.js?v=131"></script>
+<script src="lyric-core.js?v=132"></script>
 <!-- Sign-in: Google (shown once the provider is switched on in Supabase) or a magic link by email -->
 <div id="authPanel" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10000;align-items:center;justify-content:center">
   <div style="background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px;width:350px;max-width:92vw;box-shadow:0 14px 44px rgba(0,0,0,.55)">
@@ -1869,7 +1892,7 @@ if(!localStorage.getItem("ams.tour.seen"))setTimeout(()=>{try{tourStart();}catch
   </div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script src="songflow-cloud.js?v=131"></script>
+<script src="songflow-cloud.js?v=132"></script>
 <!-- BUG REPORTER markup lives inside .lyx (the lyric processor); this just wires it. -->
 <script>
 (function(){

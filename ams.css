@@ -141,6 +141,13 @@ body{padding-bottom:46px}
    family, just dimmed, so it reads as "the instrumental version" rather than a warning */
 .region.nolyr{background:rgba(98,166,163,.16);border-color:#62a6a3;color:#b6dad8}
 .region.nolyr.on{background:rgba(98,166,163,.36)}
+/* a tag colour picked in the tag menu (the timeline sets --rc*): the tag in that colour (an arrangement-only
+   region dimmer, as with teal), and its stretch of the timeline faintly tinted (.regtint) */
+.region.colored{background:var(--rcb);border-color:var(--rc);color:var(--rc)}
+.region.colored.nolyr{background:var(--rcm)}
+.region.colored.nolyr .rlbl{opacity:.78}
+.region.colored.on{background:var(--rcs)}
+.regtint{position:absolute;top:0;bottom:0;pointer-events:none}
 .region .rlbl{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1 1 auto;min-width:0}
 .region .rbars{flex:0 0 auto;background:rgba(0,0,0,.35);border-radius:3px;padding:0 3px;font-weight:800;font-variant-numeric:tabular-nums;cursor:pointer}
 .region .rbars:hover{background:var(--accent2);color:#0c0d12}
@@ -166,6 +173,15 @@ body{padding-bottom:46px}
 .tagopts .tob:hover,.tagopts .tob.on{background:var(--accent2);color:#0c0d12;border-color:var(--accent2)}
 .tagopts .toopt{padding:6px 8px;border-radius:6px;font-size:12px;color:var(--txt);cursor:pointer;margin-top:2px}
 .tagopts .toopt:hover{background:var(--panel2)}
+.tagopts .tocols{display:grid;grid-template-columns:repeat(6,20px);gap:6px;padding:2px 6px 7px}
+.tagopts .toc{position:relative;width:20px;height:20px;border-radius:50%;cursor:pointer;box-sizing:border-box;border:2px solid transparent;box-shadow:inset 0 0 0 1px rgba(0,0,0,.4);transition:transform .08s}
+.tagopts .toc:hover{transform:scale(1.15)}
+.tagopts .toc.on{border-color:#fff;box-shadow:0 0 0 1px #0c0d12 inset}
+.tagopts .toc.cust{background:conic-gradient(#ff5c6a,#ffd43b,#51cf66,#4cc9f0,#5b8cff,#ff6ec7,#ff5c6a)}
+.tagopts .toc.cust input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;border:0;padding:0}
+.tagopts .toall{display:flex;align-items:center;gap:6px;padding:1px 6px 6px;font-size:11px;color:var(--txt);cursor:pointer;user-select:none}
+.tagopts .toall span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:190px}
+.tagopts .toall input{margin:0;accent-color:var(--accent2);cursor:pointer}
 .tagopts .toopt.danger{color:#ff8a8a}.tagopts .toopt.danger:hover{background:rgba(255,92,106,.14)}
 .region.dragging{transition:none;opacity:.92;z-index:7;box-shadow:0 3px 10px rgba(0,0,0,.55);cursor:grabbing}
 /* landing marker shown while reordering a section */

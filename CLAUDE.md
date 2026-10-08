@@ -53,3 +53,12 @@ runs first on index.html and studio.html, reads the account from Supabase's save
 (`sb-stwlawvkrcoxosuimrzh-auth-token`) and exposes `SF_SCOPE.docsKey` / `SF_SCOPE.textKey`. The first sign-in in
 a browser takes over the signed-out projects. `songflow-cloud.js` reloads the page when the signed-in account
 changes, and owns the account menu (credits/waitlist, Admin link, Sign out).
+
+## Section layout arrays (keep them in step)
+
+Each arrangement section has a position (`manualBars`, in bars) and a tag color (`secColors`, `"#rrggbb"` or null
+for the default teal), both aligned 1:1 with the `[tags]` in the lyrics. Any code that reorders, inserts or deletes
+sections must update both the same way (see applyArrange, deleteSections, the tag insert, undo, save/restore and
+the `.songflow` file). When the tag count changes by hand, `tagRegions()` carries both across with the same match.
+`tagLinks` holds the names linked by the tag menu's "All <name> tags" box; `tagRegions()` gives every tag with a
+linked name that color.
