@@ -275,7 +275,9 @@ function renderGutter(){
     const vc=vowelClass(rhymeAnchorWord(t));
     return `${bar} │ ${s}${vc?` <span class="sch">${vc}</span>`:""}`;});
   // mirror the text's region folds so gutter rows stay aligned with the visible lines
-  gut.innerHTML=(rhymeOn&&typeof _applyFolds==="function")?_applyFolds(gutRows,lines):gutRows.join("\n");
+  // + a spare row: a pre block never draws its final empty line (the last line is usually a [Tag], which has
+  // no number), so the gutter came out one row short and, scrolled to the bottom, sat a row below its lyrics
+  gut.innerHTML=((rhymeOn&&typeof _applyFolds==="function")?_applyFolds(gutRows,lines):gutRows.join("\n"))+"\n\u00a0";
 }
 let _repaintingFlat=false;
 function update(){
@@ -511,6 +513,32 @@ function setCaret(offset){
 }
 /* keep the caret's line on screen after a repaint (a collapsed caret on an empty line has no box, so
    fall back to the line's row: 28px lines under 18px of padding) */
+/* Deleting EMPTY bar lines out of a "- N bars" section takes those bars off its count. Without this the
+   slot padding refilled them a moment later and the deletion looked like it bounced back. Deleting lyrics
+   never shortens a section (that stays the bar-length menu's job). Returns {text, note}. */
+function shrinkForDeletedBlanks(before,after,start,end){
+  const removed=before.slice(start,end);
+  if(removed.indexOf("\n")<0||removed.trim())return {text:after,note:null};   // only blank-line deletions count
+  const parse=t=>{const L=t.split("\n"),out=[];let cur=null;
+    L.forEach((l,i)=>{const x=l.trim();
+      if(isTag(x)){if(cur)out.push(cur);const pb=parseTagBars(x.replace(/^\[|\]$/g,""));cur={i,name:pb.name,N:pb.bars,body:[]};}
+      else if(cur)cur.body.push(l);});
+    if(cur)out.push(cur);return {L,out};};
+  const B=parse(before),A=parse(after);
+  if(B.out.length!==A.out.length)return {text:after,note:null};
+  // bar slots = body lines, minus the one separator blank in front of the next tag
+  const slots=(s,isLast)=>{let n=s.body.length;if(!isLast&&n&&!s.body[n-1].trim())n--;return n;};
+  let note=null,changed=false;
+  A.out.forEach((s,k)=>{
+    const b=B.out[k];if(s.N==null||b.N!==s.N)return;
+    const isLast=k===A.out.length-1,lost=Math.min(slots(b,isLast),s.N)-slots(s,isLast);
+    if(lost<=0)return;
+    let content=s.body.length;while(content>0&&!s.body[content-1].trim())content--;
+    const nN=Math.max(1,content,s.N-lost);
+    if(nN<s.N){A.L[s.i]=`[${s.name} - ${nN} bars]`;changed=true;note=`${s.name} is now ${nN} bar${nN===1?"":"s"}.`;}
+  });
+  return {text:changed?A.L.join("\n"):after,note};
+}
 function caretIntoView(){
   try{
     const s=document.getSelection();if(!s||!s.rangeCount)return;
@@ -550,8 +578,10 @@ doc.addEventListener("keydown",e=>{
     if(start<0)start=0;if(end>text.length)end=text.length;
     e.preventDefault();
     if(start>=end)return;                              // nothing to delete (e.g. at doc end)
-    const next=text.slice(0,start)+text.slice(end);
-    doc.textContent=next;paintRhymes();setCaret(start);  // repaint keeps colors, caret restored
+    const plain=text.slice(0,start)+text.slice(end);
+    const sh=shrinkForDeletedBlanks(text,plain,start,end),next=sh.text;   // deleting empty bars shortens the section
+    doc.textContent=next;paintRhymes();setCaret(Math.max(0,start+next.length-plain.length));  // repaint keeps colors, caret restored (a shorter count in the tag above moves it)
+    if(sh.note&&typeof toast==="function")toast(sh.note);
   }
 });
 /* text DRAG-DROP was the unguarded way for HTML block structure (divs) to enter the editor —
