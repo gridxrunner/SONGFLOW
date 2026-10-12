@@ -277,8 +277,14 @@ function renderGutter(){
   // mirror the text's region folds so gutter rows stay aligned with the visible lines
   gut.innerHTML=(rhymeOn&&typeof _applyFolds==="function")?_applyFolds(gutRows,lines):gutRows.join("\n");
 }
+let _repaintingFlat=false;
 function update(){
-  try{normalizeDoc();}catch(e){}                          // flatten any block structure BEFORE reading lines
+  let flat=false;try{flat=normalizeDoc();}catch(e){}       // flatten any block structure BEFORE reading lines
+  if(flat&&rhymeOn&&!_repaintingFlat){                    // flattening drops every painted span (the [Tag]s too) → repaint
+    _repaintingFlat=true;
+    try{const off=caretOffset();paintRhymes();if(off!=null)setCaret(Math.min(off,doc.innerText.length));}finally{_repaintingFlat=false;}
+    return;                                               // paintRhymes ran update() itself
+  }
   ensureTail();                                           // an empty last line stays reachable
   const lines=doc.innerText.split("\n");
   renderGutter();
@@ -503,8 +509,32 @@ function setCaret(offset){
   const sel=document.getSelection(),r=document.createRange();
   r.selectNodeContents(doc);r.collapse(false);sel.removeAllRanges();sel.addRange(r);
 }
+/* keep the caret's line on screen after a repaint (a collapsed caret on an empty line has no box, so
+   fall back to the line's row: 28px lines under 18px of padding) */
+function caretIntoView(){
+  try{
+    const s=document.getSelection();if(!s||!s.rangeCount)return;
+    const d=doc.getBoundingClientRect();let top,bot;
+    const r=s.getRangeAt(0).getBoundingClientRect();
+    if(r.top||r.bottom){top=r.top;bot=r.bottom;}
+    else{const off=caretOffset();if(off==null)return;const ln=doc.innerText.slice(0,off).split("\n").length-1;top=d.top+18+ln*28-doc.scrollTop;bot=top+28;}
+    if(bot>d.bottom-10)doc.scrollTop+=bot-d.bottom+28;else if(top<d.top+10)doc.scrollTop-=d.top-top+28;
+  }catch(e){}
+}
 doc.addEventListener("keydown",e=>{
-  if(e.key==="Enter"){e.preventDefault();document.execCommand("insertText",false,"\n");return;}
+  if(e.key==="Enter"){e.preventDefault();
+    // ENTER = a new line on the TEXT, then a repaint (the same way Delete / Backspace work). The browser's
+    // own newline at the very end of the editor built <div>s; flattening them left every [Tag] unpainted,
+    // so a new tag "lost its tag" the moment you pressed Enter to write its first bar.
+    if(rhymeOn){
+      const sel=document.getSelection();let start=null,end=null;
+      if(sel&&sel.rangeCount&&doc.contains(sel.anchorNode)){
+        if(!sel.isCollapsed){const a=offsetOf(sel.anchorNode,sel.anchorOffset),b=offsetOf(sel.focusNode,sel.focusOffset);if(a!=null&&b!=null){start=Math.min(a,b);end=Math.max(a,b);}}
+        else{const off=caretOffset();if(off!=null){start=end=off;}}
+      }
+      if(start!=null){const text=doc.innerText;doc.textContent=text.slice(0,start)+"\n"+text.slice(end);paintRhymes();setCaret(start+1);caretIntoView();return;}
+    }
+    document.execCommand("insertText",false,"\n");return;}
   // Painted spans block the browser's forward-delete at their boundary. When rhyme
   // colors are on, run Delete/Backspace on the flat text model and restore the caret.
   if((e.key==="Delete"||e.key==="Backspace")&&rhymeOn){
@@ -613,6 +643,18 @@ function acceptTag(k){
   setCaret((before+ins).length);hideTagMenu();
 }
 doc.addEventListener("input",()=>{try{showTagMenu();}catch{}});
+// a tag finished by hand (its "]" typed) becomes a real tag at once: painted, foldable, right-clickable
+doc.addEventListener("input",()=>{
+  if(!rhymeOn)return;
+  try{
+    const off=caretOffset();if(off==null)return;
+    const text=doc.innerText,ls=text.lastIndexOf("\n",off-1)+1,nl=text.indexOf("\n",off),le=nl<0?text.length:nl;
+    if(!isTag(text.slice(ls,le).trim()))return;
+    const a=document.getSelection().anchorNode,el=a&&(a.nodeType===1?a:a.parentNode);
+    if(el&&el.closest&&el.closest(".sect"))return;          // already painted as a tag
+    hideTagMenu();paintRhymes();setCaret(off);
+  }catch(e){}
+});
 doc.addEventListener("keydown",e=>{                        // capture-phase: intercept nav keys while the menu is open
   const m=$("tagMenu");if(!m||m.style.display==="none"||!tagMenuList.length)return;
   if(e.key==="ArrowDown"){e.preventDefault();e.stopImmediatePropagation();tagMenuIdx=(tagMenuIdx+1)%tagMenuList.length;showTagMenu();}

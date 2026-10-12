@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Songflow — Lyric Studio</title>
-<link rel="stylesheet" href="ams.css?v=144">
-<script src="songflow-scope.js?v=144"></script>
+<link rel="stylesheet" href="ams.css?v=146">
+<script src="songflow-scope.js?v=146"></script>
 <script>/* last ~25 browser errors, attached to bug reports (see the Report bug wiring at the end) */
 window.__sfErrs=[];(function(){function add(k,m){try{var a=window.__sfErrs;a.push({t:new Date().toISOString(),k:k,m:String(m).slice(0,400)});if(a.length>25)a.shift();}catch(e){}}
 window.addEventListener("error",function(e){add("error",(e.message||"")+(e.filename?" @"+String(e.filename).split("/").pop()+":"+e.lineno:""));});
@@ -354,7 +354,7 @@ var ce=console.error;console.error=function(){try{add("console",[].slice.call(ar
         <div id="tl"></div>
         <div class="tlresize" id="tlResize" title="drag to resize the timeline / waveform height"></div>
         <div style="display:flex;gap:6px;align-items:center;padding:4px 2px;flex-wrap:wrap">
-          <span id="apInd" class="apind ap-ed" title="Spacebar target. Tab switches it (or click here). Type a letter to jump to the editor."><span class="apdot"></span><b id="apIndT">Editor</b> · Space <span id="apHint">types</span><span class="apkey">Tab&nbsp;⇄</span></span>
+          <span id="apInd" class="apind ap-ed" title="Spacebar target. Tab switches it (or click here). Type a letter to jump to the editor. Ctrl+Space (or Ctrl+Enter) plays / stops from anywhere, even while typing."><span class="apdot"></span><b id="apIndT">Editor</b> · Space <span id="apHint">types</span><span class="apkey">Tab&nbsp;⇄</span></span>
           <span class="meta">Audio edit</span>
           <button class="tbtn" id="aCopy" title="copy the selected waveform span or section (Ctrl+C)" style="width:auto;padding:0 9px;font-size:11px">&#10697; Copy</button>
           <button class="tbtn" id="aCut" title="cut the selected span (Ctrl+X)" style="width:auto;padding:0 9px;font-size:11px">&#9986; Cut</button>
@@ -627,7 +627,7 @@ var ce=console.error;console.error=function(){try{add("console",[].slice.call(ar
         <ul>
           <li><b>Two markers.</b> The <b style="color:#ffbf47">amber cue</b> is where playback starts and returns to &mdash; it stays put. The <b style="color:var(--accent2)">teal playhead</b> is the one that moves while the song plays. Click the timeline to set the cue.</li>
           <li><b>Karaoke highlight.</b> As the song plays, the bar being sung lights up in the editor and empties left-to-right in time with the music, so you can see instantly whether your words line up with the track.</li>
-          <li><b>Space belongs to one panel at a time.</b> Click the timeline and Space plays; click into the lyrics and Space types. The pill under the timeline shows which mode you are in, and <b>Tab</b> flips it. <b>Enter</b> plays / pauses in place.</li>
+          <li><b>Space belongs to one panel at a time.</b> Click the timeline and Space plays; click into the lyrics and Space types. The pill under the timeline shows which mode you are in, and <b>Tab</b> flips it. <b>Enter</b> plays / pauses in place. <b>Ctrl+Space</b> (or <b>Ctrl+Enter</b>) plays / stops from anywhere, even while you're typing lyrics.</li>
           <li><b>&#128279; Link cursor</b> (on by default): clicking the timeline also moves your lyric cursor to that bar. Turn it off if you would rather the cursor stay where you left it.</li>
           <li><b>Beat grid &amp; Anchor.</b> Move the play marker to the first downbeat (turn <b>Snap</b> off for precision) and press <b>&#9875; Anchor</b> &mdash; the beat grid and metronome lock to that point, and Slip nudges them from there. Bars are numbered from the first bar of the track, so the ruler and the lyric gutter always show the same bar numbers.</li>
         </ul>
@@ -704,11 +704,11 @@ $("helpClose").onclick=()=>showHelp(false);
 $("helpModal").addEventListener("click",e=>{if(e.target===$("helpModal"))showHelp(false);});
 document.addEventListener("keydown",e=>{if(e.key==="Escape")showHelp(false);});
 </script>
-<script src="ams-timeline.js?v=144"></script>
-<script src="ams-vowels.js?v=144"></script>
-<script src="ams-pron.js?v=144"></script>
-<script src="ams-bpm.js?v=144"></script>
-<script src="ams-sections.js?v=144"></script>
+<script src="ams-timeline.js?v=146"></script>
+<script src="ams-vowels.js?v=146"></script>
+<script src="ams-pron.js?v=146"></script>
+<script src="ams-bpm.js?v=146"></script>
+<script src="ams-sections.js?v=146"></script>
 <script>
 const doc=$("doc"),gut=$("gut");
 // keep the gutter (line #, syllables, rhyme vowel) locked to the lyric scroll — they share the
@@ -1010,6 +1010,11 @@ if($("apInd"))$("apInd").onclick=()=>toggleActivePanel();
 // global routing (capture phase, so we beat the timeline's document keydown for Tab / letter-jump)
 document.addEventListener("keydown",e=>{
   const ae=document.activeElement, inField=ae&&/INPUT|TEXTAREA|SELECT/.test(ae.tagName);
+  // CTRL+SPACE (or Ctrl+Enter, for Macs where Ctrl+Space switches keyboards) = play / stop from ANYWHERE,
+  // the lyric editor included, without leaving it (plain Space keeps typing spaces there)
+  if((e.ctrlKey||e.metaKey)&&!e.altKey&&!e.shiftKey&&(e.code==="Space"||e.key==="Enter")&&!inField){
+    e.preventDefault();e.stopPropagation();transport(true);return;
+  }
   if(e.key==="Tab"&&!e.ctrlKey&&!e.metaKey&&!e.altKey&&!inField){ e.preventDefault();e.stopPropagation();toggleActivePanel();return; }
   // type a letter/number/punct while the TIMELINE is active → jump to the editor and let it type
   // (but never when a real form field — BPM box, theme select, dialog input — has focus)
@@ -2059,7 +2064,7 @@ window.addEventListener("keydown",e=>{if(e.key==="Escape"&&$("tourOvl").classLis
 window.addEventListener("resize",()=>{if($("tourOvl").classList.contains("on"))tourShow();});
 if(!localStorage.getItem("ams.tour.seen"))setTimeout(()=>{try{tourStart();}catch(e){}},800);   // first visit → auto-run
 </script>
-<script src="lyric-core.js?v=144"></script>
+<script src="lyric-core.js?v=146"></script>
 <!-- Sign-in: Google (shown once the provider is switched on in Supabase) or a magic link by email -->
 <div id="authPanel" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10000;align-items:center;justify-content:center">
   <div style="background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px;width:350px;max-width:92vw;box-shadow:0 14px 44px rgba(0,0,0,.55)">
@@ -2073,7 +2078,7 @@ if(!localStorage.getItem("ams.tour.seen"))setTimeout(()=>{try{tourStart();}catch
   </div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script src="songflow-cloud.js?v=144"></script>
+<script src="songflow-cloud.js?v=146"></script>
 <!-- BUG REPORTER markup lives inside .lyx (the lyric processor); this just wires it. -->
 <script>
 (function(){
