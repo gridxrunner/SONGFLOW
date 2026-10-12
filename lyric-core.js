@@ -79,6 +79,25 @@ doc.textContent=docsState.docs[docsState.active].text;
    real one. Those phantoms desynced the gutter numbering, drifted the karaoke wipe after blank
    lines, and got BAKED into the text as real doubled blanks on repaint. Reading the DOM's block
    structure instead (each div/p = exactly one line) matches what the writer actually sees. ---- */
+/* ---- the LAST line: a contenteditable never draws a line after a trailing "\n", so an empty final
+   line (the last bar slot of an N-bar region at the end of the song) had nowhere for the caret: Down
+   stopped a bar short and typing landed on the bar above. A placeholder <br data-tail> at the very
+   end draws that line. It is not lyric text: docText() skips it and doc.innerText drops the one "\n"
+   it adds, so every reader sees the same lines as before. ensureTail() keeps it there only while the
+   text ends on an empty line. ---- */
+const _itDesc=Object.getOwnPropertyDescriptor(HTMLElement.prototype,"innerText");
+const _isTail=n=>!!(n&&n.nodeType===1&&n.nodeName==="BR"&&n.dataset&&n.dataset.tail);
+if(_itDesc&&_itDesc.get&&_itDesc.set)Object.defineProperty(doc,"innerText",{configurable:true,
+  get(){const t=_itDesc.get.call(this);return (_isTail(this.lastChild)&&t.endsWith("\n"))?t.slice(0,-1):t;},
+  set(v){_itDesc.set.call(this,v);}});
+const TAIL_BR='<br data-tail="1">';
+function ensureTail(){
+  try{
+    const has=_isTail(doc.lastChild),endsEmpty=doc.innerText.endsWith("\n");
+    if(endsEmpty&&!has){const b=document.createElement("br");b.dataset.tail="1";doc.appendChild(b);}
+    else if(!endsEmpty&&has)doc.removeChild(doc.lastChild);
+  }catch(e){}
+}
 function docText(){
   const lines=[];let cur=null;                            // cur = an open, not-yet-emitted line
   const emit=s=>lines.push(s);
@@ -90,6 +109,7 @@ function docText(){
     let s="";n.childNodes.forEach(c=>s+=inline(c));return s;
   };
   doc.childNodes.forEach(n=>{
+    if(_isTail(n))return;                                 // the last-line placeholder isn't text
     if(n.nodeType===1&&/^(DIV|P)$/.test(n.nodeName)){
       closeCur();                                         // a block always starts its own line
       const parts=inline(n).split("\n");
@@ -256,6 +276,7 @@ function renderGutter(){
 }
 function update(){
   try{normalizeDoc();}catch(e){}                          // flatten any block structure BEFORE reading lines
+  ensureTail();                                           // an empty last line stays reachable
   const lines=doc.innerText.split("\n");
   renderGutter();
   localStorage.setItem(TEXT_KEY,doc.innerText);
@@ -414,7 +435,7 @@ function paintRhymes(){
       if(key&&(key in fams)&&cnt[key]>=2&&clean.length>=3&&!STOP.has(clean))return `<span class="in" style="color:${VC[key]||"inherit"}">${esc(w)}</span>`;
       return esc(w);}).join("")+`</span>`;   // .ly = one lyric line, so paintTagColors can tint it with its section's colour
   });
-  doc.innerHTML=_applyFolds(parts,lines);update();
+  doc.innerHTML=_applyFolds(parts,lines)+(lines.length>1&&lines[lines.length-1]===""?TAIL_BR:"");update();   // TAIL_BR: the empty last line gets drawn
   paintTagColors();
 }
 /* each [Tag] in the lyrics takes its section's colour from the tag menu (index = section order), and
