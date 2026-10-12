@@ -172,6 +172,9 @@ function endVowelKey(word){
 }
 const STOP=new Set(["the","a","an","to","of","in","on","it","is","at","as","and","or","but","for","so","we","he","she","you","me","my","be","do","no","by","up","if","its","his","her","our","was","are","this","that","with","not"]);
 const isTag=t=>/^\[.*\]$/.test(t);
+// a tag still being typed ("[", "[Cho" — no closing bracket yet) is not a lyric bar: counting it made a
+// full 8-bar section grow to 9 the moment you paused while typing the next tag below it
+const isTagDraft=t=>/^\[[^\]]*$/.test(t);
 
 /* ---- RHYME ANCHOR ----
    The rhyme of a bar normally sits on its LAST word — but a comma (or ; :) near the end marks
@@ -313,6 +316,9 @@ function materializeSlots(){
       const body=lines.slice(i+1,j);
       if(N!=null){
         let last=body.length-1;while(last>=0&&!body[last].trim())last--;   // last real line
+        // ...but never the empty line the caret is ON: Enter after the last bar makes a new line to
+        // write the next tag on, and trimming it threw the caret back to the end of the bar above
+        if(caretLine>i&&caretLine<j)last=Math.max(last,caretLine-i-1);
         const slots=last+1;
         const nb=body.slice(0,slots);
         for(let p=slots;p<N;p++)nb.push("");                               // pad up to N bar slots
@@ -376,7 +382,7 @@ function syncTagCounts(){
   let changed=false,caretAdj=caret;
   for(const s of secs){
     if(s.N==null)continue;
-    let last=s.end-1;while(last>=s.start&&!lines[last].trim())last--;
+    let last=s.end-1;while(last>=s.start&&(!lines[last].trim()||isTagDraft(lines[last].trim())))last--;   // trailing blanks and a half-typed tag aren't bars
     const slots=last-s.start+1;
     if(slots>s.N&&s.i!==caretLine){                                   // grow-only; skip while the caret edits that header
       const nl=`[${s.name} - ${slots} bars]`;
