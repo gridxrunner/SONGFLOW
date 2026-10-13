@@ -60,6 +60,23 @@
   .mbtn.ghost{background:var(--panel2);color:var(--mut);border:1px solid var(--line)}
   .mbtn.ghost:hover{color:var(--txt)}
   .mbtn.go{background:var(--grad);color:#0c0d12}
+  .mbtn:disabled{opacity:.45;cursor:default}
+  /* lyric-file converter */
+  .modal.wide{width:min(560px,94vw)}
+  .cvlist{max-height:min(320px,46vh);overflow:auto;display:flex;flex-direction:column;gap:6px;margin:4px 0 2px}
+  .cvrow{display:flex;align-items:flex-start;gap:10px;padding:9px 10px;border:1px solid var(--line);border-radius:10px;background:var(--panel2)}
+  .cvrow .cvtx{flex:1;min-width:0}
+  .cvrow .cvnm{font-weight:700;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .cvrow .cvmeta{color:var(--mut);font-size:11px;margin-top:2px;line-height:1.4}
+  .cvrow .cvmeta b{color:var(--accent2);font-weight:600}
+  .cvrow .cvbad{color:#ff8a8a}
+  .cvrow .cvx{flex:none;background:none;border:0;color:var(--mut);cursor:pointer;font-size:13px;padding:0 2px}
+  .cvrow .cvx:hover{color:var(--txt)}
+  #cvOvl .mrow .mbtn{flex:0 0 auto;width:auto;white-space:nowrap}
+  .cvadd{display:inline-block;width:fit-content;margin-top:8px;color:var(--mut);font-size:11.5px;text-decoration:none;border-bottom:1px dotted var(--mut);cursor:pointer}
+  .cvadd:hover{color:var(--txt)}
+  .cvnote{color:var(--mut);font-size:11px;min-height:15px;margin-top:8px}
+  body.dropping .card{outline:2px dashed var(--accent2);outline-offset:4px}
 </style>
 </head>
 <body>
@@ -82,8 +99,10 @@
       <h4>Your projects</h4>
       <div id="projList"></div>
       <div class="uprow">
-        <button class="upbtn" id="upBtn" title="Open a .songflow project file saved from Songflow — restores the audio, lyrics, arrangement and settings exactly">&#11014; Open a .songflow file</button>
-        <input type="file" id="upFile" accept=".songflow,application/octet-stream" style="display:none">
+        <button class="upbtn" id="upBtn" title="Open a .sflow project file saved from Songflow (older .songflow files open too) — restores the audio, lyrics, arrangement and settings exactly">&#11014; Open a .sflow file</button>
+        <input type="file" id="upFile" accept=".sflow,.songflow,application/octet-stream" style="display:none">
+        <button class="upbtn" id="cvBtn" title="Turn your existing lyric files (.txt, .md, .lrc) into Songflow projects, as many as you like at once. You can also drop them anywhere on this page.">&#8644; Convert lyric files</button>
+        <input type="file" id="cvFile" accept=".txt,.text,.md,.lrc,text/plain" multiple style="display:none">
       </div>
       <div class="busy" id="busy">Loading…</div>
     </div>
@@ -106,6 +125,22 @@
     </div>
   </div>
 
+  <div class="ovl" id="cvOvl">
+    <div class="modal wide">
+      <div class="mtt"><span class="mk"></span>Convert lyric files</div>
+      <div class="msub">Each file becomes a Songflow project. Headers like <b>Verse 1:</b>, <b>(Chorus)</b>, <b>[Hook]</b> or <b>CHORUS</b> become section tags. A file with no headers is split by paragraph, and a paragraph that repeats becomes the Chorus.</div>
+      <div class="cvlist" id="cvList"></div>
+      <a class="cvadd" id="cvMore">+ Add more files</a>
+      <div class="cvnote" id="cvNote"></div>
+      <div class="mrow">
+        <button class="mbtn ghost" id="cvCancel">Cancel</button>
+        <button class="mbtn ghost" id="cvDl" title="Download each one as a .sflow project file (several come as one zip)">&#11015; Download .sflow</button>
+        <button class="mbtn go" id="cvAdd">&#65291; Add to my projects</button>
+      </div>
+    </div>
+  </div>
+
+<script src="songflow-convert.js?v=2"></script>
 <script>
   /* === community links on the start screen === */
   const YT_URL="https://www.youtube.com/@theaimusicalchemist", DISCORD_URL="https://discord.gg/3u4fMHDUjC";
@@ -121,7 +156,7 @@
   }
   function busy(on,msg){const b=document.getElementById("busy");b.style.display=on?"block":"none";if(msg)b.textContent=msg;}
 
-  /* ---- .songflow import (same container the studio writes: 8-byte magic + 4-byte LE json length + json + raw audio) ---- */
+  /* ---- .sflow import (older files: .songflow; same container the studio writes: 8-byte magic + 4-byte LE json length + json + raw audio) ---- */
   function idbPut(k,v){return new Promise((res,rej)=>{const r=indexedDB.open("songflow",1);
     r.onupgradeneeded=()=>{const db=r.result;if(!db.objectStoreNames.contains("audio"))db.createObjectStore("audio");};
     r.onsuccess=()=>{const t=r.result.transaction("audio","readwrite");t.objectStore("audio").put(v,k);t.oncomplete=()=>res();t.onerror=()=>rej(t.error);};
@@ -162,8 +197,10 @@
   }
 
   /* ---- project list ---- */
-  const st=dedupeDemo();
+  dedupeDemo();
   const list=document.getElementById("projList");
+  function renderList(){
+  const st=load();
   if(st.docs.length){
     list.innerHTML=st.docs.map((d,i)=>`<div class="proj" data-i="${i}"><span class="nm"></span><span class="meta"></span></div>`).join("");
     [...list.children].forEach((el,i)=>{
@@ -173,7 +210,9 @@
       el.querySelector(".meta").textContent=bars+" bar"+(bars===1?"":"s");
       el.onclick=()=>{st.active=i;save(st);go(st);};
     });
-  } else list.innerHTML='<div class="none">No projects yet — create one, open the demo, or open a .songflow file.</div>';
+  } else list.innerHTML='<div class="none">No projects yet — create one, open the demo, open a .sflow file, or convert your lyric files.</div>';
+  }
+  renderList();
 
   /* ---- demo card: already imported → open it; else fetch + import ONE copy (in-flight lock:
      the 5 MB fetch takes seconds, and extra clicks used to start extra imports = duplicates) ---- */
@@ -187,7 +226,7 @@
       if(have>=0){d.active=have;save(d);go(d);return;}
       importing=true;demoCard.style.opacity=".55";demoCard.style.pointerEvents="none";
       busy(true,"Loading the demo (one-time, ~5 MB)…");
-      const r=await fetch("demo.songflow");
+      const r=await fetch("demo.sflow");
       if(!r.ok)throw new Error("demo file not found ("+r.status+")");
       const nd=await importSongflow(await r.arrayBuffer(),DEMO_NAME);
       go(nd);
@@ -197,13 +236,93 @@
     }
   };
 
-  /* ---- upload a .songflow (same in-flight lock) ---- */
+  /* ---- upload a .sflow (same in-flight lock) ---- */
   document.getElementById("upBtn").onclick=()=>{if(!importing)document.getElementById("upFile").click();};
   document.getElementById("upFile").onchange=async e=>{
     const f=e.target.files&&e.target.files[0]; e.target.value=""; if(!f||importing)return;
     try{importing=true;busy(true,"Opening "+f.name+"…");const d=await importSongflow(await f.arrayBuffer());go(d);}
     catch(err){importing=false;busy(true,"Couldn't open: "+err.message);setTimeout(()=>busy(false),4000);}
   };
+
+  /* ---- convert lyric files (.txt / .md / .lrc) → projects or .sflow downloads (songflow-convert.js) ---- */
+  const cvOvl=document.getElementById("cvOvl"),cvList=document.getElementById("cvList"),cvNote=document.getElementById("cvNote");
+  let cvItems=[];
+  const isLyricFile=f=>/\.(txt|text|md|lrc)$/i.test(f.name)||(f.type==="text/plain"&&!/\.(sflow|songflow)$/i.test(f.name));
+  async function cvAddFiles(files){
+    for(const f of files){
+      if(f.size>2e6){cvItems.push({file:f.name,err:"too big for a lyric file (over 2 MB)"});continue;}
+      try{
+        const raw=SFConvert.decode(await f.arrayBuffer());
+        const r=SFConvert.convertText(raw);
+        if(!r.bars&&!r.sections.length)cvItems.push({file:f.name,err:"no lyrics found"});
+        else cvItems.push({file:f.name,name:f.name.replace(/\.[^.]+$/,"").trim()||"Lyrics",...r});
+      }catch(e){cvItems.push({file:f.name,err:"couldn't read it"});}
+    }
+    cvRender();cvOvl.classList.add("show");
+  }
+  function cvRender(){
+    cvList.textContent="";
+    cvItems.forEach((it,i)=>{
+      const row=document.createElement("div");row.className="cvrow";
+      const tx=document.createElement("div");tx.className="cvtx";
+      const nm=document.createElement("div");nm.className="cvnm";nm.textContent=it.name||it.file;
+      const meta=document.createElement("div");meta.className="cvmeta";
+      if(it.err){meta.classList.add("cvbad");meta.textContent=it.file+": "+it.err+" (skipped)";}
+      else{
+        const secs=it.sections.slice(0,6).join(", ")+(it.sections.length>6?", …":"");
+        const how=it.tagged==="headers"?"":it.tagged==="paragraphs"?" (split by paragraph)":" (no headers, one section)";
+        meta.append(it.bars+" bar"+(it.bars===1?"":"s")+" · ");
+        const b=document.createElement("b");b.textContent=secs;meta.append(b,how);
+      }
+      tx.append(nm,meta);
+      const x=document.createElement("button");x.className="cvx";x.title="Leave this one out";x.innerHTML="&#10005;";
+      x.onclick=()=>{cvItems.splice(i,1);cvItems.length?cvRender():cvClose();};
+      row.append(tx,x);cvList.append(row);
+    });
+    const ok=cvItems.filter(it=>!it.err).length;
+    document.getElementById("cvAdd").disabled=document.getElementById("cvDl").disabled=!ok;
+    document.getElementById("cvAdd").innerHTML="&#65291; Add "+(ok===1?"to my projects":ok+" to my projects");
+    cvNote.textContent="";
+  }
+  function cvClose(){cvOvl.classList.remove("show");cvItems=[];}
+  document.getElementById("cvBtn").onclick=()=>document.getElementById("cvFile").click();
+  document.getElementById("cvMore").onclick=()=>document.getElementById("cvFile").click();
+  document.getElementById("cvFile").onchange=e=>{const fs=[...(e.target.files||[])];e.target.value="";if(fs.length)cvAddFiles(fs);};
+  document.getElementById("cvCancel").onclick=cvClose;
+  cvOvl.addEventListener("mousedown",e=>{if(e.target===cvOvl)cvClose();});
+  document.getElementById("cvAdd").onclick=()=>{
+    const ok=cvItems.filter(it=>!it.err);if(!ok.length)return;
+    const d=load();
+    ok.forEach(it=>d.docs.push({name:it.name,text:it.text,updated:0,id:newId(),layoutV:2}));   // layoutV 2: packs the current way
+    save(d);cvClose();renderList();
+    busy(true,"Added "+ok.length+" project"+(ok.length===1?"":"s")+" from your lyric files.");setTimeout(()=>busy(false),4500);
+  };
+  document.getElementById("cvDl").onclick=()=>{
+    const ok=cvItems.filter(it=>!it.err);if(!ok.length)return;
+    const used={},files=ok.map(it=>{let b=SFConvert.fileBase(it.name),n=b,k=2;while(used[n.toLowerCase()])n=b+"-"+(k++);used[n.toLowerCase()]=1;
+      return {name:n+".sflow",data:SFConvert.sflowBytes(it.name,it.text,it.file)};});
+    const blob=files.length===1?new Blob([files[0].data],{type:"application/octet-stream"}):SFConvert.zip(files);
+    const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=files.length===1?files[0].name:"songflow-lyrics.zip";a.click();
+    setTimeout(()=>URL.revokeObjectURL(a.href),3000);
+    cvNote.textContent="Downloaded "+(files.length===1?files[0].name:files.length+" .sflow files in songflow-lyrics.zip")+".";
+  };
+  // drop files anywhere on the page: lyric files → the converter, a .sflow → open it
+  let dragDepth=0;
+  document.addEventListener("dragenter",e=>{if(e.dataTransfer&&[...e.dataTransfer.types].includes("Files")){dragDepth++;document.body.classList.add("dropping");}});
+  document.addEventListener("dragleave",()=>{if(--dragDepth<=0){dragDepth=0;document.body.classList.remove("dropping");}});
+  document.addEventListener("dragover",e=>{if(e.dataTransfer&&[...e.dataTransfer.types].includes("Files"))e.preventDefault();});
+  document.addEventListener("drop",async e=>{
+    const fs=[...((e.dataTransfer&&e.dataTransfer.files)||[])];if(!fs.length)return;
+    e.preventDefault();dragDepth=0;document.body.classList.remove("dropping");
+    const proj=fs.find(f=>/\.(sflow|songflow)$/i.test(f.name)),lyr=fs.filter(isLyricFile);
+    if(lyr.length){cvAddFiles(lyr);return;}
+    if(proj&&!importing){
+      try{importing=true;busy(true,"Opening "+proj.name+"…");const d=await importSongflow(await proj.arrayBuffer());go(d);}
+      catch(err){importing=false;busy(true,"Couldn't open: "+err.message);setTimeout(()=>busy(false),4000);}
+      return;
+    }
+    busy(true,"Drop lyric files (.txt, .md, .lrc) or a .sflow project here.");setTimeout(()=>busy(false),3500);
+  });
 
   /* ---- new project ---- */
   const ovl=document.getElementById("ovl"),projName=document.getElementById("projName");

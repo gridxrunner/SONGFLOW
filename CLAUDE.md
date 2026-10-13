@@ -83,3 +83,10 @@ the same sign-in and the same saved projects. Without the cookie, `/preview/...`
 - `/api/*` calls from preview pages go to the LIVE functions, so server-function changes can't be previewed this way.
 - Preview shares the browser's saved projects with the live site: a data migration in preview code changes the
   real data. Make migrations safe to run on both versions.
+
+## Project files and lyric conversion
+
+Project files are `.sflow` (renamed from `.songflow` on 2026-10-13; both still open, the contents are the same:
+`SONGFLW1` + u32 LE JSON length + JSON + raw audio). The start screen's **Convert lyric files** uses
+`songflow-convert.js` (`window.SFConvert`): plain `.txt` / `.md` / `.lrc` lyric files → Songflow text with section
+tags, then projects in the list or `.sflow` downloads (several = one stored zip, no library).

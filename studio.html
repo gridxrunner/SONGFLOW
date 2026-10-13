@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Songflow — Lyric Studio</title>
-<link rel="stylesheet" href="ams.css?v=147">
-<script src="songflow-scope.js?v=147"></script>
+<link rel="stylesheet" href="ams.css?v=148">
+<script src="songflow-scope.js?v=148"></script>
 <script>/* last ~25 browser errors, attached to bug reports (see the Report bug wiring at the end) */
 window.__sfErrs=[];(function(){function add(k,m){try{var a=window.__sfErrs;a.push({t:new Date().toISOString(),k:k,m:String(m).slice(0,400)});if(a.length>25)a.shift();}catch(e){}}
 window.addEventListener("error",function(e){add("error",(e.message||"")+(e.filename?" @"+String(e.filename).split("/").pop()+":"+e.lineno:""));});
@@ -328,9 +328,9 @@ var ce=console.error;console.error=function(){try{add("console",[].slice.call(ar
         <button class="tbtn" id="docRen" title="rename">&#9998;</button>
         <button class="tbtn" id="docDel" title="delete">&#128465;</button>
         <span style="width:1px;height:16px;background:var(--line);margin:0 2px"></span>
-        <button class="tbtn" id="projSave" title="Save project to a .songflow file — bundles the audio, lyrics, arrangement tags and every setting so you can reopen it exactly as it is now (also works to move a project to another browser/device)">&#128190;</button>
-        <button class="tbtn" id="projOpen" title="Open a .songflow project file">&#128194;</button>
-        <input type="file" id="projFile" accept=".songflow,application/octet-stream" style="display:none">
+        <button class="tbtn" id="projSave" title="Save project to a .sflow file — bundles the audio, lyrics, arrangement tags and every setting so you can reopen it exactly as it is now (also works to move a project to another browser/device)">&#128190;</button>
+        <button class="tbtn" id="projOpen" title="Open a .sflow project file (older .songflow files open too)">&#128194;</button>
+        <input type="file" id="projFile" accept=".sflow,.songflow,application/octet-stream" style="display:none">
       </div>
       <select class="mini" id="tagIns" title="add an arrangement region at the play marker">
         <option value="">&#65291; Add region</option>
@@ -591,7 +591,8 @@ var ce=console.error;console.error=function(){try{add("console",[].slice.call(ar
         <h4>Getting started</h4>
         <ul>
           <li><b>Projects.</b> The start screen lists your projects, a <b>Real Crews demo</b> (a finished song made with this exact workflow &mdash; open it to see how a project is put together), and <b>&#65291; New project</b>. Everything autosaves in this browser as you work, filed under the account you're signed in with: signed in, you see your own projects; signed out, only the ones made while signed out. The first time you sign in on a computer, the projects you made there while signed out move into your account.</li>
-          <li><b>&#128190; Save project / &#128194; Open project.</b> Saves one <code>.songflow</code> file holding the audio, lyrics, arrangement and every setting &mdash; a real backup you can move between computers or send to someone.</li>
+          <li><b>&#128190; Save project / &#128194; Open project.</b> Saves one <code>.sflow</code> file (older <code>.songflow</code> files still open) holding the audio, lyrics, arrangement and every setting &mdash; a real backup you can move between computers or send to someone.</li>
+          <li><b>Bring in your old lyrics:</b> on the start screen, <b>&#8644; Convert lyric files</b> (or drop them on the page) turns any number of <code>.txt</code>, <code>.md</code> or <code>.lrc</code> lyric files into Songflow projects at once. Headers like <i>Verse 1:</i>, <i>(Chorus)</i> or <i>CHORUS</i> become section tags; add them to your projects or download them as <code>.sflow</code> files.</li>
           <li><b>Sign in</b> (top right, on the start screen or here) is optional. Continue with Google, or get a one-tap link by email &mdash; no password. It carries your <b>included AI credits</b>. Click your name for your <b>account menu</b>: your credits or waitlist place, and <b>Sign out</b>. Projects stay in this browser; use <b>&#128190; Save project</b> to move one to another computer.</li>
           <li><b>Tester spots.</b> Each spot comes with $5 of included AI credits, and there are only so many. When they're full, you can <b>join the waitlist</b> from the account menu or the credit meter under Generate &mdash; your credits open as spots free up. Use up your $5 and you can join the waitlist for more. While you wait, you can still write, and generate with your own key.</li>
           <li><b>&#128030; Report bug</b> (bottom right of the editor) &mdash; hit it the moment something breaks or confuses you. Your note goes straight to us with the page, version and any error messages attached.</li>
@@ -704,11 +705,11 @@ $("helpClose").onclick=()=>showHelp(false);
 $("helpModal").addEventListener("click",e=>{if(e.target===$("helpModal"))showHelp(false);});
 document.addEventListener("keydown",e=>{if(e.key==="Escape")showHelp(false);});
 </script>
-<script src="ams-timeline.js?v=147"></script>
-<script src="ams-vowels.js?v=147"></script>
-<script src="ams-pron.js?v=147"></script>
-<script src="ams-bpm.js?v=147"></script>
-<script src="ams-sections.js?v=147"></script>
+<script src="ams-timeline.js?v=148"></script>
+<script src="ams-vowels.js?v=148"></script>
+<script src="ams-pron.js?v=148"></script>
+<script src="ams-bpm.js?v=148"></script>
+<script src="ams-sections.js?v=148"></script>
 <script>
 const doc=$("doc"),gut=$("gut");
 // keep the gutter (line #, syllables, rhyme vowel) locked to the lyric scroll — they share the
@@ -1708,7 +1709,7 @@ async function restoreProjectState(){
   try{await scratchLoad();}catch(e){}
 }
 
-/* ================= project file (.songflow): save / open =================
+/* ================= project file (.sflow; older ones were named .songflow): save / open =================
    A portable, self-contained file so a project is safe off the browser and movable between
    machines. Binary container (no base64 bloat): [8-byte magic "SONGFLW1"][4-byte little-endian
    JSON length][JSON metadata][raw audio bytes]. Bundles the audio, the lyric text (arrangement
@@ -1734,7 +1735,7 @@ async function saveProjectFile(){
     new DataView(head.buffer).setUint32(8,jsonBytes.length,true);
     const out=new Blob([head,jsonBytes,audio],{type:"application/octet-stream"});
     const a=document.createElement("a"); a.href=URL.createObjectURL(out);
-    a.download=(d.name||"project").replace(/[^\w\-]+/g,"_").slice(0,60)+".songflow"; a.click();
+    a.download=(d.name||"project").replace(/[^\w\-]+/g,"_").slice(0,60)+".sflow"; a.click();   // .sflow since 2026-10-13 (was .songflow — same contents, both open)
     setTimeout(()=>URL.revokeObjectURL(a.href),2000);
     toast("Project saved"+(audio.length?" — audio included.":" (no track loaded)."));
   }catch(e){toast("Save failed: "+e.message);}
@@ -2064,7 +2065,7 @@ window.addEventListener("keydown",e=>{if(e.key==="Escape"&&$("tourOvl").classLis
 window.addEventListener("resize",()=>{if($("tourOvl").classList.contains("on"))tourShow();});
 if(!localStorage.getItem("ams.tour.seen"))setTimeout(()=>{try{tourStart();}catch(e){}},800);   // first visit → auto-run
 </script>
-<script src="lyric-core.js?v=147"></script>
+<script src="lyric-core.js?v=148"></script>
 <!-- Sign-in: Google (shown once the provider is switched on in Supabase) or a magic link by email -->
 <div id="authPanel" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10000;align-items:center;justify-content:center">
   <div style="background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px;width:350px;max-width:92vw;box-shadow:0 14px 44px rgba(0,0,0,.55)">
@@ -2078,7 +2079,7 @@ if(!localStorage.getItem("ams.tour.seen"))setTimeout(()=>{try{tourStart();}catch
   </div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script src="songflow-cloud.js?v=147"></script>
+<script src="songflow-cloud.js?v=148"></script>
 <!-- BUG REPORTER markup lives inside .lyx (the lyric processor); this just wires it. -->
 <script>
 (function(){
