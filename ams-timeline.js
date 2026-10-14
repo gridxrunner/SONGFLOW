@@ -109,7 +109,7 @@ class AMSTimeline {
       e.preventDefault();
       const fitPps = (this.area.clientWidth - this.LBL) / (this.duration || 1);
       const cur = this.pxPerSec || fitPps;
-      const next = Math.min(this._maxPxPerSec(), e.deltaY < 0 ? cur / 1.18 : cur * 1.18);   // scroll down = zoom in (founder)
+      const next = Math.min(this._maxPxPerSec(), e.deltaY < 0 ? cur * 1.18 : cur / 1.18);   // wheel up = zoom in (founder, inverted 2026-10-13; HyperSlice matches)
       const anchorT = this._tAtClientX(e.clientX);
       this.pxPerSec = next * this.duration <= this.area.clientWidth - this.LBL ? 0 : next;
       this.render();

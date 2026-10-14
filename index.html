@@ -180,6 +180,9 @@
     d.active=ai>=0?ai:Math.min(Math.max(0,d.active),d.docs.length-1);
     save(d);return d;
   }
+  // .sflow rule 2: keep every field this app doesn't use (e.g. ext.hyperslice) and write it back on save
+  const SF_KNOWN=["format","version","name","text","manualBars","secColors","tagLinks","secNames","secKeys","bpm","anchor","slip","warp","warpShow","trackName","layoutV","savedAt","audioType"];
+  function sfExtra(meta){const x={};for(const k of Object.keys(meta||{}))if(!SF_KNOWN.includes(k))x[k]=meta[k];return Object.keys(x).length?x:null;}
   async function importSongflow(buf,nameOverride){
     if(buf.byteLength<12||new TextDecoder().decode(new Uint8Array(buf,0,8))!=="SONGFLW1")throw new Error("not a Songflow project file");
     const jsonLen=new DataView(buf).getUint32(8,true);
@@ -190,7 +193,7 @@
     const d=load();
     d.docs.push({name:nameOverride||meta.name||"Opened project",text:meta.text||"",manualBars:meta.manualBars||null,secColors:meta.secColors||null,tagLinks:meta.tagLinks||null,secNames:meta.secNames||null,secKeys:meta.secKeys||null,
       bpm:meta.bpm,anchor:meta.anchor,slip:meta.slip,warp:meta.warp||[],warpShow:!!meta.warpShow,
-      trackName:meta.trackName||null,layoutV:meta.layoutV,updated:0,id});
+      trackName:meta.trackName||null,layoutV:meta.layoutV,extra:sfExtra(meta),updated:0,id});
     if(audio&&audio.length)await idbPut(id,new Blob([audio],{type:meta.audioType||"audio/wav"}));
     d.active=d.docs.length-1;save(d);
     return d;
