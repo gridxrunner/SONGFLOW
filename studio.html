@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Songflow — Lyric Studio</title>
-<link rel="stylesheet" href="ams.css?v=149">
-<script src="songflow-scope.js?v=149"></script>
+<link rel="stylesheet" href="ams.css?v=150">
+<script src="songflow-scope.js?v=150"></script>
 <script>/* last ~25 browser errors, attached to bug reports (see the Report bug wiring at the end) */
 window.__sfErrs=[];(function(){function add(k,m){try{var a=window.__sfErrs;a.push({t:new Date().toISOString(),k:k,m:String(m).slice(0,400)});if(a.length>25)a.shift();}catch(e){}}
 window.addEventListener("error",function(e){add("error",(e.message||"")+(e.filename?" @"+String(e.filename).split("/").pop()+":"+e.lineno:""));});
@@ -705,16 +705,34 @@ $("helpClose").onclick=()=>showHelp(false);
 $("helpModal").addEventListener("click",e=>{if(e.target===$("helpModal"))showHelp(false);});
 document.addEventListener("keydown",e=>{if(e.key==="Escape")showHelp(false);});
 </script>
-<script src="ams-timeline.js?v=149"></script>
-<script src="ams-vowels.js?v=149"></script>
-<script src="ams-pron.js?v=149"></script>
-<script src="ams-bpm.js?v=149"></script>
-<script src="ams-sections.js?v=149"></script>
+<script src="ams-timeline.js?v=150"></script>
+<script src="ams-vowels.js?v=150"></script>
+<script src="ams-pron.js?v=150"></script>
+<script src="ams-bpm.js?v=150"></script>
+<script src="ams-sections.js?v=150"></script>
 <script>
 const doc=$("doc"),gut=$("gut");
 // keep the gutter (line #, syllables, rhyme vowel) locked to the lyric scroll — they share the
 // same line-height + top padding, so matching scrollTop keeps every row aligned as you scroll.
 doc.addEventListener("scroll",()=>{gut.scrollTop=doc.scrollTop;});
+// SCROLL PAST THE END (founder, 2026-10-13): the lyric field keeps half its height free below the
+// last line (the gutter gets the same room so rows stay aligned), and while typing below the
+// middle the caret is held at the middle, so writing never ends up pinned to the bottom edge.
+function padLyrics(){const half=Math.round(doc.clientHeight/2)+"px";doc.style.paddingBottom=half;gut.style.paddingBottom=half;}
+try{new ResizeObserver(padLyrics).observe(doc);}catch(e){window.addEventListener("resize",padLyrics);}
+padLyrics();
+doc.addEventListener("input",e=>{
+  if(e.inputType&&!/^(insert|delete)/.test(e.inputType))return;
+  setTimeout(()=>{                                                    // after the editor re-renders the line
+    const sel=window.getSelection();if(!sel||!sel.rangeCount||!doc.contains(sel.anchorNode))return;
+    const r=sel.getRangeAt(0).cloneRange();r.collapse(true);const rect=r.getClientRects()[0],d=doc.getBoundingClientRect();let line;
+    if(rect&&rect.height)line=rect.top+rect.height/2;
+    else{const off=typeof caretOffset==="function"?caretOffset():null;if(off==null)return;   // an empty new line has no caret box: use the 28px line grid
+      line=d.top+18+(doc.innerText.slice(0,off).split("\n").length-1)*28+14-doc.scrollTop;}
+    const mid=d.top+doc.clientHeight/2;
+    if(line>mid+14)doc.scrollTop+=line-mid;
+  },0);
+});
 let rhymeOn=true,cur=null,curBuf=null,detectedBpm=120,curKey=null,bpmCycle=0,regionsFromAudio=false;
 let secColors=null;   // per-section tag colour ("#rrggbb", picked in the tag menu), aligned 1:1 with manualBars; null = the default teal
 let tagLinks=new Map();   // tag names LINKED by colour in the tag menu ("All <name> tags"): lowercase name -> colour (null = teal). Every tag with a linked name wears it, new ones too.
@@ -2069,7 +2087,7 @@ window.addEventListener("keydown",e=>{if(e.key==="Escape"&&$("tourOvl").classLis
 window.addEventListener("resize",()=>{if($("tourOvl").classList.contains("on"))tourShow();});
 if(!localStorage.getItem("ams.tour.seen"))setTimeout(()=>{try{tourStart();}catch(e){}},800);   // first visit → auto-run
 </script>
-<script src="lyric-core.js?v=149"></script>
+<script src="lyric-core.js?v=150"></script>
 <!-- Sign-in: Google (shown once the provider is switched on in Supabase) or a magic link by email -->
 <div id="authPanel" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10000;align-items:center;justify-content:center">
   <div style="background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px;width:350px;max-width:92vw;box-shadow:0 14px 44px rgba(0,0,0,.55)">
@@ -2083,7 +2101,7 @@ if(!localStorage.getItem("ams.tour.seen"))setTimeout(()=>{try{tourStart();}catch
   </div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script src="songflow-cloud.js?v=149"></script>
+<script src="songflow-cloud.js?v=150"></script>
 <!-- BUG REPORTER markup lives inside .lyx (the lyric processor); this just wires it. -->
 <script>
 (function(){
