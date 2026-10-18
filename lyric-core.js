@@ -756,9 +756,11 @@ function _undoRestore(s){
 function _syncUndoBtns(){const u=$("undoBtn"),r=$("redoBtn");if(u)u.disabled=!undoStack.length;if(r)r.disabled=!redoStack.length;}
 function pushUndo(){try{undoStack.push(_undoSnap()); redoStack=[];   // a new action invalidates the redo trail
   if(undoStack.length>UNDO_MAX)undoStack.shift();
-  // bound memory: a decoded buffer is 100+ MB. Keep only the most recent DISTINCT buffers restorable.
-  const seen=[];for(const s of undoStack)if(s.audioBuf&&seen.indexOf(s.audioBuf)<0)seen.push(s.audioBuf);
-  if(seen.length>8){const drop=seen.slice(0,seen.length-8);for(const s of undoStack)if(s.audioBuf&&drop.indexOf(s.audioBuf)>=0)s.audioBuf=undefined;}
+  // bound memory: a decoded song is 50-200 MB. Keep the most recent DISTINCT buffers restorable,
+  // at most 8 and about 300 MB (always the last two), so repeated audio edits can't exhaust the tab.
+  const seen=[];for(let k=undoStack.length-1;k>=0;k--){const b=undoStack[k].audioBuf;if(b&&seen.indexOf(b)<0)seen.push(b);}   // newest first
+  let bytes=0,keep=0;for(const b of seen){bytes+=b.length*b.numberOfChannels*4;if(keep>=8||(keep>=2&&bytes>3e8))break;keep++;}
+  const drop=seen.slice(keep);if(drop.length)for(const s of undoStack)if(s.audioBuf&&drop.indexOf(s.audioBuf)>=0)s.audioBuf=undefined;
   _editKind=""; _syncUndoBtns();
 }catch(e){}}
 // A user edit in the lyric box is about to happen: open a new undo step unless it continues the one

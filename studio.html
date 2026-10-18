@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Songflow — Lyric Studio</title>
-<link rel="stylesheet" href="ams.css?v=152">
-<script src="songflow-scope.js?v=152"></script>
+<link rel="stylesheet" href="ams.css?v=153">
+<script src="songflow-scope.js?v=153"></script>
 <script>/* last ~25 browser errors, attached to bug reports (see the Report bug wiring at the end) */
 window.__sfErrs=[];(function(){function add(k,m){try{var a=window.__sfErrs;a.push({t:new Date().toISOString(),k:k,m:String(m).slice(0,400)});if(a.length>25)a.shift();}catch(e){}}
 window.addEventListener("error",function(e){add("error",(e.message||"")+(e.filename?" @"+String(e.filename).split("/").pop()+":"+e.lineno:""));});
@@ -265,8 +265,11 @@ var ce=console.error;console.error=function(){try{add("console",[].slice.call(ar
   #ctxMenu{position:fixed;z-index:78;background:#15161e;border:1px solid var(--line);border-radius:9px;padding:4px;box-shadow:0 10px 28px rgba(0,0,0,.6);display:none;min-width:140px;font-size:12px}
   #ctxMenu .ctxitem{position:relative;padding:7px 10px;border-radius:6px;color:var(--txt);cursor:pointer;white-space:nowrap;display:flex;justify-content:space-between;gap:14px}
   #ctxMenu .ctxitem:hover{background:var(--panel2)}
-  #ctxMenu .ctxsub{position:absolute;left:100%;top:-4px;margin-left:4px;background:#15161e;border:1px solid var(--line);border-radius:9px;padding:4px;box-shadow:0 10px 28px rgba(0,0,0,.6);display:none;min-width:96px}
-  #ctxMenu .ctxitem:hover .ctxsub{display:block}
+  #ctxMenu .ctxsub{position:absolute;left:100%;top:-4px;margin-left:4px;background:#15161e;border:1px solid var(--line);border-radius:9px;padding:4px;box-shadow:0 10px 28px rgba(0,0,0,.6);visibility:hidden;transition:visibility 0s linear .4s;min-width:96px}
+  #ctxMenu .ctxsub::before{content:"";position:absolute;top:-4px;bottom:-4px;left:-12px;width:12px}   /* bridge over the gap: the pointer never leaves "Add region" on its way to a choice */
+  #ctxMenu .ctxitem:hover .ctxsub{visibility:visible;transition-delay:0s}
+  #ctxMenu.flip .ctxsub{left:auto;right:100%;margin-left:0;margin-right:4px}
+  #ctxMenu.flip .ctxsub::before{left:auto;right:-12px}
   #ctxMenu .ctxsub > div{padding:7px 10px;border-radius:6px;cursor:pointer}
   #ctxMenu .ctxsub > div:hover{background:var(--accent);color:#0c0d12;font-weight:700}
   /* inpaint panel (floating, non-blocking) */
@@ -540,7 +543,7 @@ var ce=console.error;console.error=function(){try{add("console",[].slice.call(ar
   <!-- right-click the timeline → add a blank region (ripple-inserts silence to inpaint) -->
   <div id="ctxMenu">
     <div class="ctxitem">Add region <span>&#9656;</span>
-      <div class="ctxsub"><div data-bars="4">4 bars</div><div data-bars="8">8 bars</div><div data-bars="16">16 bars</div></div>
+      <div class="ctxsub"><div data-bars="4">4 bars</div><div data-bars="8">8 bars</div><div data-bars="16">16 bars</div><div data-bars="32">32 bars</div></div>
     </div>
   </div>
 
@@ -645,7 +648,7 @@ var ce=console.error;console.error=function(){try{add("console",[].slice.call(ar
 
         <h4>Audio editing &amp; inpaint</h4>
         <ul>
-          <li><b>Right-click the timeline &rarr; Add region &rarr; 4 / 8 / 16 bars</b> inserts that many <b>blank bars</b> and pushes the rest of the song right (nothing is deleted).</li>
+          <li><b>Right-click the timeline &rarr; Add region &rarr; 4 / 8 / 16 / 32 bars</b> inserts that many <b>blank bars</b> and pushes the rest of the song right (nothing is deleted).</li>
           <li>The <b>&#127912; Inpaint</b> panel opens on the new region: type a genre/vibe and pick a model. The fill renders on the <b>Songflow audio engine</b> (a cloud worker) &mdash; until that is connected the region stays silent; everything else works offline.</li>
         </ul>
 
@@ -705,11 +708,11 @@ $("helpClose").onclick=()=>showHelp(false);
 $("helpModal").addEventListener("click",e=>{if(e.target===$("helpModal"))showHelp(false);});
 document.addEventListener("keydown",e=>{if(e.key==="Escape")showHelp(false);});
 </script>
-<script src="ams-timeline.js?v=152"></script>
-<script src="ams-vowels.js?v=152"></script>
-<script src="ams-pron.js?v=152"></script>
-<script src="ams-bpm.js?v=152"></script>
-<script src="ams-sections.js?v=152"></script>
+<script src="ams-timeline.js?v=153"></script>
+<script src="ams-vowels.js?v=153"></script>
+<script src="ams-pron.js?v=153"></script>
+<script src="ams-bpm.js?v=153"></script>
+<script src="ams-sections.js?v=153"></script>
 <script>
 const doc=$("doc"),gut=$("gut");
 // keep the gutter (line #, syllables, rhyme vowel) locked to the lyric scroll — they share the
@@ -1420,7 +1423,8 @@ function bufferToWav(buf){
   v.setUint32(16,16,true);v.setUint16(20,1,true);v.setUint16(22,chs,true);
   v.setUint32(24,sr,true);v.setUint32(28,sr*chs*2,true);v.setUint16(32,chs*2,true);v.setUint16(34,16,true);
   ws(36,"data");v.setUint32(40,len*chs*2,true);
-  let o=44;for(let i=0;i<len;i++)for(let c=0;c<chs;c++){let s=Math.max(-1,Math.min(1,buf.getChannelData(c)[i]));v.setInt16(o,s<0?s*32768:s*32767,true);o+=2;}
+  const pcm=new Int16Array(ab,44,len*chs),ch=[];for(let c=0;c<chs;c++)ch.push(buf.getChannelData(c));   // WAV is little-endian, as every browser's typed arrays are
+  for(let c=0;c<chs;c++){const d=ch[c];for(let i=0,o=c;i<len;i++,o+=chs){const s=d[i];pcm[o]=s<0?(s<=-1?-32768:s*32768):(s>=1?32767:s*32767);}}
   return new Blob([ab],{type:"audio/wav"});
 }
 /* export the current (possibly edited) audio to a .wav download */
@@ -1837,8 +1841,10 @@ $("tl").addEventListener("contextmenu",e=>{
   e.preventDefault();
   ctxTime=tl._tAtClientX(e.clientX);
   const m=$("ctxMenu");m.style.display="block";
-  m.style.left=Math.min(window.innerWidth-200,e.clientX)+"px";
-  m.style.top=Math.min(window.innerHeight-120,e.clientY)+"px";
+  const left=Math.min(window.innerWidth-160,e.clientX);
+  m.style.left=left+"px";
+  m.style.top=Math.min(window.innerHeight-160,e.clientY)+"px";
+  m.classList.toggle("flip",left+m.offsetWidth+120>window.innerWidth);   // no room for the bar choices on the right
 });
 $("ctxMenu").querySelectorAll(".ctxsub > div").forEach(el=>el.onclick=()=>{hideCtx();addBlankRegion(ctxTime,+el.dataset.bars);});
 document.addEventListener("click",e=>{if(!$("ctxMenu").contains(e.target))hideCtx();});
@@ -2090,7 +2096,7 @@ window.addEventListener("keydown",e=>{if(e.key==="Escape"&&$("tourOvl").classLis
 window.addEventListener("resize",()=>{if($("tourOvl").classList.contains("on"))tourShow();});
 if(!localStorage.getItem("ams.tour.seen"))setTimeout(()=>{try{tourStart();}catch(e){}},800);   // first visit → auto-run
 </script>
-<script src="lyric-core.js?v=152"></script>
+<script src="lyric-core.js?v=153"></script>
 <!-- Sign-in: Google (shown once the provider is switched on in Supabase) or a magic link by email -->
 <div id="authPanel" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10000;align-items:center;justify-content:center">
   <div style="background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px;width:350px;max-width:92vw;box-shadow:0 14px 44px rgba(0,0,0,.55)">
@@ -2104,7 +2110,7 @@ if(!localStorage.getItem("ams.tour.seen"))setTimeout(()=>{try{tourStart();}catch
   </div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script src="songflow-cloud.js?v=152"></script>
+<script src="songflow-cloud.js?v=153"></script>
 <!-- BUG REPORTER markup lives inside .lyx (the lyric processor); this just wires it. -->
 <script>
 (function(){
