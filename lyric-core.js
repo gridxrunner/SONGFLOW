@@ -33,7 +33,7 @@ function switchDoc(i){
   docsState.docs[docsState.active].text=doc.innerText;
   if(typeof saveProjectState==="function")saveProjectState();   // stash the current project's audio settings
   docsState.active=i;saveDocs();
-  undoStack.length=0;redoStack.length=0;typedSinceStructural=false;_syncUndoBtns();   // undo history belongs to the project it was made in
+  undoStack.length=0;redoStack.length=0;_editKind="";_syncUndoBtns();   // undo history belongs to the project it was made in
   _genSeq++;if(typeof genGlowHide==="function")genGlowHide();if($("ideaGo"))$("ideaGo").disabled=false;   // a generation in flight must not land in this project
   doc.textContent=docsState.docs[i].text;selLine=-1;
   if(rhymeOn)paintRhymes();else update();
@@ -66,7 +66,7 @@ $("docDel").onclick=()=>{
   if(!docsState.docs.length)docsState.docs.push({name:"Lyrics 1",text:"",updated:0});
   docsState.active=Math.min(docsState.active,docsState.docs.length-1);
   saveDocs();
-  undoStack.length=0;redoStack.length=0;typedSinceStructural=false;_syncUndoBtns();   // the deleted project's undo history must not apply here
+  undoStack.length=0;redoStack.length=0;_editKind="";_syncUndoBtns();   // the deleted project's undo history must not apply here
   _genSeq++;if(typeof genGlowHide==="function")genGlowHide();if($("ideaGo"))$("ideaGo").disabled=false;
   doc.textContent=docsState.docs[docsState.active].text;selLine=-1;
   if(rhymeOn)paintRhymes();else update();syncDocSel();
@@ -550,7 +550,7 @@ function caretIntoView(){
   }catch(e){}
 }
 doc.addEventListener("keydown",e=>{
-  if(e.key==="Enter"){e.preventDefault();
+  if(e.key==="Enter"){e.preventDefault();textEdit("line");
     // ENTER = a new line on the TEXT, then a repaint (the same way Delete / Backspace work). The browser's
     // own newline at the very end of the editor built <div>s; flattening them left every [Tag] unpainted,
     // so a new tag "lost its tag" the moment you pressed Enter to write its first bar.
@@ -578,6 +578,7 @@ doc.addEventListener("keydown",e=>{
     if(start<0)start=0;if(end>text.length)end=text.length;
     e.preventDefault();
     if(start>=end)return;                              // nothing to delete (e.g. at doc end)
+    textEdit("delete");
     const plain=text.slice(0,start)+text.slice(end);
     const sh=shrinkForDeletedBlanks(text,plain,start,end),next=sh.text;   // deleting empty bars shortens the section
     doc.textContent=next;paintRhymes();setCaret(Math.max(0,start+next.length-plain.length));  // repaint keeps colors, caret restored (a shorter count in the tag above moves it)
@@ -592,11 +593,11 @@ doc.addEventListener("drop",e=>{
   try{
     const r=document.caretRangeFromPoint?document.caretRangeFromPoint(e.clientX,e.clientY):null;
     if(r){const sel=document.getSelection();sel.removeAllRanges();sel.addRange(r);}
-    document.execCommand("insertText",false,t);
+    textEdit("paste");document.execCommand("insertText",false,t);
     if(rhymeOn)paintRhymes();else update();
   }catch(err){}
 });
-doc.addEventListener("paste",e=>{e.preventDefault();const t=(e.clipboardData||window.clipboardData).getData("text");document.execCommand("insertText",false,t);
+doc.addEventListener("paste",e=>{e.preventDefault();const t=(e.clipboardData||window.clipboardData).getData("text");textEdit("paste");document.execCommand("insertText",false,t);
   // repaint so pasted lines get correct rhyme colors immediately (don't inherit the caret span's color)
   if(rhymeOn){const off=(typeof caretOffset==="function")?caretOffset():null;paintRhymes();if(off!=null&&typeof setCaret==="function")setCaret(off);}else update();});
 $("lRhyme").onclick=()=>{rhymeOn=!rhymeOn;if(rhymeOn)paintRhymes();else unpaint();};
@@ -668,7 +669,7 @@ function acceptTag(k){
   // accepting over an EXISTING tag (retyping its name) keeps the count — only a genuinely new tag gets a slot
   const _tagN=t=>(t.match(/^\s*\[.*\]\s*$/gm)||[]).length;
   // no manualBars splice here: tagRegions' carry-over reconciles the count change (and returns a re-picked tag home)
-  doc.textContent=before+ins+after;
+  textEdit("tag");doc.textContent=before+ins+after;
   if(rhymeOn)paintRhymes();else update();
   setCaret((before+ins).length);hideTagMenu();
 }
@@ -709,14 +710,13 @@ function sectionBlocks(){
   return {pre,blocks};
 }
 const _trimTrail=ls=>{const a=ls.slice();while(a.length&&!a[a.length-1].trim())a.pop();return a;};
-/* ---- structural undo: native contenteditable undo can't reach programmatic changes
-   (delete region, rearrange, bar-length), so snapshot {text, positions} before each one
-   and restore on Ctrl+Z. ---- */
+/* ---- undo: ONE history for everything. The lyric box repaints itself (rhyme colours; Enter, Delete
+   and Backspace rewrite the text), which breaks the browser's own undo, so typing is recorded here
+   too: each word, run of deletes, new line, paste or picked tag is one step. A snapshot holds
+   {text, positions, grid, audio ref} and restoring it puts all of them back. ---- */
 let undoStack=[], redoStack=[], _genSeq=0;   // _genSeq: bump to CANCEL an in-flight generation (e.g. on undo)
-// true once the user has typed into the lyric box since the last STRUCTURAL action. While true,
-// Ctrl+Z in the box defers to the editor's native char-by-char undo; while false, our stack owns
-// the last change (a generation, fill, grid/warp/BPM/audio edit, etc.) so ALL of them are undoable.
-let typedSinceStructural=false;
+const UNDO_MAX=300;
+let _editKind="",_editT=0,_editSpace=false;  // the typing step in progress (see textEdit)
 function _undoSnap(){return {
   text:doc.innerText,
   caret:(typeof caretOffset==="function")?caretOffset():null,   // keep the cursor near where it was (don't jump to top)
@@ -749,45 +749,67 @@ function _undoRestore(s){
   try{tagRegions();}catch{}
   if(typeof tl!=="undefined"){tl.selRegions=[];tl.selRegion=-1;tl.sel=null;tl.render();}
   if(typeof saveProjectState==="function")saveProjectState();
-  typedSinceStructural=false; _syncUndoBtns();
+  _editKind=""; _syncUndoBtns();
   // CANCEL any in-flight generation — its async fill must NOT land on the restored document
   _genSeq++; if(typeof genGlowHide==="function")genGlowHide(); if($("ideaGo"))$("ideaGo").disabled=false;
 }
 function _syncUndoBtns(){const u=$("undoBtn"),r=$("redoBtn");if(u)u.disabled=!undoStack.length;if(r)r.disabled=!redoStack.length;}
 function pushUndo(){try{undoStack.push(_undoSnap()); redoStack=[];   // a new action invalidates the redo trail
-  if(undoStack.length>60)undoStack.shift();
+  if(undoStack.length>UNDO_MAX)undoStack.shift();
   // bound memory: a decoded buffer is 100+ MB. Keep only the most recent DISTINCT buffers restorable.
   const seen=[];for(const s of undoStack)if(s.audioBuf&&seen.indexOf(s.audioBuf)<0)seen.push(s.audioBuf);
   if(seen.length>8){const drop=seen.slice(0,seen.length-8);for(const s of undoStack)if(s.audioBuf&&drop.indexOf(s.audioBuf)>=0)s.audioBuf=undefined;}
-  typedSinceStructural=false; _syncUndoBtns();
+  _editKind=""; _syncUndoBtns();
 }catch(e){}}
+// A user edit in the lyric box is about to happen: open a new undo step unless it continues the one
+// in progress (the same kind of edit within a second; typing stays inside one word).
+function textEdit(kind,data){
+  const now=Date.now(),wordStart=kind==="type"&&_editSpace&&!/^\s/.test(data||"");
+  if(kind!==_editKind||now-_editT>1000||wordStart||(kind!=="type"&&kind!=="delete"))pushUndo();
+  _editKind=kind;_editT=now;_editSpace=kind==="type"&&/\s$/.test(data||"");
+}
+const _snapKey=s=>JSON.stringify([s.text,s.manualBars,s.secColors,s.tagLinks,s.scratch&&s.scratch.map(c=>[c.id,c.at]),s.ga,s.gs,s.warp,s.bpm]);
+const _sameSnap=(a,b)=>a.audioBuf===b.audioBuf&&_snapKey(a)===_snapKey(b);
+// steps that changed nothing are skipped, so one Ctrl+Z always visibly undoes something
 function doUndo(){
-  if(!undoStack.length){if(typeof toast==="function")toast("Nothing to undo");return;}
-  redoStack.push(_undoSnap()); _undoRestore(undoStack.pop());
+  const now=_undoSnap();
+  while(undoStack.length&&_sameSnap(undoStack[undoStack.length-1],now))undoStack.pop();
+  if(!undoStack.length){_syncUndoBtns();if(typeof toast==="function")toast("Nothing to undo");return;}
+  redoStack.push(now); _undoRestore(undoStack.pop());
   if(typeof toast==="function")toast("Undone");
 }
 function doRedo(){
-  if(!redoStack.length){if(typeof toast==="function")toast("Nothing to redo");return;}
-  undoStack.push(_undoSnap()); _undoRestore(redoStack.pop());
+  const now=_undoSnap();
+  while(redoStack.length&&_sameSnap(redoStack[redoStack.length-1],now))redoStack.pop();
+  if(!redoStack.length){_syncUndoBtns();if(typeof toast==="function")toast("Nothing to redo");return;}
+  undoStack.push(now); _undoRestore(redoStack.pop());
   if(typeof toast==="function")toast("Redone");
 }
-// Ctrl/Cmd+Z: structural undo for everything our stack tracks. Inside the lyric box, defer to the
-// editor's native undo ONLY while the user is mid-typing (so char-undo still feels normal); the
-// moment a structural action happens (no typing since), our stack takes over even with the box focused.
+// Ctrl/Cmd+Z undoes one step of the shared history, in the lyric box or anywhere else; Ctrl+Shift+Z
+// and Ctrl+Y redo. Other text boxes (BPM, tag name, prompts) keep their own undo.
 document.addEventListener("keydown",e=>{
   const z=(e.key==="z"||e.key==="Z"), y=(e.key==="y"||e.key==="Y");
-  if((e.ctrlKey||e.metaKey)&&((z&&e.shiftKey)||y)){e.preventDefault();doRedo();return;}   // redo: Ctrl+Shift+Z / Ctrl+Y
-  if((e.ctrlKey||e.metaKey)&&!e.shiftKey&&z){
-    if(document.activeElement===doc){
-      if(typedSinceStructural||!undoStack.length)return;                // typed since → native char undo
-      e.preventDefault();doUndo();return;                              // last change was structural → our stack
-    }
-    if(undoStack.length){e.preventDefault();doUndo();}
-  }
+  if(!(e.ctrlKey||e.metaKey)||!(z||y))return;
+  const t=e.target;
+  if(t&&!doc.contains(t)&&(t.tagName==="INPUT"||t.tagName==="TEXTAREA"||t.isContentEditable))return;
+  e.preventDefault();
+  if((z&&e.shiftKey)||y)doRedo();else doUndo();
 },true);
-// real typing/paste in the box flips us into native-undo mode; leaving the box hands control back
-doc.addEventListener("input",()=>{typedSinceStructural=true;});
-doc.addEventListener("blur",()=>{typedSinceStructural=false;});
+// typing that reaches the browser (letters, cut, native delete when rhyme colours are off) and the
+// Edit menu's Undo/Redo go through the same history
+doc.addEventListener("beforeinput",e=>{
+  const t=e.inputType||"";
+  if(t==="historyUndo"){e.preventDefault();doUndo();return;}
+  if(t==="historyRedo"){e.preventDefault();doRedo();return;}
+  if(t==="insertParagraph"||t==="insertLineBreak")textEdit("line");
+  else if(t.startsWith("delete"))textEdit("delete");
+  else if(t.startsWith("insertFrom"))textEdit("paste");
+  else if(t.startsWith("insert"))textEdit("type",e.data);
+});
+// moving the caret ends the typing step, so the next edit is a step of its own
+doc.addEventListener("mousedown",()=>{_editKind="";});
+doc.addEventListener("blur",()=>{_editKind="";});
+doc.addEventListener("keydown",e=>{if(/^(Arrow|Page|Home$|End$)/.test(e.key))_editKind="";});
 if($("undoBtn"))$("undoBtn").onclick=()=>doUndo();
 if($("redoBtn"))$("redoBtn").onclick=()=>doRedo();
 _syncUndoBtns();

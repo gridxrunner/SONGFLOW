@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Songflow — Lyric Studio</title>
-<link rel="stylesheet" href="ams.css?v=151">
-<script src="songflow-scope.js?v=151"></script>
+<link rel="stylesheet" href="ams.css?v=152">
+<script src="songflow-scope.js?v=152"></script>
 <script>/* last ~25 browser errors, attached to bug reports (see the Report bug wiring at the end) */
 window.__sfErrs=[];(function(){function add(k,m){try{var a=window.__sfErrs;a.push({t:new Date().toISOString(),k:k,m:String(m).slice(0,400)});if(a.length>25)a.shift();}catch(e){}}
 window.addEventListener("error",function(e){add("error",(e.message||"")+(e.filename?" @"+String(e.filename).split("/").pop()+":"+e.lineno:""));});
@@ -705,11 +705,11 @@ $("helpClose").onclick=()=>showHelp(false);
 $("helpModal").addEventListener("click",e=>{if(e.target===$("helpModal"))showHelp(false);});
 document.addEventListener("keydown",e=>{if(e.key==="Escape")showHelp(false);});
 </script>
-<script src="ams-timeline.js?v=151"></script>
-<script src="ams-vowels.js?v=151"></script>
-<script src="ams-pron.js?v=151"></script>
-<script src="ams-bpm.js?v=151"></script>
-<script src="ams-sections.js?v=151"></script>
+<script src="ams-timeline.js?v=152"></script>
+<script src="ams-vowels.js?v=152"></script>
+<script src="ams-pron.js?v=152"></script>
+<script src="ams-bpm.js?v=152"></script>
+<script src="ams-sections.js?v=152"></script>
 <script>
 const doc=$("doc"),gut=$("gut");
 // keep the gutter (line #, syllables, rhyme vowel) locked to the lyric scroll — they share the
@@ -891,7 +891,7 @@ const tl=new AMSTimeline($("tl"),{
   onSelectSpan:(span)=>{scratchBlur();highlightLyricsForSpan(span);},   // manual waveform span → highlight the lyrics in that time range (type to replace)
   onSeek:t=>{scratchBlur();setCueAt(t,{fromTimeline:true});},   // a timeline click places the static cue + moves the lyric cursor to that bar
   onAnchor:(t,oldGo)=>{gridAnchor=Math.max(0,t);gridSlip=0;applyGrid();keepArrangementOnRegrid(oldGo!=null?oldGo:tl.gridOffset||0);},   // (legacy click-to-anchor path; the timeline passes the offset it replaced)
-  onSlipDrag:eff=>{gridSlip=eff-gridAnchor;updateSlipReadout();try{tagRegions();}catch(e){}if(typeof saveProjectState==="function")saveProjectState();}, // ruler drag → adjust slip (re-lay: the track-start floor moves with the grid)
+  onSlipDrag:eff=>{slipUndoMark();gridSlip=eff-gridAnchor;updateSlipReadout();try{tagRegions();}catch(e){}if(typeof saveProjectState==="function")saveProjectState();}, // ruler drag → adjust slip (re-lay: the track-start floor moves with the grid)
   onRegions:()=>{regionsFromAudio=true;},   // any manual region edit (drag/create) locks them from tag re-mapping
   onArrange:(items)=>{try{applyArrange(items);}catch(e){}},   // a drag settled → reorder lyric blocks + store positions
   onRenameRegion:(i,label)=>{try{if(typeof renameSection==="function")renameSection(i,label);}catch(e){}}, // dbl-click rename → rewrite [Section] header
@@ -1148,6 +1148,9 @@ async function detectAndSetBpm(silent){   // runs automatically on load
 // single Ctrl+Z reverts the whole gesture rather than every tick.
 let _bpmUndoT=0;
 function bpmUndoMark(){const now=Date.now();if(now-_bpmUndoT>700&&typeof pushUndo==="function")pushUndo();_bpmUndoT=now;}
+// Slip (nudge buttons, reset, ruler drag) is undoable the same way: one step per burst.
+let _slipUndoT=0;
+function slipUndoMark(){const now=Date.now();if(now-_slipUndoT>700&&typeof pushUndo==="function")pushUndo();_slipUndoT=now;}
 function bpmDragHandle(el,step){
   if(!el)return;
   el.addEventListener("mousedown",e=>{e.preventDefault();bpmUndoMark();
@@ -1209,7 +1212,7 @@ function keepArrangementOnRegrid(oldGo){
   try{tagRegions();}catch(e){}
   if(typeof saveProjectState==="function")saveProjectState();
 }
-function setSlip(s){const lim=Math.max(8,tl.duration||8);gridSlip=Math.max(-lim,Math.min(lim,Math.round(s*1000)/1000));applyGrid();try{tagRegions();}catch(e){}}   // re-lay: the track-start floor moves with the grid
+function setSlip(s){slipUndoMark();const lim=Math.max(8,tl.duration||8);gridSlip=Math.max(-lim,Math.min(lim,Math.round(s*1000)/1000));applyGrid();try{tagRegions();}catch(e){}}   // re-lay: the track-start floor moves with the grid
 $("slipBack").onclick=e=>setSlip(gridSlip-(e.shiftKey?0.001:0.01));   // Shift = 1ms fine
 $("slipFwd").onclick=e=>setSlip(gridSlip+(e.shiftKey?0.001:0.01));
 $("slipVal").onclick=()=>setSlip(0);                                  // neutral = back on the anchor
@@ -2087,7 +2090,7 @@ window.addEventListener("keydown",e=>{if(e.key==="Escape"&&$("tourOvl").classLis
 window.addEventListener("resize",()=>{if($("tourOvl").classList.contains("on"))tourShow();});
 if(!localStorage.getItem("ams.tour.seen"))setTimeout(()=>{try{tourStart();}catch(e){}},800);   // first visit → auto-run
 </script>
-<script src="lyric-core.js?v=151"></script>
+<script src="lyric-core.js?v=152"></script>
 <!-- Sign-in: Google (shown once the provider is switched on in Supabase) or a magic link by email -->
 <div id="authPanel" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10000;align-items:center;justify-content:center">
   <div style="background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px;width:350px;max-width:92vw;box-shadow:0 14px 44px rgba(0,0,0,.55)">
@@ -2101,7 +2104,7 @@ if(!localStorage.getItem("ams.tour.seen"))setTimeout(()=>{try{tourStart();}catch
   </div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script src="songflow-cloud.js?v=151"></script>
+<script src="songflow-cloud.js?v=152"></script>
 <!-- BUG REPORTER markup lives inside .lyx (the lyric processor); this just wires it. -->
 <script>
 (function(){
